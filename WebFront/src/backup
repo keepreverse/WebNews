@@ -1,0 +1,243 @@
+import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { v4 as uuidv4 } from 'uuid';
+import JoditEditor from 'jodit-react';
+import PageWrapper from './PageWrapper';
+import HTMLReactParser from 'html-react-parser';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
+function NewsCreator() {
+  const editor = useRef(null);
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [newsImages, setNewsImages] = useState([]);
+  const [previewMode, setPreviewMode] = useState(false);
+
+  const navigate = useNavigate();
+
+  const configJoditEditor = {
+    toolbarAdaptive: false,
+    showCharsCounter: false,
+    showWordsCounter: false,
+    showXPathInStatusbar: false,
+    allowResizeX: false,
+    autofocus: false,
+    saveModeInStorage: true,
+    askBeforePasteHTML: false,
+    askBeforePasteFromWord: false,
+    defaultActionOnPaste: "insert_only_text",
+    placeholder: "Введите текст новости",
+    minHeight: 230,
+    disablePlugins:
+                "video,about,add-new-line,class-span,source,resizer," +
+                "font,speech-recognize,spellcheck,stat,drag-and-drop," +
+                "drag-and-drop-element,clipboard,color,copyformat," +
+                "delete-command,file,font,format-block,hotkeys," +
+                "iframe,image,image-processor,image-properties,indent," +
+                "inline-popup,media,paste-from-word," +
+                "paste-storage,powered-by-jodit,print,search,sticky," +
+                "symbols,table,table-keyboard-navigation,wrap-nodes",
+    buttons: "undo redo | bold italic underline ol ul link | eraser | fullsize |",
+  };
+
+  const configToast = {
+    position: 'top-right',
+    autoClose: 4000,
+    hideProgressBar: false,
+    closeOnClick: true,
+    pauseOnHover: true,
+    draggable: true,
+  };
+
+  const handleImageChange = (e) => {
+    const files = e.target.files;
+    handleFiles(files);
+  };
+
+  const handleFiles = (files) => {
+    const newThumbnails = Array.from(files)
+    .filter((file) => file.type.startsWith('image/'))
+    .map((file) => {
+      const uniqueKey = uuidv4();
+      return (
+        <div key={uniqueKey} className="thumbnail">
+          <img src={URL.createObjectURL(file)} alt={`Thumbnail ${uniqueKey}`} />
+          <span className="delete-button" onClick={() => handleDeleteThumbnail(uniqueKey)}>
+            ✖
+          </span>
+        </div>
+      );
+    });  
+    setNewsImages((prevImages) => [...prevImages, ...newThumbnails]);
+  };
+
+  const handleDeleteThumbnail = (thumbnailId) => {
+    setNewsImages((prevImages) => prevImages.filter((image) => image.key !== thumbnailId));
+  };
+
+  const handleDeleteAllThumbnails = () => {
+    setNewsImages([]);
+  };
+
+  const handlePreview = () => {
+    setTitle(title);
+    setDescription(description);
+    setPreviewMode(!previewMode);
+  };
+
+  const handleRestartPreview = () => {
+    setPreviewMode(false);
+  };
+
+  const handleLogout = () => {
+    navigate('/');
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const nickname = document.forms.newsForm.nickname.value;
+    const event_start = document.forms.newsForm.event_start.value;
+
+    // Проверка наличия текста в Jodit Editor
+    if (!nickname.trim()) {
+      toast.error('Пожалуйста, укажите имя пользователя', configToast);
+      return;
+    }
+  
+    if (!event_start.trim()) {
+      toast.error('Пожалуйста, выберите дату события', configToast);
+      return;
+    }
+
+    if (!title.trim()) {
+      toast.error('Пожалуйста, введите заголовок новости', configToast);
+      return;
+    }
+
+    if (!description.trim()) {
+      toast.error('Пожалуйста, введите текст новости', configToast);
+      return;
+    }
+
+    const newsData = new FormData(document.forms.newsForm);
+
+    try {
+      const response = await fetch('http://127.0.0.1:5000/api/news', {
+        method: 'POST',
+        body: newsData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add news');
+      }
+
+      // Успешное уведомление
+      toast.success('Новость успешно отправлена!', configToast);
+      
+    } catch (error) {
+      console.error('Error adding news:', error.message);
+
+      // Уведомление об ошибке
+      toast.error('Ошибка при отправке новости. Пожалуйста, повторите попытку.', configToast);
+    }
+  };
+  
+  
+  return (
+    <PageWrapper>
+      <title>Конфигуратор новости</title>
+      <div id="news-form" className="container">
+        <h1>Форма создания новости</h1>
+        <div className="content">
+          <form className="form" name="newsForm" onSubmit={handleSubmit}>
+            <input
+              type="text"
+              id="nickname"
+              name="nickname"
+              className="inpt"
+              placeholder="Введите имя пользователя"
+            />
+
+            <input
+              type="date"
+              id="event_start"
+              name="event_start"
+              min="0001-01-01"
+              max="9999-12-31"
+            />
+
+            <input
+              type="text"
+              id="news-title"
+              name="title"
+              className="inpt"
+              placeholder="Введите заголовок новости"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+
+            <JoditEditor
+              name="description"
+              ref={editor}
+              value={description}
+              config={configJoditEditor}
+              tabIndex={1}
+              onBlur={(newText) => setDescription(newText)}
+            />
+
+            <label htmlFor="news-image">Изображение:</label>
+            <div id="drop-zone" className="drop-zone">
+              Перетащите сюда фотографии или кликните для выбора файлов
+              <input
+                type="file"
+                id="news-image"
+                name="files[]"
+                accept="image/*"
+                multiple
+                onChange={handleImageChange}
+              />
+            </div>
+
+            <div id="thumbnail-container" className="thumbnail-container">
+              {newsImages}
+            </div>
+
+            {newsImages.length > 0 && (
+              <button className="custom_button" id="delete" onClick={handleDeleteAllThumbnails}>
+                Удалить все
+              </button>
+            )}
+
+            {previewMode ? (
+              <div className="view">
+                <h3>{HTMLReactParser(title)}</h3>
+                <div id="view">{HTMLReactParser(description)}</div>
+                <button className="custom_button" id="view" onClick={handleRestartPreview}>
+                  Закрыть предпросмотр
+                </button>
+              </div>
+            ) : (
+              <>
+                <button className="custom_button" id="view" onClick={handlePreview}>
+                  Предварительный просмотр
+                </button>
+              </>
+            )}
+            
+            <button type="submit" className="custom_button" id="submit">
+              Отправить
+            </button>
+          </form>
+
+          <button className="custom_button" id="logout" onClick={handleLogout}>
+            Выйти
+          </button>
+        </div>
+      </div>
+      <ToastContainer />
+    </PageWrapper>
+  );
+}
+
+export default NewsCreator;

@@ -1,0 +1,431 @@
+body {
+  font-family: 'Lato', sans-serif;
+  background-color: hsl(0, 0%, 100%);
+  display: flex;
+  justify-content: center;
+  min-height: 100vh; 
+  margin: 0;
+}
+
+#auth-form {
+  position: fixed;
+  width: 300px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #ffffff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  border-radius: 10px;
+  text-align: center;
+  overflow-y: auto;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+
+#news-form, #data-list-form {
+  max-width: 800px; /* Максимальная ширина контейнера */
+  width: 100%; /* Занимает всю доступную ширину до max-width */
+  margin: 0 auto; /* Центрирование по горизонтали */
+  padding: 2%; /* Отступы внутри */
+  border-radius: 10px;
+  text-align: justify;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.container h1 {
+  font-size: 24px;
+  font-weight: 700;
+  text-indent: 6px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #2d2f30;
+  text-align: center;
+}
+
+.container .content label {
+  font-size: 14px;
+  color: #2d2f30;
+  display: none;
+  margin-bottom: 20px;
+}
+
+.container .content form {
+  position: relative;
+  height: auto;
+  width: 100%;
+  text-align: center;
+}
+
+.container .content input.inpt {
+  width: 100%; /* Добавляем это свойство, чтобы элементы занимали всю ширину контейнера */
+  font-family: Arial;
+  font-size: 12pt;
+  display: block;
+  padding: 10px 10px;
+  border: 1px solid #b5b5b5;
+  background: transparent;
+  border-radius: 3px;
+  box-sizing: border-box;
+}
+
+.container .content input::-webkit-input-placeholder {
+  font-size: 12pt;
+  color: #999999;
+}
+
+.container .content input.inpt:focus {
+  border-color: #999999;
+}
+
+.drop-zone {
+  font-family: Arial, sans-serif;
+  font-size: 12pt;
+  display: block;
+  width: 100%;
+  color: #999999;
+  border: 1px solid #b5b5b5;
+  background: transparent;
+  border-radius: 3px;
+  box-sizing: border-box;
+  padding: 50px;
+  text-align: center;
+  position: relative;
+  pointer-events: auto; /* Позволяет элементу реагировать на события указателя */
+  transition: background-color 0.2s ease; /* Добавляем плавный переход для фона */
+}
+
+.drop-zone.drag-over {
+  background-color: rgba(0, 0, 0, 0.03); /* Устанавливаем полупрозрачный фон при наведении */
+}
+
+#news-image {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  opacity: 0;
+  top: 0;
+  left: 0;
+  cursor: pointer; /* Устанавливаем кликабельный курсор для всей области .drop-zone */
+}
+
+.drop-zone span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* Контейнер для миниатюр */
+.thumbnail-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: flex-start;
+  max-width: 100%;
+  margin-top: 24px;
+}
+
+/* Каждая миниатюра */
+.thumbnail {
+  position: relative;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: calc(30% - 30px);
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  max-width: 100%;
+  overflow: hidden;
+  flex-wrap: wrap;
+  flex-direction: column;
+}
+
+/* Изображение внутри миниатюры */
+.thumbnail img {
+  width: auto; /* Автоматическая ширина */
+  height: auto; /* Автоматическая высота */
+  max-width: 100%; /* Изображение адаптируется по ширине контейнера */
+  max-height: 100%; /* Изображение остаётся в рамках контейнера */
+}
+
+
+.delete-button {
+  position: relative;
+  cursor: pointer;
+  border-radius: 50%;
+  font-size: 20px;
+  line-height: 1;
+  padding: 2% 2% 2% 2%;
+}
+
+/* Общие стили для кнопок */
+.container .content button.custom_button {
+  font-size: 14px;
+  line-height: 38px;
+  display: block;
+  width: 100%;
+  height: 42px;
+  margin: 12px auto;
+  cursor: pointer;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  text-align: center !important;
+  color: #2d2f30;
+  border: 1px solid #b5b5b5;
+  background: transparent;
+  transition: background-color 0.2s ease;
+}
+
+.container .content button.custom_button:active {
+  filter: brightness(110%); /* Здесь можно регулировать яркость кнопки при активации */
+}
+
+.container .content button.custom_button:hover {
+  background-color: #2d2f30;
+  color: #ffffff;
+}
+
+.container .content button.custom_button#login:hover {
+  background-color: #2d2f30;
+  color: #ffffff;
+}
+
+.container .content button.custom_button#submit:hover {
+  background-color: hsl(120, 50%, 35%);
+  color: #ffffff;
+}
+
+.container .content button.custom_button#test:hover {
+  background-color: #777777;
+  color: #ffffff;
+}
+
+.container .content button.custom_button#view:hover {
+  background-color: hsl(45, 55%, 45%);
+  color: #ffffff;
+}
+
+.container .content button.custom_button#logout:hover {
+  background-color: #2d2f30;
+  color: #ffffff;
+}     
+
+.container .content button.custom_button#delete:hover {
+  background-color: hsl(0, 50%, 35%);
+  color: #ffffff;
+}
+
+.container .content input:focus {
+  outline: none;
+}
+
+.container .content .checkbox {
+  margin-top: 4px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.container .content .checkbox + label {
+  display: block;
+  text-align: left;
+  margin-left: 0;
+  padding-left: 0;
+}
+
+.container .content .checkbox + label:before {
+  content: "\A";
+  color: #999999;
+  font-family: Verdana;
+  font-weight: bold;
+  font-size: 12px;
+  line-height: 14px;
+  text-align: center;
+  display: inline-block;
+  vertical-align: middle;
+  position: relative;
+  border: 1px solid #b5b5b5;
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  padding: 0;
+}
+
+.container .content .checkbox:checked + label:before {
+  content: "✓";
+}
+
+/* Стили для предварительного просмотра */
+.preview-container .news-text-preview {
+  text-align: justify; /* Выравниваем текст по центру */
+}
+
+.news-preview {
+  width: 100%; /* Занимает всю доступную ширину */
+  margin: 0 auto; /* Центрируем текст по горизонтали */
+}
+
+.preview-images-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.preview-images-container img {
+  max-width: 100%;
+  max-height: 100px; /* Высота по вашему выбору */
+}
+
+.view {
+  max-width: 100%;
+}
+
+#view {
+  text-align: justify;
+  margin-top: 12px;
+}
+
+.jodit-react-container {
+  margin: 12px auto;
+}
+
+.jodit-container {
+  text-align: justify;
+}
+
+.jodit-placeholder .jodit-wysiwyg {
+  padding: 8px 10px 8px 10px !important;
+}
+
+.jodit-workplace, .jodit-container {
+  background-color: transparent !important;
+}
+
+.jodit-toolbar__box:not(:empty):not(:empty) {
+  background-color: transparent !important;
+  border-bottom: 1px solid #b5b5b5 !important;
+}
+
+.jodit-container {
+  border: 1px solid #b5b5b5 !important;
+}
+
+
+/* W3C standard */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #707070 #c7c7c7; /* цвет ползунка и фона */
+}
+
+/* для Chrome/Edge/Safari */
+*::-webkit-scrollbar {
+  width: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #c7c7c7; /* цвет фона */
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #707070; /* цвет ползунка */
+  border-radius: 5px;
+  transition: background-color 0.3s ease; /* анимация при изменении цвета */
+}
+
+/* Эффект при наведении */
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #8c8c8c; /* цвет при наведении */
+}
+
+/* Эффект при активации (нажатии) */
+*::-webkit-scrollbar-thumb:active {
+  background-color: #a1a1a1; /* цвет при активации */
+}
+
+ .content input[type="text"] {
+  width: 100%;
+  font-family: Arial;
+  font-size: 12pt;
+  display: block;
+  margin: 12px auto;
+  padding: 10px 10px;
+  border: 1px solid #b5b5b5;
+  background: transparent;
+  border-radius: 3px;
+  box-sizing: border-box;
+}
+
+.container .content input[type="text"]:focus {
+  border-color: #999999;
+}
+
+/* Контейнер для списка новостей */
+.data-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+  gap: 20px;
+  }
+
+#data-list-form {
+  padding: 4% 0px 2% 0px;
+}
+
+/* Стиль для каждого элемента новости */
+.data-item {
+  background-color: #fff;
+  padding: 0 20px 0 20px;;
+  border-radius: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  cursor: pointer;
+}
+
+/* Анимация при наведении на новость */
+.data-item:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* Заголовок новости */
+.data-item h2 {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 15px;
+  color: #333;
+  text-align: center;
+}
+
+/* Описание новости */
+.data-item p {
+  font-size: 1rem;
+  color: #555;
+  margin-bottom: 15px;
+  text-align: justify;
+}
+
+/* Изображение новости */
+.data-image {
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+}
+
+/* Стиль для уведомлений (toast) */
+.Toastify__toast {
+  font-size: 1rem;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
