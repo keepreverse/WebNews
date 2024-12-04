@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import JoditEditor from 'jodit-react';
@@ -27,11 +27,11 @@ function NewsCreator() {
     allowResizeX: false,
     autofocus: false,
     saveModeInStorage: true,
-    askBeforePasteHTML: true,
+    askBeforePasteHTML: false,
     askBeforePasteFromWord: true,
     toolbarButtonSize: 'large',
     placeholder: "Введите текст новости",
-    minHeight: 230,
+    minHeight: 200,
     disablePlugins:
                 "video,about,add-new-line,class-span,source,resizer," +
                 "speech-recognize,spellcheck,stat,drag-and-drop," +
@@ -60,6 +60,11 @@ function NewsCreator() {
     dateFormat: "Y-m-d\\TH:i:ss",
     locale: Russian,
   };
+
+
+const handleTitleChange = useCallback((e) => {
+  setTitle(e.target.value);
+}, []);
 
 
   const handleDateChange = (selectedDate) => {
@@ -193,7 +198,6 @@ function NewsCreator() {
                 name="event_start"
                 placeholder="Выберите дату"
                 options={configFlatpickr}
-                value={date}
                 onChange={handleDateChange} // Добавляем onChange обработчик
             />
 
@@ -204,7 +208,7 @@ function NewsCreator() {
               className="inpt"
               placeholder="Введите заголовок новости"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={handleTitleChange}              
             />
 
             <JoditEditor

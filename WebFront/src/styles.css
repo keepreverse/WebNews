@@ -1,8 +1,8 @@
 body {
   font-family: "Lato", sans-serif;
   background-color: hsl(0, 0%, 100%);
-  display: flex;
-  justify-content: center;
+  display: block;
+  /* justify-content: center; */
   min-height: 100vh;
   margin: 0;
 }
@@ -29,7 +29,7 @@ body {
   max-width: 800px; /* Максимальная ширина контейнера */
   width: 100%; /* Занимает всю доступную ширину до max-width */
   margin: 0 auto; /* Центрирование по горизонтали */
-  padding: 2%; /* Отступы внутри */
+  padding: 2% 0; /* Отступы внутри */
   border-radius: 10px;
   text-align: justify;
   overflow-y: auto;
@@ -385,10 +385,6 @@ body {
   gap: 20px;
 }
 
-#data-list-form {
-  padding: 4% 0px 2% 0px;
-}
-
 /* Стиль для каждого элемента новости */
 .data-item {
   background-color: #fff;
@@ -434,4 +430,17 @@ body {
   font-size: 1rem;
   border-radius: 10px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+
+.jodit-ui-tooltip-container {
+  display: none !important; /* Скрыть контейнер подсказок */
+}
+
+.jodit-box {
+  border: none !important;  /* Убираем линию, если она появляется */
+}
+
+.jodit-editor {
+  padding-top: 10px !important;  /* Корректируем отступы */
 }
