@@ -424,6 +424,10 @@ button.custom_button_short#delete:hover {
   font-size: 1.3rem;
 }
 
+.data-list p {
+  text-align: center;
+}
+
 /* Описание новости */
 .data-item p {
   font-size: 1.2rem;
