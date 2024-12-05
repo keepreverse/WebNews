@@ -38,7 +38,7 @@ body {
 }
 
 .container h1 {
-  font-size: 24px;
+  font-size: 1.8rem;
   font-weight: 700;
   text-indent: 6px;
   letter-spacing: 2px;
@@ -130,7 +130,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 20px;
-  justify-content: flex-start;
+  justify-content: center;
   max-width: 100%;
   margin-top: 24px;
 }
@@ -144,7 +144,7 @@ body {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  max-width: 100%;
+  max-width: 60%;
   overflow: hidden;
   flex-wrap: wrap;
   flex-direction: column;
@@ -168,7 +168,9 @@ body {
 }
 
 /* Общие стили для кнопок */
-.container .content button.custom_button {
+button.custom_button,
+button.custom_button_short,
+button.custom_button_mid {
   font-size: 14px;
   line-height: 38px;
   display: block;
@@ -185,43 +187,54 @@ body {
   transition: background-color 0.2s ease;
 }
 
-.container .content button.custom_button:active {
+button.custom_button_short {
+  width: 50%;
+  margin: 20px auto;
+}
+
+button.custom_button_mid {
+  width: 98%;
+}
+
+button.custom_button:active {
   filter: brightness(
     110%
   ); /* Здесь можно регулировать яркость кнопки при активации */
 }
 
-.container .content button.custom_button:hover {
+button.custom_button:hover {
   background-color: #2d2f30;
   color: #ffffff;
 }
 
-.container .content button.custom_button#login:hover {
+button.custom_button#login:hover {
   background-color: #2d2f30;
   color: #ffffff;
 }
 
-.container .content button.custom_button#submit:hover {
+button.custom_button#submit:hover {
   background-color: hsl(120, 50%, 35%);
   color: #ffffff;
 }
 
-.container .content button.custom_button#test:hover {
+button.custom_button#test:hover {
   background-color: #777777;
   color: #ffffff;
 }
 
-.container .content button.custom_button#view:hover {
+button.custom_button#view:hover {
   background-color: hsl(45, 55%, 45%);
   color: #ffffff;
 }
 
-.container .content button.custom_button#logout:hover {
+button.custom_button#logout:hover {
   background-color: #2d2f30;
   color: #ffffff;
 }
 
-.container .content button.custom_button#delete:hover {
+button.custom_button#delete:hover,
+button.custom_button_mid#delete:hover,
+button.custom_button_short#delete:hover {
   background-color: hsl(0, 50%, 35%);
   color: #ffffff;
 }
@@ -311,10 +324,6 @@ body {
   text-align: justify;
 }
 
-.jodit-placeholder .jodit-wysiwyg {
-  padding: 8px 10px 8px 10px !important;
-}
-
 .jodit-workplace,
 .jodit-container {
   background-color: transparent !important;
@@ -388,7 +397,7 @@ body {
 /* Стиль для каждого элемента новости */
 .data-item {
   background-color: #fff;
-  padding: 0 20px 0 20px;
+  padding: 0 20px;
   border-radius: 10px;
   box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
@@ -403,16 +412,21 @@ body {
 
 /* Заголовок новости */
 .data-item h2 {
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   font-weight: bold;
   margin-bottom: 15px;
   color: #333;
   text-align: center;
 }
 
+.news-description,
+.data-list p {
+  font-size: 1.3rem;
+}
+
 /* Описание новости */
 .data-item p {
-  font-size: 1rem;
+  font-size: 1.2rem;
   color: #555;
   margin-bottom: 15px;
   text-align: justify;
@@ -432,15 +446,14 @@ body {
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-
-.jodit-ui-tooltip-container {
-  display: none !important; /* Скрыть контейнер подсказок */
+.image-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
 }
 
-.jodit-box {
-  border: none !important;  /* Убираем линию, если она появляется */
-}
-
-.jodit-editor {
-  padding-top: 10px !important;  /* Корректируем отступы */
+.data-image {
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
 }

@@ -1,11 +1,23 @@
 from app import app
-from flask import jsonify, request, make_response, g
+import os
+from flask import jsonify, request, make_response, g, send_from_directory
+from flask_cors import cross_origin, CORS
 from . import make_db_object
 
-from flask_cors import cross_origin
+CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
 
 
-@app.route("/api/news", methods=["GET", "POST", "DELETE"])
+# Путь до папки с изображениями
+UPLOAD_FOLDER = os.path.join(os.path.abspath(os.path.dirname(__file__)), '../img')
+
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# Этот маршрут останется тем же, так как он работает с относительным путем для изображений
+@app.route('/uploads/<filename>')
+def upload_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+@app.route("/api/news", methods=["GET", "POST"])
 @cross_origin()
 def news_line():
     """Handler of all operations with news, such as
@@ -52,15 +64,44 @@ def news_line():
                                "Expected ['nickname', 'title', 'description', 'event_start']."
             }), 400)
 
-    if request.method == 'DELETE':
-        g.db.news_clear()
-
-        return make_response(jsonify({
-            "STATUS": 200,
-            "DESCRIPTION": "Seems like you just deleted all news from database successfully!"
-        }))
-
     return make_response(jsonify({
         "STATUS": 500,
         "DESCRIPTION": "Something went wrong on server side... But what?"
     }), 500)
+
+
+@app.route("/api/news/<int:newsID>", methods=["DELETE"])
+@cross_origin()
+def delete_single_news(newsID):
+    make_db_object()
+    try:
+        print(f"Received request to delete news with ID: {newsID}")  # Логируем полученный ID
+        g.db.news_delete(newsID)  # Вызов функции удаления новости
+        return make_response(jsonify({
+            "STATUS": 200,
+            "DESCRIPTION": f"News with ID {newsID} has been deleted successfully!"
+        }), 200)
+    except Exception as e:
+        print(f"Error deleting news with ID {newsID}: {str(e)}")  # Логируем ошибку
+        return make_response(jsonify({
+            "STATUS": 500,
+            "DESCRIPTION": f"Error deleting news with ID {newsID}: {str(e)}"
+        }), 500)
+
+
+# Удаление всех новостей
+@app.route("/api/news", methods=["DELETE"])
+@cross_origin()
+def delete_all_news():
+    make_db_object()
+    try:
+        g.db.news_clear()  # Очистить все новости из базы данных
+        return make_response(jsonify({
+            "STATUS": 200,
+            "DESCRIPTION": "All news deleted successfully"
+        }), 200)
+    except Exception as e:
+        return make_response(jsonify({
+            "STATUS": 500,
+            "DESCRIPTION": f"Failed to delete all news: {str(e)}"
+        }), 500)

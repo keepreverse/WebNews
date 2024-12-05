@@ -274,14 +274,17 @@ class Storage(object):
                         'fileName': file[1],
                         'fileFormat': file[2]
                     }
-
                     final_news_files_data.append(final_news_files_fragment)
+
+            # Получаем путь до изображения (например, через http://127.0.0.1:5000/uploads/)
+            image_urls = [f"http://127.0.0.1:5000/uploads/{file[1]}" for file in received_news_files_data]
 
             final_news_data = {
                 'newsID': received_news_data[0],
                 'title': received_news_data[1],
                 'description': received_news_data[2],
                 'files': final_news_files_data,
+                'imageUrl': image_urls[0] if image_urls else None,  # Возвращаем первый путь к изображению
                 'status': received_news_data[3],
                 'create_date': received_news_data[4],
                 'publish_date': received_news_data[5],
@@ -295,29 +298,29 @@ class Storage(object):
         else:
             return [{}, -1]
 
+
     def news_clear(self):
-        """Function for deleting all news from database and all files from IMG folder."""
-
+        """Function for deleting all news from database and all unused files from IMG folder."""
+        
+        # Получаем список всех файлов, которые ещё привязаны к новостям
         self.cursor.execute('''
-            DELETE FROM Users 
-            WHERE userID != -1
+            SELECT guid FROM Files
+            WHERE fileID IN (SELECT fileID FROM File_Link WHERE newsID != -1)
         ''')
+        used_files = {row[0] for row in self.cursor.fetchall()}
 
-        self.cursor.execute('''
-            DELETE FROM News 
-            WHERE newsID != -1
-        ''')
+        print("Used files:", used_files)  # Для отладки, чтобы увидеть какие файлы используются
 
-        self.cursor.execute('''
-            DELETE FROM Files 
-            WHERE fileID != -1
-        ''')
+        # Удаляем все новости, файлы и связанные данные из базы данных
+        self.cursor.execute('DELETE FROM Users WHERE userID != -1')
+        self.cursor.execute('DELETE FROM News WHERE newsID != -1')
+        self.cursor.execute('DELETE FROM Files WHERE fileID != -1')
+        self.cursor.execute('DELETE FROM File_link WHERE file_linkID != -1')
 
-        self.cursor.execute('''
-            DELETE FROM File_link 
-            WHERE file_linkID != -1
-        ''')
+        # Получаем папку с изображениями
+        img_folder = os.path.abspath('img')
 
+        # Удаляем все файлы из папки
         img_folder = os.path.abspath('img')
         for img_name in os.listdir(img_folder):
             img_path = os.path.join(img_folder, img_name)
@@ -325,4 +328,38 @@ class Storage(object):
             if os.path.isfile(img_path) or os.path.islink(img_path):
                 os.unlink(img_path)
 
+        self.connection.commit()
+
+
+
+    def news_delete(self, newsID: int):
+        """Function to delete a single news entry and related files from the database and file system."""
+        
+        # Получаем список файлов, привязанных к конкретной новости
+        self.cursor.execute(f'''
+            SELECT guid FROM Files 
+            WHERE fileID IN (SELECT fileID FROM File_Link WHERE newsID = {newsID})
+        ''')
+        files_to_delete = {row[0] for row in self.cursor.fetchall()}
+
+        # Удаляем все связанные данные в базе данных
+        self.cursor.execute('BEGIN TRANSACTION;')
+
+        # Удаляем связь между файлами и новостью
+        self.cursor.execute(f'DELETE FROM File_Link WHERE newsID = {newsID};')
+
+        # Удаляем файлы, привязанные к новости
+        self.cursor.execute(f'DELETE FROM Files WHERE fileID IN (SELECT fileID FROM File_Link WHERE newsID = {newsID});')
+
+        # Удаляем саму новость
+        self.cursor.execute(f'DELETE FROM News WHERE newsID = {newsID};')
+
+        # Удаляем файлы из файловой системы
+        img_folder = os.path.abspath('img')
+        for img_name in files_to_delete:
+            img_path = os.path.join(img_folder, img_name)
+            if os.path.isfile(img_path) or os.path.islink(img_path):
+                os.unlink(img_path)
+
+        # Заканчиваем транзакцию
         self.connection.commit()

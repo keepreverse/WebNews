@@ -1,23 +1,22 @@
-import React, { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { v4 as uuidv4 } from 'uuid';
-import JoditEditor from 'jodit-react';
-import PageWrapper from './PageWrapper';
-import HTMLReactParser from 'html-react-parser';
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import React, { useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { v4 as uuidv4 } from "uuid";
+import JoditEditor from "jodit-react";
+import PageWrapper from "./PageWrapper";
+import HTMLReactParser from "html-react-parser";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import Flatpickr from "react-flatpickr";
 import "flatpickr/dist/flatpickr.min.css";
 import { Russian } from "flatpickr/dist/l10n/ru.js";
 
 function NewsCreator() {
-  const [title, setTitle] = useState('');
-  const [date, setDate] = useState('');
-  const [description, setDescription] = useState('');
+  const [title, setTitle] = useState("");
+  const [date, setDate] = useState("");
+  const [description, setDescription] = useState("");
   const [newsImages, setNewsImages] = useState([]);
   const [previewMode, setPreviewMode] = useState(false);
   const navigate = useNavigate();
-
 
   const configJoditEditor = {
     toolbarAdaptive: false,
@@ -27,25 +26,26 @@ function NewsCreator() {
     allowResizeX: false,
     autofocus: false,
     saveModeInStorage: true,
-    askBeforePasteHTML: false,
+    askBeforePasteHTML: true,
     askBeforePasteFromWord: true,
-    toolbarButtonSize: 'large',
+    toolbarButtonSize: "large",
     placeholder: "Введите текст новости",
     minHeight: 200,
     disablePlugins:
-                "video,about,add-new-line,class-span,source,resizer," +
-                "speech-recognize,spellcheck,stat,drag-and-drop," +
-                "drag-and-drop-element,clipboard,copyformat," +
-                "delete-command,file,format-block,hotkeys," +
-                "iframe,image,image-processor,image-properties,indent," +
-                "inline-popup,media,paste-from-word," +
-                "paste-storage,powered-by-jodit,print,search,sticky," +
-                "symbols,table,table-keyboard-navigation,wrap-nodes",
-    buttons: "undo redo | fontsize | bold italic underline brush link | align ol ul | eraser | fullsize |",
+      "video,about,add-new-line,class-span,source,resizer," +
+      "speech-recognize,spellcheck,stat,drag-and-drop," +
+      "drag-and-drop-element,clipboard,copyformat," +
+      "delete-command,file,format-block,hotkeys," +
+      "iframe,image,image-processor,image-properties,indent," +
+      "inline-popup,media,paste-from-word," +
+      "paste-storage,powered-by-jodit,print,search,sticky," +
+      "symbols,table,table-keyboard-navigation,wrap-nodes",
+    buttons:
+      "undo redo | fontsize | bold italic underline brush link | align ol ul | eraser | fullsize |",
   };
 
   const configToast = {
-    position: 'top-right',
+    position: "top-right",
     autoClose: 4000,
     hideProgressBar: false,
     closeOnClick: true,
@@ -61,11 +61,9 @@ function NewsCreator() {
     locale: Russian,
   };
 
-
-const handleTitleChange = useCallback((e) => {
-  setTitle(e.target.value);
-}, []);
-
+  const handleTitleChange = useCallback((e) => {
+    setTitle(e.target.value);
+  }, []);
 
   const handleDateChange = (selectedDate) => {
     setDate(selectedDate[0]); // сохраняет первую выбранную дату
@@ -78,14 +76,20 @@ const handleTitleChange = useCallback((e) => {
 
   const handleFiles = (files) => {
     const newThumbnails = Array.from(files)
-      .filter((file) => file.type.startsWith('image/'))
+      .filter((file) => file.type.startsWith("image/"))
       .map((file) => {
         const uniqueKey = uuidv4();
         file.uniqueKey = uniqueKey; // Сохранение уникального ключа в файле
         return (
           <div key={uniqueKey} className="thumbnail">
-            <img src={URL.createObjectURL(file)} alt={`Thumbnail ${uniqueKey}`} />
-            <span className="delete-button" onClick={() => handleDeleteThumbnail(uniqueKey)}>
+            <img
+              src={URL.createObjectURL(file)}
+              alt={`Thumbnail ${uniqueKey}`}
+            />
+            <span
+              className="delete-button"
+              onClick={() => handleDeleteThumbnail(uniqueKey)}
+            >
               ✖
             </span>
           </div>
@@ -95,16 +99,18 @@ const handleTitleChange = useCallback((e) => {
   };
 
   const handleDeleteThumbnail = (thumbnailId) => {
-    setNewsImages((prevImages) => prevImages.filter((image) => image.key !== thumbnailId));
-  
+    setNewsImages((prevImages) =>
+      prevImages.filter((image) => image.key !== thumbnailId)
+    );
+
     const dataTransfer = new DataTransfer();
-    Array.from(document.forms.newsForm['files[]'].files).forEach((file) => {
+    Array.from(document.forms.newsForm["files[]"].files).forEach((file) => {
       if (file.uniqueKey !== thumbnailId) {
         dataTransfer.items.add(file);
       }
     });
 
-    document.forms.newsForm['files[]'].files = dataTransfer.files;
+    document.forms.newsForm["files[]"].files = dataTransfer.files;
   };
 
   const handleDeleteAllThumbnails = () => {
@@ -122,7 +128,7 @@ const handleTitleChange = useCallback((e) => {
   };
 
   const handleLogout = () => {
-    navigate('/');
+    navigate("/");
   };
 
   const handleSubmit = async (e) => {
@@ -131,50 +137,55 @@ const handleTitleChange = useCallback((e) => {
     const event_start = date;
 
     if (!nickname.trim()) {
-      toast.error('Пожалуйста, введите имя пользователя', configToast);
+      toast.error("Пожалуйста, введите имя пользователя", configToast);
       return;
     }
 
     if (!event_start || event_start.length === 0) {
-      toast.error('Пожалуйста, укажите дату события', configToast);
+      toast.error("Пожалуйста, укажите дату события", configToast);
       return;
     }
 
     if (!title.trim()) {
-      toast.error('Пожалуйста, введите заголовок новости', configToast);
+      toast.error("Пожалуйста, введите заголовок новости", configToast);
       return;
     }
 
     if (!description.trim()) {
-      toast.error('Пожалуйста, введите текст новости', configToast);
+      toast.error("Пожалуйста, введите текст новости", configToast);
       return;
     }
 
-    const filesToSubmit = Array.from(document.forms.newsForm['files[]'].files).filter(
-      (file) => newsImages.find((image) => image.key === file.uniqueKey)
+    const filesToSubmit = Array.from(
+      document.forms.newsForm["files[]"].files
+    ).filter((file) =>
+      newsImages.find((image) => image.key === file.uniqueKey)
     );
-    
+
     const newsData = new FormData(document.forms.newsForm);
 
-    newsData.delete('files[]');
+    newsData.delete("files[]");
     filesToSubmit.forEach((file) => {
-      newsData.append('files[]', file);
+      newsData.append("files[]", file);
     });
-    
+
     try {
-      const response = await fetch('http://127.0.0.1:5000/api/news', {
-        method: 'POST',
+      const response = await fetch("http://127.0.0.1:5000/api/news", {
+        method: "POST",
         body: newsData,
       });
 
       if (!response.ok) {
-        throw new Error('Failed to add news');
+        throw new Error("Failed to add news");
       }
 
-      toast.success('Новость успешно отправлена!', configToast);
+      toast.success("Новость успешно отправлена!", configToast);
     } catch (error) {
-      console.error('Error adding news:', error.message);
-      toast.error('Ошибка при отправке новости. Пожалуйста, повторите попытку.', configToast);
+      console.error("Error adding news:", error.message);
+      toast.error(
+        "Ошибка при отправке новости. Пожалуйста, повторите попытку.",
+        configToast
+      );
     }
   };
 
@@ -194,11 +205,11 @@ const handleTitleChange = useCallback((e) => {
             />
 
             <Flatpickr
-                id="news-date"
-                name="event_start"
-                placeholder="Выберите дату"
-                options={configFlatpickr}
-                onChange={handleDateChange} // Добавляем onChange обработчик
+              id="news-date"
+              name="event_start"
+              placeholder="Выберите дату"
+              options={configFlatpickr}
+              onChange={handleDateChange} // Добавляем onChange обработчик
             />
 
             <input
@@ -208,7 +219,7 @@ const handleTitleChange = useCallback((e) => {
               className="inpt"
               placeholder="Введите заголовок новости"
               value={title}
-              onChange={handleTitleChange}              
+              onChange={handleTitleChange}
             />
 
             <JoditEditor
@@ -239,7 +250,11 @@ const handleTitleChange = useCallback((e) => {
             )}
 
             {newsImages.length > 0 && (
-              <button className="custom_button" id="delete" onClick={handleDeleteAllThumbnails}>
+              <button
+                className="custom_button"
+                id="delete"
+                onClick={handleDeleteAllThumbnails}
+              >
                 Удалить все
               </button>
             )}
@@ -247,17 +262,27 @@ const handleTitleChange = useCallback((e) => {
             {previewMode ? (
               <div className="view">
                 {title && <h3>{HTMLReactParser(title)}</h3>}
-                {description && <div id="view">{HTMLReactParser(description)}</div>}
-                <button className="custom_button" id="view" onClick={handleRestartPreview}>
+                {description && (
+                  <div id="view">{HTMLReactParser(description)}</div>
+                )}
+                <button
+                  className="custom_button"
+                  id="view"
+                  onClick={handleRestartPreview}
+                >
                   Закрыть предпросмотр
                 </button>
               </div>
             ) : (
-              <button className="custom_button" id="view" onClick={handlePreview}>
+              <button
+                className="custom_button"
+                id="view"
+                onClick={handlePreview}
+              >
                 Предварительный просмотр
               </button>
             )}
-            
+
             <button type="submit" className="custom_button" id="submit">
               Отправить
             </button>
