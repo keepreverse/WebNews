@@ -32,16 +32,32 @@ function NewsCreator() {
     placeholder: "Введите текст новости",
     minHeight: 200,
     disablePlugins:
-      "video,about,add-new-line,class-span,source,resizer," +
-      "speech-recognize,spellcheck,stat,drag-and-drop," +
-      "drag-and-drop-element,clipboard,copyformat," +
-      "delete-command,file,format-block,hotkeys," +
-      "iframe,image,image-processor,image-properties,indent," +
-      "inline-popup,media,paste-from-word," +
-      "paste-storage,powered-by-jodit,print,search,sticky," +
-      "symbols,table,table-keyboard-navigation,wrap-nodes",
+    "video,about,add-new-line,class-span,source,resizer," +
+    "speech-recognize,spellcheck,stat,drag-and-drop," +
+    "drag-and-drop-element,clipboard,copyformat," +
+    "delete-command,file,format-block,hotkeys," +
+    "iframe,image,image-processor,image-properties,indent," +
+    "inline-popup,media,paste-from-word," +
+    "paste-storage,powered-by-jodit,print,search,sticky," +
+    "symbols,table,table-keyboard-navigation,wrap-nodes",
     buttons:
       "undo redo | fontsize | bold italic underline brush link | align ol ul | eraser | fullsize |",
+    events: {
+      beforePaste(event, editor) {
+        const clipboardData = event.clipboardData || window.clipboardData;
+        if (clipboardData) {
+          const items = clipboardData.items;
+          for (const item of items) {
+            if (item.type.startsWith("image/")) {
+              // Отклоняем вставку изображений
+              event.preventDefault();
+              toast.warn("Вставка изображений запрещена!");
+              return false;
+            }
+          }
+        }
+      },
+    },
   };
 
   const configToast = {
