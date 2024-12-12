@@ -105,3 +105,51 @@ def delete_all_news():
             "STATUS": 500,
             "DESCRIPTION": f"Failed to delete all news: {str(e)}"
         }), 500)
+    
+
+
+@app.route("/api/auth/login", methods=["POST"])
+@cross_origin()
+def login():
+    """
+    Endpoint for user authentication.
+    Accepts JSON with `login` and `password`.
+    """
+    make_db_object()
+
+    try:
+        data = request.json  # Получаем JSON данные из запроса
+        login = data.get("login")
+        password = data.get("password")
+
+        # Проверяем наличие пользователя с таким логином и паролем
+        g.db.cursor.execute('''
+            SELECT userID, user_role
+            FROM Users
+            WHERE login = ? AND password = ?
+        ''', (login, password))
+
+        user = g.db.cursor.fetchone()
+        if user:
+            # Если пользователь найден, возвращаем его ID и роль
+            response = {
+                "STATUS": 200,
+                "userID": user[0],
+                "userRole": user[1]
+            }
+            return make_response(jsonify(response), 200)
+        else:
+            # Если не найден, возвращаем ошибку
+            response = {
+                "STATUS": 401,
+                "DESCRIPTION": "Invalid login or password."
+            }
+            return make_response(jsonify(response), 401)
+
+    except Exception as e:
+        # Возвращаем ошибку в случае сбоя
+        response = {
+            "STATUS": 500,
+            "DESCRIPTION": f"Server error: {str(e)}"
+        }
+        return make_response(jsonify(response), 500)
