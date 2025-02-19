@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo} from "react";
 import { useNavigate } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
 import JoditEditor from "jodit-react";
@@ -11,14 +11,15 @@ import "flatpickr/dist/flatpickr.min.css";
 import { Russian } from "flatpickr/dist/l10n/ru.js";
 
 function NewsCreator() {
-  const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
   const [description, setDescription] = useState("");
   const [newsImages, setNewsImages] = useState([]);
   const [previewMode, setPreviewMode] = useState(false);
+  const titleRef = useRef("");
+
   const navigate = useNavigate();
 
-  const configJoditEditor = {
+  const configJoditEditor = useMemo(() => ({
     toolbarAdaptive: false,
     showCharsCounter: false,
     showWordsCounter: false,
@@ -32,14 +33,14 @@ function NewsCreator() {
     placeholder: "Введите текст новости",
     minHeight: 200,
     disablePlugins:
-    "video,about,add-new-line,class-span,source,resizer," +
-    "speech-recognize,spellcheck,stat,drag-and-drop," +
-    "drag-and-drop-element,clipboard,copyformat," +
-    "delete-command,file,format-block,hotkeys," +
-    "iframe,image,image-processor,image-properties,indent," +
-    "inline-popup,media,paste-from-word," +
-    "paste-storage,powered-by-jodit,print,search,sticky," +
-    "symbols,table,table-keyboard-navigation,wrap-nodes",
+      "video,about,add-new-line,class-span,source,resizer," +
+      "speech-recognize,spellcheck,stat,drag-and-drop," +
+      "drag-and-drop-element,clipboard,copyformat," +
+      "delete-command,file,format-block,hotkeys," +
+      "iframe,image,image-processor,image-properties,indent," +
+      "inline-popup,media,paste-from-word," +
+      "paste-storage,powered-by-jodit,print,search,sticky," +
+      "symbols,table,table-keyboard-navigation,wrap-nodes",
     buttons:
       "undo redo | fontsize | bold italic underline brush link | align ol ul | eraser | fullsize |",
     events: {
@@ -49,7 +50,6 @@ function NewsCreator() {
           const items = clipboardData.items;
           for (const item of items) {
             if (item.type.startsWith("image/")) {
-              // Отклоняем вставку изображений
               event.preventDefault();
               toast.warn("Вставка изображений запрещена!");
               return false;
@@ -57,63 +57,91 @@ function NewsCreator() {
           }
         }
       },
-    },
-  };
-
-  const configToast = {
+      drop(event, editor) {
+        const dt = event.dataTransfer;
+        if (dt && dt.files.length > 0) {
+          for (const file of dt.files) {
+            if (file.type.startsWith("image/")) {
+              event.preventDefault();
+              toast.warn("Перетаскивание изображений запрещено!");
+              return false;
+            }
+          }
+        }
+      }
+    }
+  }), []);
+  
+  const configFlatpickr = useMemo(() => ({
+    enableTime: true,
+    altInput: true,
+    altFormat: "F j, Y, H:i",
+    dateFormat: "Y-m-d\\TH:i:ss",
+    locale: Russian,
+  }), []); 
+  
+  const configToast = useMemo(() => ({
     position: "top-right",
     autoClose: 4000,
     hideProgressBar: false,
     closeOnClick: true,
     pauseOnHover: true,
     draggable: true,
-  };
+  }), []); 
 
-  const configFlatpickr = {
-    enableTime: true,
-    altInput: true,
-    altFormat: "F j, Y, H:i",
-    dateFormat: "Y-m-d\\TH:i:ss",
-    locale: Russian,
-  };
-
+  function useDebounce(value, delay) {
+    const [debouncedValue, setDebouncedValue] = useState(value);
+  
+    useEffect(() => {
+      const handler = setTimeout(() => {
+        setDebouncedValue(value);
+      }, delay);
+  
+      return () => {
+        clearTimeout(handler);
+      };
+    }, [value, delay]);
+  
+    return debouncedValue;
+  }
+  
+  const [title, setTitle] = useState("");
+  const debouncedTitle = useDebounce(title, 500); // Обновляет с задержкой 500 мс
+  
   const handleTitleChange = useCallback((e) => {
+    titleRef.current = e.target.value;
     setTitle(e.target.value);
   }, []);
+
 
   const handleDateChange = (selectedDate) => {
     setDate(selectedDate[0]); // сохраняет первую выбранную дату
   };
 
   const handleImageChange = (e) => {
-    const files = e.target.files;
+    const files = Array.from(e.target.files);
     handleFiles(files);
   };
-
+  
   const handleFiles = (files) => {
-    const newThumbnails = Array.from(files)
+    const newImages = files
       .filter((file) => file.type.startsWith("image/"))
-      .map((file) => {
-        const uniqueKey = uuidv4();
-        file.uniqueKey = uniqueKey; // Сохранение уникального ключа в файле
-        return (
-          <div key={uniqueKey} className="thumbnail">
-            <img
-              src={URL.createObjectURL(file)}
-              alt={`Thumbnail ${uniqueKey}`}
-            />
-            <span
-              className="delete-button"
-              onClick={() => handleDeleteThumbnail(uniqueKey)}
-            >
-              ✖
-            </span>
-          </div>
-        );
-      });
-    setNewsImages((prevImages) => [...prevImages, ...newThumbnails]);
+      .map((file) => ({
+        id: uuidv4(), // Уникальный ID
+        file: file, // Сохраняем сам файл
+        preview: URL.createObjectURL(file), // Создаём URL для превью
+      }));
+  
+    setNewsImages((prevImages) => [...prevImages, ...newImages]); // Добавляем, а не заменяем
   };
+  
 
+  const handleDeleteThumbnail = (thumbnailId) => {
+    setNewsImages((prevImages) => prevImages.filter((image) => image.id !== thumbnailId));
+  };
+  
+  
+/*
   const handleDeleteThumbnail = (thumbnailId) => {
     setNewsImages((prevImages) =>
       prevImages.filter((image) => image.key !== thumbnailId)
@@ -128,9 +156,14 @@ function NewsCreator() {
 
     document.forms.newsForm["files[]"].files = dataTransfer.files;
   };
+*/
 
   const handleDeleteAllThumbnails = () => {
     setNewsImages([]);
+    const fileInput = document.getElementById("news-image");
+    if (fileInput) {
+      fileInput.value = ""; // Сброс input
+    }
   };
 
   const handlePreview = () => {
@@ -143,6 +176,10 @@ function NewsCreator() {
     setPreviewMode(false);
   };
 
+  const handleNewsList = () => {
+    window.open("/news-list", "_blank");
+  };
+  
   const handleLogout = () => {
     navigate("/");
   };
@@ -205,11 +242,38 @@ function NewsCreator() {
     }
   };
 
+
+  const MemoizedJoditEditor = useMemo(() => {
+    return (
+      <JoditEditor
+        name="description"
+        value={description}
+        config={configJoditEditor}
+        tabIndex={1}
+        onBlur={(newText) => setDescription(newText)}
+      />
+    );
+  }, [description, configJoditEditor]); // Зависит только от `description`, а не от `title`
+  
+  const MemoizedFlatpickr = useMemo(() => {
+    return (
+      <Flatpickr
+        id="news-date"
+        name="event_start"
+        placeholder="Выберите дату события"
+        options={configFlatpickr}
+        onChange={handleDateChange}
+      />
+    );
+  }, [configFlatpickr]);
+  
+  const MemoizedToastContainer = useMemo(() => <ToastContainer options={configToast}/>, [configToast]);
+  
   return (
     <PageWrapper>
-      <title>Конфигуратор новости</title>
+      <title>Конфигуратор публикаций</title>
       <div id="news-form" className="container">
-        <h1>Конфигуратор новости</h1>
+        <h1>Конфигуратор публикаций</h1>
         <div className="content">
           <form className="form" name="newsForm" onSubmit={handleSubmit}>
             <input
@@ -220,13 +284,7 @@ function NewsCreator() {
               placeholder="Введите имя пользователя"
             />
 
-            <Flatpickr
-              id="news-date"
-              name="event_start"
-              placeholder="Выберите дату"
-              options={configFlatpickr}
-              onChange={handleDateChange} // Добавляем onChange обработчик
-            />
+            {MemoizedFlatpickr}
 
             <input
               type="text"
@@ -238,13 +296,7 @@ function NewsCreator() {
               onChange={handleTitleChange}
             />
 
-            <JoditEditor
-              name="description"
-              value={description}
-              config={configJoditEditor}
-              tabIndex={1}
-              onBlur={(newText) => setDescription(newText)}
-            />
+            {MemoizedJoditEditor}
 
             <label htmlFor="news-image">Изображение:</label>
             <div id="drop-zone" className="drop-zone">
@@ -259,11 +311,18 @@ function NewsCreator() {
               />
             </div>
 
+
             {newsImages.length > 0 && (
               <div id="thumbnail-container" className="thumbnail-container">
-                {newsImages}
+                {newsImages.map((image) => (
+                  <div key={image.id} className="thumbnail">
+                    <img src={image.preview} alt="Thumbnail" />
+                    <span className="delete-button" onClick={() => handleDeleteThumbnail(image.id)}>✖</span>
+                  </div>
+                ))}
               </div>
             )}
+
 
             {newsImages.length > 0 && (
               <button
@@ -271,13 +330,13 @@ function NewsCreator() {
                 id="delete"
                 onClick={handleDeleteAllThumbnails}
               >
-                Удалить все
+                Удалить все фотографии
               </button>
             )}
 
             {previewMode ? (
               <div className="view">
-                {title && <h3>{HTMLReactParser(title)}</h3>}
+                {title && <h3>{HTMLReactParser(debouncedTitle)}</h3>}
                 {description && (
                   <div id="view">{HTMLReactParser(description)}</div>
                 )}
@@ -286,7 +345,7 @@ function NewsCreator() {
                   id="view"
                   onClick={handleRestartPreview}
                 >
-                  Закрыть предпросмотр
+                  Закрыть предварительный просмотр
                 </button>
               </div>
             ) : (
@@ -300,16 +359,20 @@ function NewsCreator() {
             )}
 
             <button type="submit" className="custom_button" id="submit">
-              Отправить
+              Отправить публикацию
             </button>
           </form>
 
+          <button className="custom_button" id="newslist" onClick={handleNewsList}>
+            Список публикаций
+          </button>
+
           <button className="custom_button" id="logout" onClick={handleLogout}>
-            Выйти
+            Сменить пользователя
           </button>
         </div>
       </div>
-      <ToastContainer />
+      {MemoizedToastContainer}
     </PageWrapper>
   );
 }

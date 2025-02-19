@@ -29,7 +29,7 @@ body {
   max-width: 800px; /* Максимальная ширина контейнера */
   width: 100%; /* Занимает всю доступную ширину до max-width */
   margin: 0 auto; /* Центрирование по горизонтали */
-  padding: 2% 0; /* Отступы внутри */
+  padding: 1% 0; /* Отступы внутри */
   border-radius: 10px;
   text-align: justify;
   overflow-y: auto;
@@ -217,13 +217,13 @@ button.custom_button#submit:hover {
   color: #ffffff;
 }
 
-button.custom_button#test:hover {
-  background-color: #777777;
+button.custom_button#view:hover {
+  background-color: hsl(45, 45%, 50%);
   color: #ffffff;
 }
 
-button.custom_button#view:hover {
-  background-color: hsl(45, 55%, 45%);
+button.custom_button#newslist:hover {
+  background-color: #787878;
   color: #ffffff;
 }
 
@@ -233,7 +233,7 @@ button.custom_button#logout:hover {
 }
 
 button.custom_button#delete:hover,
-button.custom_button_mid#delete:hover,
+button.custom_button_mid#delete-all:hover,
 button.custom_button_short#delete:hover {
   background-color: hsl(0, 50%, 35%);
   color: #ffffff;

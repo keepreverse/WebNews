@@ -331,7 +331,6 @@ class Storage(object):
         self.connection.commit()
 
 
-
     def news_delete(self, newsID: int):
         """Function to delete a single news entry and related files from the database and file system."""
         

@@ -72,9 +72,9 @@ function NewsList() {
 
   return (
     <PageWrapper>
-      <title>Список новостей</title>
+      <title>Список публикаций</title>
       <div id="data-list-form" className="container">
-        <h1>Список новостей</h1>
+        <h1>Список публикаций</h1>
 
         {/* Кнопка удаления всех новостей */}
         {/* Условие для отображения кнопки "Удалить все новости" */}
