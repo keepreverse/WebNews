@@ -99,13 +99,17 @@ body {
   transition: background-color 0.2s ease; /* Добавляем плавный переход для фона */
 }
 
-.drop-zone.drag-over {
-  background-color: rgba(
-    0,
-    0,
-    0,
-    0.03
-  ); /* Устанавливаем полупрозрачный фон при наведении */
+.drop-zone.drag-over,
+.drop-zone:hover {
+  background-color: rgba(70, 70, 70, 0.04);
+  border: 1px dashed rgba(70, 70, 70, 0.5);
+}
+
+.drop-zone span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 #news-image {
@@ -118,21 +122,15 @@ body {
   cursor: pointer; /* Устанавливаем кликабельный курсор для всей области .drop-zone */
 }
 
-.drop-zone span {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
-
 /* Контейнер для миниатюр */
 .thumbnail-container {
   display: flex;
   flex-wrap: wrap;
   gap: 20px;
   justify-content: center;
-  max-width: 100%;
-  margin-top: 24px;
+  max-width: 98%; /* Уменьшаем на 2% */
+  margin: 24px auto 0; /* Центрируем и добавляем отступ сверху */
+  overflow: hidden; /* Скрываем всё, что выходит за границы */
 }
 
 /* Каждая миниатюра */
@@ -140,22 +138,29 @@ body {
   position: relative;
   flex-grow: 1;
   flex-shrink: 1;
-  flex-basis: calc(30% - 30px);
+  flex-basis: calc(30% - 30px); /* Оставляем место для gap */
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  max-width: 60%;
-  overflow: hidden;
+  max-width: 100%; /* Убираем ограничение в 60%, чтобы миниатюра занимала всю ширину своего контейнера */
+  overflow: hidden; /* Скрываем всё, что выходит за границы */
   flex-wrap: wrap;
   flex-direction: column;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.thumbnail img:hover {
+  cursor: pointer;
+  transform: scale(1.02); /* Увеличиваем миниатюру на 2% */
 }
 
 /* Изображение внутри миниатюры */
 .thumbnail img {
-  width: auto; /* Автоматическая ширина */
+  width: 100%; /* Занимает всю ширину контейнера */
   height: auto; /* Автоматическая высота */
-  max-width: 100%; /* Изображение адаптируется по ширине контейнера */
-  max-height: 100%; /* Изображение остаётся в рамках контейнера */
+  max-width: 100%; /* Ограничиваем ширину изображения */
+  object-fit: cover; /* Сохраняем пропорции и обрезаем изображение, если нужно */
+  transition: transform 0.3s ease; /* Плавное увеличение */
 }
 
 .delete-button {
@@ -188,12 +193,12 @@ button.custom_button_mid {
 }
 
 button.custom_button_short {
-  width: 50%;
+  width: 30%;
   margin: 20px auto;
 }
 
 button.custom_button_mid {
-  width: 98%;
+  width: 97%;
 }
 
 button.custom_button:active {
@@ -218,12 +223,12 @@ button.custom_button#submit:hover {
 }
 
 button.custom_button#view:hover {
-  background-color: hsl(45, 45%, 50%);
+  background-color: #b99c46;
   color: #ffffff;
 }
 
 button.custom_button#newslist:hover {
-  background-color: #787878;
+  background-color: #4d77a7;
   color: #ffffff;
 }
 
@@ -399,9 +404,8 @@ button.custom_button_short#delete:hover {
   background-color: #fff;
   padding: 0 20px;
   border-radius: 10px;
-  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
-  cursor: pointer;
 }
 
 /* Анимация при наведении на новость */
@@ -460,4 +464,61 @@ button.custom_button_short#delete:hover {
   width: 100%;
   height: auto;
   border-radius: 8px;
+}
+
+/* Стили для пагинации */
+.pagination {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 15px 0;
+}
+
+button.pagination_button {
+  font-size: 12px;
+  line-height: 30px;
+  width: 45px;
+  height: 35px;
+  cursor: pointer;
+  text-transform: uppercase;
+  text-align: center;
+  color: #252627;
+  border: 1px solid #b5b5b5;
+  background: transparent;
+  transition: background-color 0.2s ease;
+  transition: color 0.2s ease-in;
+  transition: font-weight 0.1s ease-in-out;
+
+}
+
+button.pagination_button:hover {
+  background-color: #f1f1f1;
+  font-weight: bolder;
+  border: 1px solid #8c8e91;
+}
+
+button.pagination_button.active {
+  background-color: #252627;
+  color: white;
+  font-weight: bold;
+}
+
+.ril__toolbar {
+  background-color: rgb(0, 0, 0, 0) !important;
+}
+
+
+/* Затемненный, но не черный фон */
+.ril__outer {
+  background-color: rgba(0, 0, 0, 0.5) !important; /* Полупрозрачный черный */
+}
+
+/* Дополнительно можно изменить анимацию появления */
+.ril__outerAnimating {
+  transition: background-color 0.3s ease-in-out;
+}
+
+/* Настроим саму область изображения */
+.ril__image {
+  border-radius: 8px; /* Немного сгладим углы */
 }

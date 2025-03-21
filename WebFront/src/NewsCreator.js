@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo} from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
 import JoditEditor from "jodit-react";
@@ -19,6 +19,7 @@ function NewsCreator() {
 
   const navigate = useNavigate();
 
+  // Конфигурация JoditEditor
   const configJoditEditor = useMemo(() => ({
     toolbarAdaptive: false,
     showCharsCounter: false,
@@ -71,15 +72,17 @@ function NewsCreator() {
       }
     }
   }), []);
-  
+
+  // Конфигурация Flatpickr
   const configFlatpickr = useMemo(() => ({
     enableTime: true,
     altInput: true,
     altFormat: "F j, Y, H:i",
     dateFormat: "Y-m-d\\TH:i:ss",
     locale: Russian,
-  }), []); 
-  
+  }), []);
+
+  // Конфигурация Toast
   const configToast = useMemo(() => ({
     position: "top-right",
     autoClose: 4000,
@@ -87,76 +90,119 @@ function NewsCreator() {
     closeOnClick: true,
     pauseOnHover: true,
     draggable: true,
-  }), []); 
+  }), []);
 
+  // Debounce для заголовка
   function useDebounce(value, delay) {
     const [debouncedValue, setDebouncedValue] = useState(value);
-  
+
     useEffect(() => {
       const handler = setTimeout(() => {
         setDebouncedValue(value);
       }, delay);
-  
+
       return () => {
         clearTimeout(handler);
       };
     }, [value, delay]);
-  
+
     return debouncedValue;
   }
-  
+
   const [title, setTitle] = useState("");
-  const debouncedTitle = useDebounce(title, 500); // Обновляет с задержкой 500 мс
-  
+  const debouncedTitle = useDebounce(title, 500);
+
   const handleTitleChange = useCallback((e) => {
     titleRef.current = e.target.value;
     setTitle(e.target.value);
   }, []);
 
-
   const handleDateChange = (selectedDate) => {
-    setDate(selectedDate[0]); // сохраняет первую выбранную дату
+    setDate(selectedDate[0]);
   };
 
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
     handleFiles(files);
   };
+
+  useEffect(() => {
+    const dropZone = document.getElementById("drop-zone");
+  
+    if (!dropZone) return;
+  
+    const handleDrop = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+  
+      const dt = event.dataTransfer;
+      if (!dt || dt.files.length === 0) return;
+  
+      const files = Array.from(dt.files);
+      const imageFiles = files.filter((file) => file.type.startsWith("image/"));
+  
+      if (imageFiles.length !== files.length) {
+        toast.warn("Можно загружать только изображения!");
+        event.dataTransfer.clearData(); // Полностью очищаем файлы из dataTransfer
+        return;
+      }
+  
+      handleFiles(imageFiles);
+    };
+  
+    const handleDragOver = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      event.dataTransfer.dropEffect = "copy";
+    };
+  
+    dropZone.addEventListener("drop", handleDrop);
+    dropZone.addEventListener("dragover", handleDragOver);
+  
+    return () => {
+      dropZone.removeEventListener("drop", handleDrop);
+      dropZone.removeEventListener("dragover", handleDragOver);
+    };
+  }, []);
+  
   
   const handleFiles = (files) => {
     const newImages = files
       .filter((file) => file.type.startsWith("image/"))
-      .map((file) => ({
-        id: uuidv4(), // Уникальный ID
-        file: file, // Сохраняем сам файл
-        preview: URL.createObjectURL(file), // Создаём URL для превью
-      }));
+      .map((file) => {
+        const uniqueKey = uuidv4(); // Генерируем уникальный ключ
+        file.uniqueKey = uniqueKey; // Присваиваем файлу уникальный ключ
+        return {
+          id: uniqueKey, // Используем тот же ключ для состояния
+          file: file,
+          preview: URL.createObjectURL(file),
+        };
+      });
   
-    setNewsImages((prevImages) => [...prevImages, ...newImages]); // Добавляем, а не заменяем
+    setNewsImages((prevImages) => [...prevImages, ...newImages]);
   };
   
 
   const handleDeleteThumbnail = (thumbnailId) => {
+    // Удаляем изображение из состояния
     setNewsImages((prevImages) => prevImages.filter((image) => image.id !== thumbnailId));
-  };
   
+    // Обновляем файловый input
+    const fileInput = document.getElementById("news-image");
+    if (fileInput) {
+      const dataTransfer = new DataTransfer(); // Создаем новый объект DataTransfer
   
-/*
-  const handleDeleteThumbnail = (thumbnailId) => {
-    setNewsImages((prevImages) =>
-      prevImages.filter((image) => image.key !== thumbnailId)
-    );
-
-    const dataTransfer = new DataTransfer();
-    Array.from(document.forms.newsForm["files[]"].files).forEach((file) => {
-      if (file.uniqueKey !== thumbnailId) {
-        dataTransfer.items.add(file);
-      }
-    });
-
-    document.forms.newsForm["files[]"].files = dataTransfer.files;
+      // Добавляем все файлы, кроме удаленного
+      Array.from(fileInput.files).forEach((file) => {
+        if (file.uniqueKey !== thumbnailId) { // Проверяем уникальный ключ
+          dataTransfer.items.add(file);
+        }
+      });
+  
+      // Обновляем файловый input
+      fileInput.files = dataTransfer.files;
+    }
   };
-*/
 
   const handleDeleteAllThumbnails = () => {
     setNewsImages([]);
@@ -167,8 +213,6 @@ function NewsCreator() {
   };
 
   const handlePreview = () => {
-    setTitle(title);
-    setDescription(description);
     setPreviewMode(!previewMode);
   };
 
@@ -179,7 +223,7 @@ function NewsCreator() {
   const handleNewsList = () => {
     window.open("/news-list", "_blank");
   };
-  
+
   const handleLogout = () => {
     navigate("/");
   };
@@ -209,17 +253,14 @@ function NewsCreator() {
       return;
     }
 
-    const filesToSubmit = Array.from(
-      document.forms.newsForm["files[]"].files
-    ).filter((file) =>
-      newsImages.find((image) => image.key === file.uniqueKey)
-    );
+    const newsData = new FormData();
+    newsData.append("nickname", nickname);
+    newsData.append("event_start", event_start);
+    newsData.append("title", title);
+    newsData.append("description", description);
 
-    const newsData = new FormData(document.forms.newsForm);
-
-    newsData.delete("files[]");
-    filesToSubmit.forEach((file) => {
-      newsData.append("files[]", file);
+    newsImages.forEach((image) => {
+      newsData.append("files[]", image.file);
     });
 
     try {
@@ -242,7 +283,6 @@ function NewsCreator() {
     }
   };
 
-
   const MemoizedJoditEditor = useMemo(() => {
     return (
       <JoditEditor
@@ -253,8 +293,8 @@ function NewsCreator() {
         onBlur={(newText) => setDescription(newText)}
       />
     );
-  }, [description, configJoditEditor]); // Зависит только от `description`, а не от `title`
-  
+  }, [description, configJoditEditor]);
+
   const MemoizedFlatpickr = useMemo(() => {
     return (
       <Flatpickr
@@ -266,9 +306,9 @@ function NewsCreator() {
       />
     );
   }, [configFlatpickr]);
-  
+
   const MemoizedToastContainer = useMemo(() => <ToastContainer options={configToast}/>, [configToast]);
-  
+
   return (
     <PageWrapper>
       <title>Конфигуратор публикаций</title>
@@ -311,7 +351,6 @@ function NewsCreator() {
               />
             </div>
 
-
             {newsImages.length > 0 && (
               <div id="thumbnail-container" className="thumbnail-container">
                 {newsImages.map((image) => (
@@ -322,7 +361,6 @@ function NewsCreator() {
                 ))}
               </div>
             )}
-
 
             {newsImages.length > 0 && (
               <button
