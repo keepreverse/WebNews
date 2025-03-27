@@ -9,15 +9,23 @@ import "react-toastify/dist/ReactToastify.css";
 import Flatpickr from "react-flatpickr";
 import "flatpickr/dist/flatpickr.min.css";
 import { Russian } from "flatpickr/dist/l10n/ru.js";
+import Lightbox from "react-image-lightbox";
+import "react-image-lightbox/style.css";
 
 function NewsCreator() {
   const [date, setDate] = useState("");
   const [description, setDescription] = useState("");
   const [newsImages, setNewsImages] = useState([]);
   const [previewMode, setPreviewMode] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
   const titleRef = useRef("");
 
   const navigate = useNavigate();
+
+  // Lightbox State
+  const [isOpen, setIsOpen] = useState(false);
+  const [photoIndex, setPhotoIndex] = useState(0);
+  const [currentImages, setCurrentImages] = useState([]);
 
   // Конфигурация JoditEditor
   const configJoditEditor = useMemo(() => ({
@@ -121,67 +129,81 @@ function NewsCreator() {
     setDate(selectedDate[0]);
   };
 
-  const handleImageChange = (e) => {
-    const files = Array.from(e.target.files);
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+  
+    const files = Array.from(e.dataTransfer.files);
+    const hasInvalidFiles = files.some(file => !file.type.startsWith('image/'));
+  
+    if (hasInvalidFiles) {
+      // Очищаем только если есть невалидные файлы
+      if (e.dataTransfer.items) {
+        const items = Array.from(e.dataTransfer.items);
+        items.forEach((item, index) => {
+          if (item.kind === 'file' && !files[index].type.startsWith('image/')) {
+            e.dataTransfer.items.remove(item);
+          }
+        });
+      } else {
+        e.dataTransfer.clearData();
+      }
+    }
+  
     handleFiles(files);
   };
-
-  useEffect(() => {
-    const dropZone = document.getElementById("drop-zone");
-  
-    if (!dropZone) return;
-  
-    const handleDrop = (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-  
-      const dt = event.dataTransfer;
-      if (!dt || dt.files.length === 0) return;
-  
-      const files = Array.from(dt.files);
-      const imageFiles = files.filter((file) => file.type.startsWith("image/"));
-  
-      if (imageFiles.length !== files.length) {
-        toast.warn("Можно загружать только изображения!");
-        event.dataTransfer.clearData(); // Полностью очищаем файлы из dataTransfer
-        return;
-      }
-  
-      handleFiles(imageFiles);
-    };
-  
-    const handleDragOver = (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      event.dataTransfer.dropEffect = "copy";
-    };
-  
-    dropZone.addEventListener("drop", handleDrop);
-    dropZone.addEventListener("dragover", handleDragOver);
-  
-    return () => {
-      dropZone.removeEventListener("drop", handleDrop);
-      dropZone.removeEventListener("dragover", handleDragOver);
-    };
-  }, []);
-  
   
   const handleFiles = (files) => {
-    const newImages = files
-      .filter((file) => file.type.startsWith("image/"))
-      .map((file) => {
-        const uniqueKey = uuidv4(); // Генерируем уникальный ключ
-        file.uniqueKey = uniqueKey; // Присваиваем файлу уникальный ключ
-        return {
-          id: uniqueKey, // Используем тот же ключ для состояния
-          file: file,
-          preview: URL.createObjectURL(file),
-        };
-      });
+    const validImages = [];
+    const invalidFiles = [];
   
-    setNewsImages((prevImages) => [...prevImages, ...newImages]);
+    files.forEach(file => {
+      if (file.type.startsWith('image/')) {
+        const uniqueKey = uuidv4();
+        file.uniqueKey = uniqueKey;
+        validImages.push({
+          id: uniqueKey,
+          file: file,
+          preview: URL.createObjectURL(file)
+        });
+      } else {
+        invalidFiles.push(file.name);
+      }
+    });
+  
+    if (invalidFiles.length > 0) {
+      toast.warn(`Не удалось загрузить файлы: ${invalidFiles.join(', ')}.`, {
+        autoClose: 5000,
+        closeButton: true
+      });
+      
+      // Очищаем поле ввода только при невалидных файлах
+      document.getElementById('news-image').value = '';
+    }
+  
+    if (validImages.length > 0) {
+      setNewsImages(prev => [...prev, ...validImages]);
+    }
   };
   
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
+  };
+  
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(true);
+  };
+  
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+  };
 
   const handleDeleteThumbnail = (thumbnailId) => {
     // Удаляем изображение из состояния
@@ -211,6 +233,31 @@ function NewsCreator() {
       fileInput.value = ""; // Сброс input
     }
   };
+
+
+
+  // Функция для открытия лайтбокса
+  const openLightbox = (index) => {
+    setCurrentImages(newsImages.map(img => img.preview));
+    setPhotoIndex(index);
+    setIsOpen(true);
+  };
+
+  // Эффект для управления прокруткой страницы
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+      document.body.removeAttribute("aria-hidden"); // Удаляем атрибут
+    } else {
+      document.body.style.overflow = "auto";
+    }
+  
+    return () => {
+      document.body.style.overflow = "auto";
+      document.body.removeAttribute("aria-hidden"); // Очистка
+    };
+  }, [isOpen]);
+
 
   const handlePreview = () => {
     setPreviewMode(!previewMode);
@@ -339,27 +386,65 @@ function NewsCreator() {
             {MemoizedJoditEditor}
 
             <label htmlFor="news-image">Изображение:</label>
-            <div id="drop-zone" className="drop-zone">
-              Перетащите сюда фотографии или кликните для выбора файлов
+            <div 
+              id="drop-zone" 
+              className={`drop-zone ${dragActive ? 'drag-active' : ''}`}
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+            >
+              <p>Перетащите сюда или кликните для выбора файлов (JPG, PNG, GIF)</p>
               <input
                 type="file"
                 id="news-image"
                 name="files[]"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/gif"
                 multiple
-                onChange={handleImageChange}
+                onChange={(e) => {
+                  const files = Array.from(e.target.files);
+                  if (files.some(file => !file.type.startsWith('image/'))) {
+                    e.target.value = '';
+                  }
+                  handleFiles(files);
+                }}
               />
             </div>
 
             {newsImages.length > 0 && (
               <div id="thumbnail-container" className="thumbnail-container">
-                {newsImages.map((image) => (
+                {newsImages.map((image, index) => (
                   <div key={image.id} className="thumbnail">
-                    <img src={image.preview} alt="Thumbnail" />
-                    <span className="delete-button" onClick={() => handleDeleteThumbnail(image.id)}>✖</span>
+                    <img 
+                      src={image.preview} 
+                      alt="Thumbnail" 
+                      onClick={() => openLightbox(index)}
+                    />
+                    <span 
+                      className="delete-button" 
+                      onClick={() => handleDeleteThumbnail(image.id)}
+                    >
+                      ✖
+                    </span>
                   </div>
                 ))}
               </div>
+            )}
+
+            {isOpen && (
+              <Lightbox
+              mainSrc={currentImages[photoIndex]}
+              nextSrc={currentImages[(photoIndex + 1) % currentImages.length]}
+              prevSrc={currentImages[(photoIndex + currentImages.length - 1) % currentImages.length]}
+              onCloseRequest={() => setIsOpen(false)}
+              onMovePrevRequest={() => 
+                setPhotoIndex((photoIndex + currentImages.length - 1) % currentImages.length)
+              }
+              onMoveNextRequest={() => 
+                setPhotoIndex((photoIndex + 1) % currentImages.length)
+              }
+              imageTitle={`Изображение ${photoIndex + 1} из ${currentImages.length}`}
+              />
             )}
 
             {newsImages.length > 0 && (

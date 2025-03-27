@@ -2,21 +2,38 @@ import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import PageWrapper from "./PageWrapper";
-import "./styles.css";
 import HTMLReactParser from "html-react-parser";
 import Lightbox from "react-image-lightbox";
 import "react-image-lightbox/style.css";
+import Flatpickr from "react-flatpickr";
+import "flatpickr/dist/flatpickr.min.css";
+import { Russian } from "flatpickr/dist/l10n/ru.js";
 
 function NewsList() {
   const [data, setData] = useState([]);
+  const [filteredData, setFilteredData] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const newsPerPage = 5;
+
+  // Фильтры
+  const [authorFilter, setAuthorFilter] = useState("");
+  const [dateRange, setDateRange] = useState([null, null]); // Теперь храним диапазон дат
+  const [uniqueAuthors, setUniqueAuthors] = useState([]);
 
   // Lightbox State
   const [isOpen, setIsOpen] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
   const [currentImages, setCurrentImages] = useState([]);
 
+  // Конфигурация Flatpickr для диапазона дат
+  const configFlatpickr = useMemo(() => ({
+    mode: "range", // Включаем режим диапазона
+    altInput: true,
+    altFormat: "F j, Y",
+    dateFormat: "Y-m-d",
+    locale: Russian,
+  }), []);
+  
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -30,6 +47,11 @@ function NewsList() {
         } else {
           const result = await response.json();
           setData(result);
+          setFilteredData(result);
+          
+          // Получаем уникальных авторов
+          const authors = [...new Set(result.map(item => item.publisher_nick).filter(Boolean))];
+          setUniqueAuthors(authors);
         }
       } catch (error) {
         console.error("Ошибка загрузки данных:", error);
@@ -39,20 +61,76 @@ function NewsList() {
 
     fetchData();
   }, []);
+  useEffect(() => {
+    let result = [...data];
+    
+    if (authorFilter) {
+      result = result.filter(item => item.publisher_nick === authorFilter);
+    }
+    
+    if (dateRange[0] && dateRange[1]) {
+      const [startDate, endDate] = dateRange;
+      const filterStartDate = new Date(startDate).setHours(0, 0, 0, 0);
+      const filterEndDate = new Date(endDate).setHours(23, 59, 59, 999);
+      
+      result = result.filter(item => {
+        const itemDate = new Date(item.event_start).getTime();
+        return itemDate >= filterStartDate && itemDate <= filterEndDate;
+      });
+    }
+    
+    setFilteredData(result);
+    setCurrentPage(1);
+  }, [data, authorFilter, dateRange]);
+
+  // Обработчик изменения даты (теперь работает с диапазоном)
+  const handleDateChange = (selectedDates) => {
+    setDateRange(selectedDates);
+  };
+
+  const clearFilters = () => {
+    setAuthorFilter("");
+    setDateRange([null, null]);
+  };
+
+  // MemoizedFlatpickr с поддержкой диапазона
+  const MemoizedFlatpickr = useMemo(() => {
+    return (
+      <Flatpickr
+        options={configFlatpickr}
+        onChange={handleDateChange}
+        value={dateRange}
+        placeholder="Выберите диапазон дат"
+      />
+    );
+  }, [configFlatpickr, dateRange]);
+  
+  const handleAuthorChange = (e) => {
+    setAuthorFilter(e.target.value || "");
+  };
+
 
   const currentNews = useMemo(() => {
     const indexOfLastNews = currentPage * newsPerPage;
     const indexOfFirstNews = indexOfLastNews - newsPerPage;
-    return data.slice(indexOfFirstNews, indexOfLastNews);
-  }, [data, currentPage, newsPerPage]);
+    return filteredData.slice(indexOfFirstNews, indexOfLastNews);
+  }, [filteredData, currentPage, newsPerPage]);
 
-  const totalPages = Math.ceil(data.length / newsPerPage);
+  const totalPages = Math.ceil(filteredData.length / newsPerPage);
+
 
   useEffect(() => {
     if (currentNews.length === 0 && currentPage > 1) {
       setCurrentPage((prev) => Math.max(prev - 1, 1));
     }
   }, [currentNews, currentPage]);
+
+  // Добавляем кнопку "Изменить" и обработчик
+  const handleEditNews = (newsItem) => {
+    // Передаем данные новости через URL
+    window.open(`/news-creator?edit=${newsItem.newsID}`, "_blank");
+  };
+
 
   const deleteNews = useCallback(async (newsID) => {
     if (!window.confirm("Вы уверены, что хотите удалить эту новость?")) return;
@@ -100,19 +178,20 @@ function NewsList() {
     setPhotoIndex(index);
     setIsOpen(true);
   };
-
+  
   useEffect(() => {
     if (isOpen) {
-      document.body.style.overflow = "hidden"; // Отключаем прокрутку
+      document.body.style.overflow = "hidden";
+      document.body.removeAttribute("aria-hidden"); // Удаляем атрибут
     } else {
-      document.body.style.overflow = "auto"; // Включаем обратно при закрытии
+      document.body.style.overflow = "auto";
     }
   
     return () => {
-      document.body.style.overflow = "auto"; // Очистка при размонтировании
+      document.body.style.overflow = "auto";
+      document.body.removeAttribute("aria-hidden"); // Очистка
     };
   }, [isOpen]);
-  
 
   return (
     <PageWrapper>
@@ -120,9 +199,39 @@ function NewsList() {
       <div id="data-list-form" className="container">
         <h1>Список публикаций</h1>
 
-        {data.length > 0 && (
+        {/* Фильтры */}
+        <div className="filters-container">
+          <div className="filter-group">
+            <label htmlFor="author-filter">Фильтр по автору:</label>
+            <select
+              id="author-filter"
+              value={authorFilter}
+              onChange={handleAuthorChange}
+            >
+              <option value="">Все авторы</option>
+              {uniqueAuthors.map(author => (
+                <option key={author} value={author}>{author}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="filter-group">
+            <label>Фильтр по дате:</label>
+              {MemoizedFlatpickr}
+          </div>
+          
+          <button 
+            onClick={clearFilters} 
+            className="custom_button_mid"
+            disabled={!authorFilter && !dateRange[0]}
+          >
+            Сбросить фильтры
+          </button>
+        </div>
+
+        {filteredData.length > 0 && (
           <button onClick={deleteAllNews} className="custom_button_mid" id="delete-all">
-            Удалить все публикации
+            Удалить все
           </button>
         )}
 
@@ -132,7 +241,7 @@ function NewsList() {
 
         <div className="data-list">
           {currentNews.length === 0 ? (
-            <p>В данный момент нет доступных публикаций.</p>
+            <p>Публикации не найдены</p>
           ) : (
             currentNews.map((item) => (
               <div key={item.newsID} className="data-item">
@@ -185,6 +294,13 @@ function NewsList() {
                 <button onClick={() => deleteNews(item.newsID)} className="custom_button_short" id="delete">
                   Удалить
                 </button>
+                <button 
+                  onClick={() => handleEditNews(item)} 
+                  className="custom_button_short" 
+                  id="edit"
+                >
+                  Изменить
+                </button>
               </div>
             ))
           )}
@@ -202,10 +318,16 @@ function NewsList() {
           nextSrc={currentImages[(photoIndex + 1) % currentImages.length]}
           prevSrc={currentImages[(photoIndex + currentImages.length - 1) % currentImages.length]}
           onCloseRequest={() => setIsOpen(false)}
-          onMovePrevRequest={() => setPhotoIndex((photoIndex + currentImages.length - 1) % currentImages.length)}
-          onMoveNextRequest={() => setPhotoIndex((photoIndex + 1) % currentImages.length)}
+          onMovePrevRequest={() => 
+            setPhotoIndex((photoIndex + currentImages.length - 1) % currentImages.length)
+          }
+          onMoveNextRequest={() => 
+            setPhotoIndex((photoIndex + 1) % currentImages.length)
+          }
+          imageTitle={`Изображение ${photoIndex + 1} из ${currentImages.length}`}
         />
       )}
+
     </PageWrapper>
   );
 }

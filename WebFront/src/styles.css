@@ -101,8 +101,8 @@ body {
 
 .drop-zone.drag-over,
 .drop-zone:hover {
-  background-color: rgba(70, 70, 70, 0.04);
-  border: 1px dashed rgba(70, 70, 70, 0.5);
+  background-color: rgba(70, 70, 70, 0.05);
+  border: 1px dashed rgba(60, 60, 60, 0.5);
 }
 
 .drop-zone span {
@@ -270,7 +270,7 @@ button.custom_button_short#delete:hover {
 
 .container .content .checkbox + label:before {
   content: "\A";
-  color: #999999;
+  color: rgb(153, 153, 153);
   font-family: Verdana;
   font-weight: bold;
   font-size: 12px;
@@ -399,19 +399,21 @@ button.custom_button_short#delete:hover {
   gap: 20px;
 }
 
-/* Стиль для каждого элемента новости */
 .data-item {
   background-color: #fff;
   padding: 0 20px;
   border-radius: 10px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.1), /* Тень снизу и по бокам */
+    0 -1px 2px rgba(0, 0, 0, 0.05); /* Слабая тень сверху */
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-/* Анимация при наведении на новость */
 .data-item:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  transform: translateY(-4px);
+  box-shadow: 
+    0 8px 16px rgba(0, 0, 0, 0.1), /* Усиленная тень снизу и по бокам */
+    0 -4px 8px rgba(0, 0, 0, 0.05); /* Слегка усиленная тень сверху */
 }
 
 /* Заголовок новости */
@@ -507,6 +509,11 @@ button.pagination_button.active {
   background-color: rgb(0, 0, 0, 0) !important;
 }
 
+.ril__toolbarItem { 
+  color: hsl(0, 0%, 90%) !important; 
+  font-size: 100% !important; 
+}
+
 
 /* Затемненный, но не черный фон */
 .ril__outer {
@@ -522,3 +529,69 @@ button.pagination_button.active {
 .ril__image {
   border-radius: 8px; /* Немного сгладим углы */
 }
+
+/* Стили для контейнера фильтров */
+.filters-container {
+  display: flex;
+  flex-wrap: nowrap; /* Запрещаем перенос на новую строку */
+  gap: 15px;
+  justify-content: center;
+  align-items: flex-end; /* Выравниваем по нижнему краю */
+  margin: 6px 12px;
+  padding: 15px 0;
+}
+
+/* Стили для группы фильтров */
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  margin: 0;
+}
+
+.filter-group label {
+  font-size: 12px;
+  color: #555;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-align: left;
+}
+
+/* Общие стили для select и flatpickr */
+.filter-group select,
+.filter-group .form-control {
+  font-family: "Lato", sans-serif;
+  font-size: 14px;
+  padding: 10px 12px; /* Увеличиваем padding для выравнивания высоты */
+  border: 1px solid #b5b5b5;
+  border-radius: 4px;
+  background-color: transparent;
+  color: #2d2f30;
+  transition: all 0.2s ease-in-out;
+  width: 100%;
+  height: 42px; /* Фиксированная высота как у кнопок */
+  box-sizing: border-box;
+  outline: none;
+}
+
+.filters-container button.custom_button_mid {
+  margin-bottom: 0px;
+}
+
+
+/* Hover эффект для кнопки */
+.filters-container button.custom_button_mid:hover {
+  background-color: #2d2f30;
+  color: #ffffff;
+}
+
+
+/* Hover и focus эффекты */
+.filter-group select:hover,
+.filter-group .form-control:hover,
+input:hover,
+.jodit-container.jodit.jodit_theme_default.jodit-wysiwyg_mode:hover {
+  border-color: #888 !important; /* или любой другой темный цвет */
+}
+
