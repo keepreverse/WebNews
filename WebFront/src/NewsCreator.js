@@ -13,12 +13,18 @@ import Lightbox from "react-image-lightbox";
 import "react-image-lightbox/style.css";
 
 function NewsCreator() {
+  const [nickname, setNickname] = useState("");
+  
   const [date, setDate] = useState("");
+
+  const titleRef = useRef("");
+
   const [description, setDescription] = useState("");
+
   const [newsImages, setNewsImages] = useState([]);
   const [previewMode, setPreviewMode] = useState(false);
+
   const [dragActive, setDragActive] = useState(false);
-  const titleRef = useRef("");
 
   const navigate = useNavigate();
 
@@ -26,6 +32,11 @@ function NewsCreator() {
   const [isOpen, setIsOpen] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
   const [currentImages, setCurrentImages] = useState([]);
+
+  // Добавляем состояние для режима редактирования
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editNewsId, setEditNewsId] = useState(null);
+
 
   // Конфигурация JoditEditor
   const configJoditEditor = useMemo(() => ({
@@ -88,7 +99,9 @@ function NewsCreator() {
     altFormat: "F j, Y, H:i",
     dateFormat: "Y-m-d\\TH:i:ss",
     locale: Russian,
-  }), []);
+    defaultDate: date, // Добавляем текущую дату из состояния
+    date: date, // Альтернативный вариант
+  }), [date]); // Добавляем date в зависимости
 
   // Конфигурация Toast
   const configToast = useMemo(() => ({
@@ -235,7 +248,6 @@ function NewsCreator() {
   };
 
 
-
   // Функция для открытия лайтбокса
   const openLightbox = (index) => {
     setCurrentImages(newsImages.map(img => img.preview));
@@ -275,6 +287,68 @@ function NewsCreator() {
     navigate("/");
   };
 
+
+  // Эффект для загрузки данных при открытии в режиме редактирования
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const newsId = params.get('edit');
+    
+    if (newsId) {
+      setIsEditMode(true);
+      setEditNewsId(newsId);
+      loadNewsData(newsId);
+    }
+  }, []);
+
+
+  const loadNewsData = async (newsId) => {
+    try {
+      console.log('Loading news data for ID:', newsId); // Логируем ID новости
+      const response = await fetch(`http://127.0.0.1:5000/api/news/${newsId}`);
+      
+      if (response.ok) {
+        const newsData = await response.json();
+        console.log('Received news data:', newsData); // Логируем все полученные данные
+        
+        setNickname(newsData.publisher_nick || "");
+        setTitle(newsData.title || "");
+        setDescription(newsData.description || "");
+        
+        // Устанавливаем дату в правильном формате для Flatpickr
+        if (newsData.event_start) {
+          setDate(new Date(newsData.event_start));
+        }
+        
+        // Загружаем изображения
+        if (newsData.files && newsData.files.length > 0) {
+          const images = await Promise.all(
+            newsData.files.map(async (file) => {
+              try {
+                // Для уже существующих файлов просто создаем объекты
+                return {
+                  id: uuidv4(),
+                  fileName: file.fileName,  // Сохраняем оригинальное имя файла
+                  preview: `http://127.0.0.1:5000/uploads/${file.fileName}`
+                };
+              } catch (error) {
+                console.error("Error loading image:", error);
+                return null;
+              }
+            })
+          );
+          
+          setNewsImages(images.filter(Boolean));
+        }
+      } else {
+        toast.error("Не удалось загрузить данные новости", configToast);
+      }
+    } catch (error) {
+      console.error("Error loading news data:", error);
+      toast.error("Не удалось загрузить данные новости", configToast);
+    }
+  };
+
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const nickname = document.forms.newsForm.nickname.value;
@@ -311,20 +385,30 @@ function NewsCreator() {
     });
 
     try {
-      const response = await fetch("http://127.0.0.1:5000/api/news", {
-        method: "POST",
+      const url = isEditMode 
+        ? `http://127.0.0.1:5000/api/news/${editNewsId}`
+        : "http://127.0.0.1:5000/api/news";
+        
+      const method = isEditMode ? "PUT" : "POST";
+      
+      const response = await fetch(url, {
+        method,
         body: newsData,
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to add news");
-      }
-
-      toast.success("Новость успешно отправлена!", configToast);
+  
+      if (!response.ok) throw new Error("Failed to save news");
+  
+      toast.success(
+        isEditMode 
+          ? "Новость успешно обновлена!" 
+          : "Новость успешно отправлена!",
+        configToast
+      );
+      
     } catch (error) {
-      console.error("Error adding news:", error.message);
+      console.error("Error saving news:", error.message);
       toast.error(
-        "Ошибка при отправке новости. Пожалуйста, повторите попытку.",
+        "Ошибка при сохранении новости. Пожалуйста, повторите попытку.",
         configToast
       );
     }
@@ -350,9 +434,11 @@ function NewsCreator() {
         placeholder="Выберите дату события"
         options={configFlatpickr}
         onChange={handleDateChange}
+        value={date} // Передаем текущее значение даты
+        key={date ? date.toString() : 'empty'} // Принудительное обновление при изменении даты
       />
     );
-  }, [configFlatpickr]);
+  }, [configFlatpickr, date]); // Добавляем date в зависимости
 
   const MemoizedToastContainer = useMemo(() => <ToastContainer options={configToast}/>, [configToast]);
 
@@ -365,6 +451,8 @@ function NewsCreator() {
           <form className="form" name="newsForm" onSubmit={handleSubmit}>
             <input
               type="text"
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
               id="news-nickname"
               name="nickname"
               className="inpt"
@@ -480,10 +568,10 @@ function NewsCreator() {
                 Предварительный просмотр
               </button>
             )}
-
-            <button type="submit" className="custom_button" id="submit">
-              Отправить публикацию
-            </button>
+          
+          <button type="submit" className="custom_button" id="submit">
+            {isEditMode ? "Обновить публикацию" : "Отправить публикацию"}
+          </button>
           </form>
 
           <button className="custom_button" id="newslist" onClick={handleNewsList}>

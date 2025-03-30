@@ -222,7 +222,8 @@ button.custom_button#submit:hover {
   color: #ffffff;
 }
 
-button.custom_button#view:hover {
+button.custom_button#view:hover,
+button.custom_button_short#edit:hover {
   background-color: #b99c46;
   color: #ffffff;
 }
@@ -537,7 +538,7 @@ button.pagination_button.active {
   gap: 15px;
   justify-content: center;
   align-items: flex-end; /* Выравниваем по нижнему краю */
-  margin: 6px 12px;
+  margin: 0 12px;
   padding: 15px 0;
 }
 
@@ -593,5 +594,10 @@ button.pagination_button.active {
 input:hover,
 .jodit-container.jodit.jodit_theme_default.jodit-wysiwyg_mode:hover {
   border-color: #888 !important; /* или любой другой темный цвет */
+}
+
+
+button#delete-all {
+  margin-bottom: 12px;
 }
 

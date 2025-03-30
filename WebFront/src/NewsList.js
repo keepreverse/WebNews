@@ -125,12 +125,10 @@ function NewsList() {
     }
   }, [currentNews, currentPage]);
 
-  // Добавляем кнопку "Изменить" и обработчик
   const handleEditNews = (newsItem) => {
-    // Передаем данные новости через URL
+    // Открываем в новом окне с параметром edit
     window.open(`/news-creator?edit=${newsItem.newsID}`, "_blank");
   };
-
 
   const deleteNews = useCallback(async (newsID) => {
     if (!window.confirm("Вы уверены, что хотите удалить эту новость?")) return;
@@ -291,15 +289,15 @@ function NewsList() {
                     ))}
                   </div>
                 )}
-                <button onClick={() => deleteNews(item.newsID)} className="custom_button_short" id="delete">
-                  Удалить
-                </button>
                 <button 
                   onClick={() => handleEditNews(item)} 
                   className="custom_button_short" 
                   id="edit"
                 >
                   Изменить
+                </button>
+                <button onClick={() => deleteNews(item.newsID)} className="custom_button_short" id="delete">
+                  Удалить
                 </button>
               </div>
             ))
