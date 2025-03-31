@@ -10,6 +10,7 @@ import "flatpickr/dist/flatpickr.min.css";
 import { Russian } from "flatpickr/dist/l10n/ru.js";
 
 function NewsList() {
+
   const [data, setData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);

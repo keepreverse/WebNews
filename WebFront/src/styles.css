@@ -7,22 +7,83 @@ body {
   margin: 0;
 }
 
+/* Основные стили формы авторизации */
 #auth-form {
-  position: fixed;
-  width: 300px;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: #ffffff;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-  padding: 20px;
-  border-radius: 10px;
-  text-align: center;
-  overflow-y: auto;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
+  max-width: 400px;
+  margin: 2rem auto;
 }
+
+#auth-form .content {
+  background: #fff;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  margin-top: 30px;
+}
+
+/* Стили для полей ввода и лейблов */
+#auth-form label {
+  display: block;
+  margin-bottom: 0;
+  font-weight: 600;
+}
+
+#auth-form .inpt {
+  width: 100%;
+  padding: 0.625rem;
+  margin-bottom: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+/* Стили для контейнера */
+.checkbox-container {
+  display: flex;
+  align-items: center;
+  margin: 1rem 0 1.125rem 0;
+}
+
+/* Скрываем нативный чекбокс */
+.checkbox-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* Кастомный чекбокс */
+.checkbox-label {
+  position: relative;
+  padding-left: 28px; /* Было 24px — увеличиваем отступ */
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Квадратик чекбокса */
+.checkbox-label:before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  border: 1px solid #b5b5b5;
+  border-radius: 3px;
+  background: #fff;
+  transition: all 0.2s;
+}
+
+/* Галочка при выборе */
+.checkbox-input:checked + .checkbox-label:before {
+  content: "✓";
+  color: #333;
+  font-size: 12px;
+  text-align: center;
+  line-height: 16px;
+  background: #f5f5f5;
+}
+
 
 #news-form,
 #data-list-form {
@@ -48,10 +109,8 @@ body {
 }
 
 .container .content label {
-  font-size: 14px;
+  font-size: 15px;
   color: #2d2f30;
-  display: none;
-  margin-bottom: 20px;
 }
 
 .container .content form {
@@ -247,48 +306,6 @@ button.custom_button_short#delete:hover {
 
 .container .content input:focus {
   outline: none;
-}
-
-.container .content .checkbox {
-  margin-top: 4px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  width: 0;
-  height: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  opacity: 0;
-  visibility: hidden;
-}
-
-.container .content .checkbox + label {
-  display: block;
-  text-align: left;
-  margin-left: 0;
-  padding-left: 0;
-}
-
-.container .content .checkbox + label:before {
-  content: "\A";
-  color: rgb(153, 153, 153);
-  font-family: Verdana;
-  font-weight: bold;
-  font-size: 12px;
-  line-height: 14px;
-  text-align: center;
-  display: inline-block;
-  vertical-align: middle;
-  position: relative;
-  border: 1px solid #b5b5b5;
-  width: 14px;
-  height: 14px;
-  margin-right: 8px;
-  padding: 0;
-}
-
-.container .content .checkbox:checked + label:before {
-  content: "✓";
 }
 
 /* Стили для предварительного просмотра */
@@ -601,3 +618,6 @@ button#delete-all {
   margin-bottom: 12px;
 }
 
+button#return {
+  width: 15%;
+}

@@ -159,12 +159,18 @@ def login():
 
     make_db_object()
     try:
-        data = request.json
+        data = request.get_json(silent=True) or {}
         login = data.get("login")
         password = data.get("password")
 
+        if not login or not password:
+            return make_response(jsonify({
+                "STATUS": 400,
+                "DESCRIPTION": "Login and password are required."
+            }), 400)
+
         g.db.cursor.execute('''
-            SELECT userID, user_role
+            SELECT userID, user_role, nick
             FROM Users
             WHERE login = ? AND password = ?
         ''', (login, password))
@@ -174,7 +180,8 @@ def login():
             return make_response(jsonify({
                 "STATUS": 200,
                 "userID": user[0],
-                "userRole": user[1]
+                "userRole": user[1],
+                "nickname": user[2]
             }), 200)
         
         return make_response(jsonify({
@@ -187,3 +194,16 @@ def login():
             "STATUS": 500,
             "DESCRIPTION": f"Server error: {str(e)}"
         }), 500)
+
+@app.route("/api/auth/logout", methods=["POST", "OPTIONS"])
+@cross_origin()
+def logout():
+    """User logout endpoint"""
+    if request.method == "OPTIONS":
+        return make_response(jsonify({}), 200)
+        
+    # Здесь можно добавить очистку сессии, если используете
+    return make_response(jsonify({
+        "STATUS": 200,
+        "DESCRIPTION": "Logged out successfully"
+    }), 200)

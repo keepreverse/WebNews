@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
 import JoditEditor from "jodit-react";
 import PageWrapper from "./PageWrapper";
@@ -11,11 +10,12 @@ import "flatpickr/dist/flatpickr.min.css";
 import { Russian } from "flatpickr/dist/l10n/ru.js";
 import Lightbox from "react-image-lightbox";
 import "react-image-lightbox/style.css";
+import LogoutButton from './LogoutButton';
 
 function NewsCreator() {
   const [nickname, setNickname] = useState("");
   
-  const [date, setDate] = useState("");
+  const [event_start, setDate] = useState("");
 
   const titleRef = useRef("");
 
@@ -25,8 +25,6 @@ function NewsCreator() {
   const [previewMode, setPreviewMode] = useState(false);
 
   const [dragActive, setDragActive] = useState(false);
-
-  const navigate = useNavigate();
 
   // Lightbox State
   const [isOpen, setIsOpen] = useState(false);
@@ -99,9 +97,9 @@ function NewsCreator() {
     altFormat: "F j, Y, H:i",
     dateFormat: "Y-m-d\\TH:i:ss",
     locale: Russian,
-    defaultDate: date, // Добавляем текущую дату из состояния
-    date: date, // Альтернативный вариант
-  }), [date]); // Добавляем date в зависимости
+    defaultDate: event_start, // Добавляем текущую дату из состояния
+    date: event_start, // Альтернативный вариант
+  }), [event_start]); // Добавляем date в зависимости
 
   // Конфигурация Toast
   const configToast = useMemo(() => ({
@@ -283,60 +281,33 @@ function NewsCreator() {
     window.open("/news-list", "_blank");
   };
 
-  const handleLogout = () => {
-    navigate("/");
-  };
 
-
-  // Эффект для загрузки данных при открытии в режиме редактирования
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const newsId = params.get('edit');
-    
-    if (newsId) {
-      setIsEditMode(true);
-      setEditNewsId(newsId);
-      loadNewsData(newsId);
-    }
-  }, []);
-
-
-  const loadNewsData = async (newsId) => {
+  const loadNewsData = useCallback(async (newsId) => {
     try {
-      console.log('Loading news data for ID:', newsId); // Логируем ID новости
+      console.log('Loading news data for ID:', newsId);
       const response = await fetch(`http://127.0.0.1:5000/api/news/${newsId}`);
       
       if (response.ok) {
         const newsData = await response.json();
-        console.log('Received news data:', newsData); // Логируем все полученные данные
         
         setNickname(newsData.publisher_nick || "");
         setTitle(newsData.title || "");
         setDescription(newsData.description || "");
         
-        // Устанавливаем дату в правильном формате для Flatpickr
         if (newsData.event_start) {
           setDate(new Date(newsData.event_start));
         }
         
-        // Загружаем изображения
         if (newsData.files && newsData.files.length > 0) {
           const images = await Promise.all(
             newsData.files.map(async (file) => {
-              try {
-                // Для уже существующих файлов просто создаем объекты
-                return {
-                  id: uuidv4(),
-                  fileName: file.fileName,  // Сохраняем оригинальное имя файла
-                  preview: `http://127.0.0.1:5000/uploads/${file.fileName}`
-                };
-              } catch (error) {
-                console.error("Error loading image:", error);
-                return null;
-              }
+              return {
+                id: uuidv4(),
+                fileName: file.fileName,
+                preview: `http://127.0.0.1:5000/uploads/${file.fileName}`
+              };
             })
           );
-          
           setNewsImages(images.filter(Boolean));
         }
       } else {
@@ -346,13 +317,34 @@ function NewsCreator() {
       console.error("Error loading news data:", error);
       toast.error("Не удалось загрузить данные новости", configToast);
     }
-  };
+  }, [configToast]); // Все зависимости функции
+
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const newsId = params.get('edit');
+    
+    if (newsId) {
+      setIsEditMode(true);
+      setEditNewsId(newsId);
+      loadNewsData(newsId);
+    }
+  }, [loadNewsData]); // Теперь функция в зависимостях
 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const nickname = document.forms.newsForm.nickname.value;
-    const event_start = date;
+
+      // Добавьте подробное логирование
+    console.log('Current state:', {
+      nickname,
+      event_start,
+      title,
+      description,
+      newsImages
+    });
+
 
     if (!nickname.trim()) {
       toast.error("Пожалуйста, введите имя пользователя", configToast);
@@ -376,9 +368,14 @@ function NewsCreator() {
 
     const newsData = new FormData();
     newsData.append("nickname", nickname);
-    newsData.append("event_start", event_start);
+    newsData.append("event_start", new Date(event_start).toISOString());
     newsData.append("title", title);
     newsData.append("description", description);
+
+    // Логируем содержимое FormData
+    for (let [key, value] of newsData.entries()) {
+      console.log(key, value);
+    }
 
     newsImages.forEach((image) => {
       newsData.append("files[]", image.file);
@@ -434,11 +431,11 @@ function NewsCreator() {
         placeholder="Выберите дату события"
         options={configFlatpickr}
         onChange={handleDateChange}
-        value={date} // Передаем текущее значение даты
-        key={date ? date.toString() : 'empty'} // Принудительное обновление при изменении даты
+        value={event_start} // Передаем текущее значение даты
+        key={event_start ? event_start.toString() : 'empty'} // Принудительное обновление при изменении даты
       />
     );
-  }, [configFlatpickr, date]); // Добавляем date в зависимости
+  }, [configFlatpickr, event_start]); // Добавляем event_start в зависимости
 
   const MemoizedToastContainer = useMemo(() => <ToastContainer options={configToast}/>, [configToast]);
 
@@ -473,7 +470,6 @@ function NewsCreator() {
 
             {MemoizedJoditEditor}
 
-            <label htmlFor="news-image">Изображение:</label>
             <div 
               id="drop-zone" 
               className={`drop-zone ${dragActive ? 'drag-active' : ''}`}
@@ -578,9 +574,8 @@ function NewsCreator() {
             Список публикаций
           </button>
 
-          <button className="custom_button" id="logout" onClick={handleLogout}>
-            Сменить пользователя
-          </button>
+          <LogoutButton />
+
         </div>
       </div>
       {MemoizedToastContainer}
