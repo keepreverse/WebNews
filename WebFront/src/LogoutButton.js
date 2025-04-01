@@ -9,7 +9,10 @@ function LogoutButton() {
     try {
       await fetch('http://127.0.0.1:5000/api/auth/logout', {
         method: 'POST',
-        credentials: 'include'
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
       
       localStorage.removeItem('user');

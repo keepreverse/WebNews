@@ -223,7 +223,7 @@ class Storage(object):
             'files': files
         }, news_data[0]]
 
-    def news_update(self, news_id, user_id, news_data, files_received, files, upload_folder):
+    def news_update(self, news_id, user_id, news_data, files_received, files, upload_folder, existing_files=None):
         """Update existing news item"""
         self.cursor.execute('BEGIN TRANSACTION;')
         
@@ -241,34 +241,54 @@ class Storage(object):
                 news_id
             ))
 
-            # Remove old files
-            self.cursor.execute('''
-                DELETE FROM Files
-                WHERE fileID IN (
-                    SELECT fileID FROM File_Link WHERE newsID = ?
-                )
-            ''', (news_id,))
-            
+            # Удаляем только те файлы, которые не в списке existing_files
+            if existing_files:
+                placeholders = ','.join(['?'] * len(existing_files))
+                self.cursor.execute(f'''
+                    DELETE FROM Files
+                    WHERE fileID IN (
+                        SELECT fl.fileID FROM File_Link fl
+                        WHERE fl.newsID = ? AND fl.fileID NOT IN (
+                            SELECT f.fileID FROM Files f
+                            WHERE f.guid IN ({placeholders})
+                        )
+                    )
+                ''', [news_id] + existing_files)
+            else:
+                # Если нет existing_files, удаляем все
+                self.cursor.execute('''
+                    DELETE FROM Files
+                    WHERE fileID IN (
+                        SELECT fileID FROM File_Link WHERE newsID = ?
+                    )
+                ''', (news_id,))
+                
             self.cursor.execute('DELETE FROM File_Link WHERE newsID = ?', (news_id,))
 
-            # Add new files
+            # Добавляем новые файлы
             if files_received:
                 for file in files:
-                    if not file.filename:
-                        continue
+                    if file.filename:
+                        file_guid = str(uuid.uuid4().hex)
+                        file.save(os.path.join(upload_folder, file_guid))
                         
-                    file_guid = str(uuid.uuid4().hex)
-                    file.save(os.path.join(upload_folder, file_guid))
-                    
-                    self.cursor.execute('''
-                        INSERT INTO Files (guid, format)
-                        VALUES (?, ?)
-                    ''', (file_guid, file.mimetype.split('/')[1]))
-                    
+                        self.cursor.execute('''
+                            INSERT INTO Files (guid, format)
+                            VALUES (?, ?)
+                        ''', (file_guid, file.mimetype.split('/')[1]))
+                        
+                        self.cursor.execute('''
+                            INSERT INTO File_Link (fileID, newsID)
+                            VALUES (last_insert_rowid(), ?)
+                        ''', (news_id,))
+
+            # Восстанавливаем привязки к существующим файлам
+            if existing_files:
+                for file_guid in existing_files:
                     self.cursor.execute('''
                         INSERT INTO File_Link (fileID, newsID)
-                        VALUES (last_insert_rowid(), ?)
-                    ''', (news_id,))
+                        SELECT fileID, ? FROM Files WHERE guid = ?
+                    ''', (news_id, file_guid))
 
             self.connection.commit()
         except Exception as e:

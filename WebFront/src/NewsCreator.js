@@ -335,66 +335,90 @@ function NewsCreator() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const nickname = document.forms.newsForm.nickname.value;
-
-      // Добавьте подробное логирование
+  
+    // Подробное логирование состояния
     console.log('Current state:', {
       nickname,
       event_start,
       title,
       description,
-      newsImages
+      newsImages: newsImages.map(img => ({
+        id: img.id,
+        hasFile: !!img.file,
+        fileName: img.file?.name || img.fileName
+      }))
     });
-
-
+  
+    // Валидация полей
     if (!nickname.trim()) {
       toast.error("Пожалуйста, введите имя пользователя", configToast);
       return;
     }
-
+  
     if (!event_start || event_start.length === 0) {
       toast.error("Пожалуйста, укажите дату события", configToast);
       return;
     }
-
+  
     if (!title.trim()) {
       toast.error("Пожалуйста, введите заголовок новости", configToast);
       return;
     }
-
+  
     if (!description.trim()) {
       toast.error("Пожалуйста, введите текст новости", configToast);
       return;
     }
-
+  
+    // Подготовка FormData
     const newsData = new FormData();
     newsData.append("nickname", nickname);
     newsData.append("event_start", new Date(event_start).toISOString());
     newsData.append("title", title);
     newsData.append("description", description);
-
-    // Логируем содержимое FormData
-    for (let [key, value] of newsData.entries()) {
-      console.log(key, value);
-    }
-
+  
+    // Добавляем ВСЕ файлы (и новые, и существующие)
     newsImages.forEach((image) => {
-      newsData.append("files[]", image.file);
+      if (image.file) {
+        // Новые файлы
+        newsData.append("files", image.file);
+      } else if (image.fileName) {
+        // Существующие файлы (передаем как строку)
+        newsData.append("existing_files", image.fileName);
+      }
     });
 
+    // Добавляем флаг редактирования
+    if (isEditMode) {
+      newsData.append("is_edit", "true");
+    }
+
+    // Логирование FormData
+    console.log('FormData contents:');
+    for (let [key, value] of newsData.entries()) {
+      console.log(key, value instanceof File ? `${value.name} (File)` : value);
+    }
+
     try {
-      const url = isEditMode 
-        ? `http://127.0.0.1:5000/api/news/${editNewsId}`
-        : "http://127.0.0.1:5000/api/news";
-        
-      const method = isEditMode ? "PUT" : "POST";
-      
-      const response = await fetch(url, {
-        method,
-        body: newsData,
-      });
-  
-      if (!response.ok) throw new Error("Failed to save news");
-  
+      const response = await fetch(
+        isEditMode 
+          ? `http://127.0.0.1:5000/api/news/${editNewsId}`
+          : "http://127.0.0.1:5000/api/news",
+        {
+          method: isEditMode ? "PUT" : "POST",
+          body: newsData,
+          // headers: { 'Accept': 'application/json' } // Не нужно для FormData
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "Failed to save news");
+      }
+
+      const result = await response.json();
+      console.log("Server response:", result);
+
       toast.success(
         isEditMode 
           ? "Новость успешно обновлена!" 
@@ -403,9 +427,9 @@ function NewsCreator() {
       );
       
     } catch (error) {
-      console.error("Error saving news:", error.message);
+      console.error("Full error:", error);
       toast.error(
-        "Ошибка при сохранении новости. Пожалуйста, повторите попытку.",
+        error.message || "Ошибка при сохранении новости",
         configToast
       );
     }

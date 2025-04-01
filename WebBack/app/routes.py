@@ -9,7 +9,8 @@ CORS(app, resources={
     r"/api/*": {
         "origins": "http://localhost:3000",
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "allow_headers": ["Content-Type"]
+        "allow_headers": ["Content-Type"],
+        "supports_credentials": True
     }
 })
 
@@ -84,6 +85,7 @@ def news_line():
 def single_news(newsID):
     """Handler for single news operations"""
     make_db_object()
+    print(f"PUT request for newsID: {newsID}")
 
     if request.method == "GET":
         news_data = g.db.news_get_single(newsID)
@@ -96,34 +98,52 @@ def single_news(newsID):
 
     elif request.method == "PUT":
         try:
-            if all(key in ("nickname", "title", "description", "event_start") 
-                 for key in request.form.keys()):
-                
-                primary_news_data = request.form
-                user_id = g.db.user_auth(primary_news_data.get("nickname"))
-                
-                files_received = len(request.files) > 0 and request.files.get('files[]').filename != ''
-                
-                g.db.news_update(
-                    newsID,
-                    user_id,
-                    primary_news_data,
-                    files_received,
-                    request.files.getlist('files[]'),
-                    app.config['UPLOAD_FOLDER']
-                )
-                
+            # Логируем полученные данные
+            print("Form data:", request.form)
+            print("Files received:", request.files)
+            
+            # Проверяем обязательные поля
+            required_fields = ["nickname", "title", "description", "event_start"]
+            if not all(field in request.form for field in required_fields):
                 return make_response(jsonify({
-                    "STATUS": 200,
-                    "DESCRIPTION": "News updated successfully!"
-                }), 200)
+                    "STATUS": 400,
+                    "DESCRIPTION": "Missing required fields"
+                }), 400)
+                
+            primary_news_data = request.form
+            user_id = g.db.user_auth(primary_news_data.get("nickname"))
+            
+            # Обрабатываем файлы
+            files_received = False
+            files_list = []
+            
+            # Новые файлы
+            if 'files' in request.files:
+                files = request.files.getlist('files')
+                files_received = any(f.filename for f in files)
+                files_list = [f for f in files if f.filename]
+            
+            # Существующие файлы
+            existing_files = request.form.getlist('existing_files')
+            print(f"Existing files to keep: {existing_files}")
+            
+            g.db.news_update(
+                newsID,
+                user_id,
+                primary_news_data,
+                files_received,
+                files_list,
+                app.config['UPLOAD_FOLDER'],
+                existing_files  # Передаем список существующих файлов
+            )
             
             return make_response(jsonify({
-                "STATUS": 400,
-                "DESCRIPTION": "Missing required fields."
-            }), 400)
+                "STATUS": 200,
+                "DESCRIPTION": "News updated successfully!"
+            }), 200)
             
         except Exception as e:
+            print(f"Error updating news {newsID}:", str(e))
             return make_response(jsonify({
                 "STATUS": 500,
                 "DESCRIPTION": f"Error updating news: {str(e)}"
@@ -196,14 +216,22 @@ def login():
         }), 500)
 
 @app.route("/api/auth/logout", methods=["POST", "OPTIONS"])
-@cross_origin()
+@cross_origin(supports_credentials=True)  # Добавьте этот параметр
 def logout():
     """User logout endpoint"""
     if request.method == "OPTIONS":
-        return make_response(jsonify({}), 200)
+        response = make_response(jsonify({}), 200)
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        return response
         
-    # Здесь можно добавить очистку сессии, если используете
-    return make_response(jsonify({
+    response = make_response(jsonify({
         "STATUS": 200,
         "DESCRIPTION": "Logged out successfully"
     }), 200)
+    
+    # Установите необходимые заголовки
+    response.headers['Access-Control-Allow-Credentials'] = 'true'
+    response.headers['Access-Control-Allow-Origin'] = 'http://localhost:3000'
+    
+    # Здесь можно добавить очистку cookies/session
+    return response

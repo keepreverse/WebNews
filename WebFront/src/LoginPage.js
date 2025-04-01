@@ -96,7 +96,7 @@ function LoginPage() {
                 onChange={(e) => setRememberMe(e.target.checked)}
               />
               <label htmlFor="remember" className="checkbox-label">
-                Запомнить меня
+                Оставаться в системе
               </label>
             </div>
             <button 
