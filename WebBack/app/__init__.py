@@ -1,37 +1,41 @@
 from flask import Flask, g
+from flask_cors import CORS
 from database.db import Storage
-
 import os
 
 app = Flask(__name__)
 
-img_dir_name = 'img'
-work_path = os.getcwd()
-img_dir_path = os.path.join(work_path, img_dir_name)
+# Настройка CORS
+CORS(app, resources={
+    r"/api/*": {
+        "origins": "http://localhost:3000",
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"],
+        "supports_credentials": True,
+        "max_age": 86400
+    }
+})
 
-if not os.path.exists(img_dir_path):
-    os.makedirs(img_dir_path)
-
+# Конфигурация
+img_dir = os.path.join(os.getcwd(), 'img')
+if not os.path.exists(img_dir):
+    os.makedirs(img_dir)
+app.config['UPLOAD_FOLDER'] = img_dir
 app.config.from_object('config')
 
-
+# Инициализация БД
 def make_db_object():
-    """Function for creating connection with database and making global `db` object."""
-
     if 'db' not in g:
-        db = Storage()
-        db.open_connection()
-        g.db = db
-
+        g.db = Storage()
+        g.db.open_connection()
 
 @app.teardown_appcontext
-def leave_db_object(exception):
-    """Function for closing connection with database and deleting global `db` object."""
-
+def close_db(exception=None):
     db = g.pop('db', None)
-
     if db is not None:
-        db.close_connection()
-
+        try:
+            db.close_connection()
+        except:
+            pass
 
 from app import routes

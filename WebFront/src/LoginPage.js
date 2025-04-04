@@ -8,65 +8,79 @@ import './styles.css';
 function LoginPage() {
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
+  const [nickname, setNickname] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoginMode, setIsLoginMode] = useState(true);
 
   const navigate = useNavigate();
-
-  const handleSubmit = async (e) => {
+  const handleAuth = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
-
     try {
-      const response = await fetch('http://127.0.0.1:5000/api/auth/login', {
+      const endpoint = isLoginMode ? 'login' : 'register';
+      const body = {
+        login: login.trim(),
+        password: password.trim(),
+        ...(!isLoginMode && { nickname: nickname.trim() })
+      };
+  
+      const response = await fetch(`http://127.0.0.1:5000/api/auth/${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          login: login,
-          password: password
-        }),
-        credentials: 'include' // Для работы с куками, если будете использовать
+        credentials: 'include',
+        body: JSON.stringify(body)
       });
-
+  
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.DESCRIPTION || 'Ошибка сервера');
+      }
+  
       const data = await response.json();
-
-      if (response.ok) {
-        // Сохраняем данные пользователя
-        localStorage.setItem('user', JSON.stringify({
+      // В handleAuth после успешного входа
+      if (isLoginMode) {
+        const userData = {
           id: data.userID,
+          login: login.trim(),
           role: data.userRole,
-          login: login
-        }));
-
-        // Если выбрано "Запомнить меня"
-        if (rememberMe) {
-          localStorage.setItem('rememberMe', 'true');
-        } else {
-          localStorage.removeItem('rememberMe');
-        }
-
-        toast.success('Авторизация успешна!');
+          nickname: data.nickname
+        };
+        
+        // Сохраняем в куки и localStorage
+        document.cookie = `user=${JSON.stringify(userData)}; path=/; max-age=${rememberMe ? 86400 : 3600}`;
+        localStorage.setItem('user', JSON.stringify(userData));
+        
         navigate('/news-creator');
       } else {
-        toast.error(data.DESCRIPTION || 'Ошибка авторизации');
+        toast.success('Регистрация прошла успешна! Теперь можно войти в учетную запись');
+        setIsLoginMode(true);
       }
     } catch (error) {
-      toast.error('Ошибка соединения с сервером');
-      console.error('Login error:', error);
-    } finally {
-      setIsLoading(false);
+      console.error('Auth error:', error);
+      toast.error(error.message || 'Ошибка соединения');
     }
   };
 
   return (
     <PageWrapper>
-      <title>Авторизация</title>
+      <title>{isLoginMode ? 'Авторизация' : 'Регистрация'}</title>
       <div id="auth-form" className="container">
-        <h1>Авторизация</h1>
+        <h1>{isLoginMode ? 'Авторизация' : 'Регистрация'}</h1>
         <div className="content">
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleAuth}>
+            {!isLoginMode && (
+              <input
+                type="text"
+                id="nickname"
+                name="nickname"
+                className="inpt"
+                placeholder="Введите никнейм"
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                required
+              />
+            )}
             <input
               type="text"
               id="login"
@@ -87,27 +101,34 @@ function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
-            <div className="checkbox-container">
-              <input
-                type="checkbox"
-                id="remember"
-                className="checkbox-input"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-              />
-              <label htmlFor="remember" className="checkbox-label">
-                Оставаться в системе
-              </label>
-            </div>
+            {isLoginMode && (
+              <div className="checkbox-container">
+                <input
+                  type="checkbox"
+                  id="remember"
+                  className="checkbox-input"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                />
+                <label htmlFor="remember" className="checkbox-label">
+                  Оставаться в системе
+                </label>
+              </div>
+            )}
             <button 
               type="submit" 
               className="custom_button" 
-              id="login"
-              disabled={isLoading}
+              id="auth"
             >
-              {isLoading ? 'Загрузка...' : 'Войти'}
+              {isLoginMode ? 'Войти' : 'Зарегистрироваться'}
             </button>
           </form>
+          <button 
+            className="toggle-mode-btn"
+            onClick={() => setIsLoginMode(!isLoginMode)}
+          >
+            {isLoginMode ? 'Нет аккаунта? Зарегистрироваться' : 'Уже есть аккаунт? Войти'}
+          </button>
           <ToastContainer position="top-right" autoClose={3000} />
         </div>
       </div>

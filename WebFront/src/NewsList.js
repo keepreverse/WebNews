@@ -11,6 +11,8 @@ import { Russian } from "flatpickr/dist/l10n/ru.js";
 
 function NewsList() {
 
+  const [currentUser, setCurrentUser] = useState(null);
+
   const [data, setData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -34,6 +36,12 @@ function NewsList() {
     dateFormat: "Y-m-d",
     locale: Russian,
   }), []);
+
+  useEffect(() => {
+    const userData = JSON.parse(localStorage.getItem('user'));
+    setCurrentUser(userData);
+  }, []);
+  
   
   useEffect(() => {
     const fetchData = async () => {
@@ -228,12 +236,12 @@ function NewsList() {
           </button>
         </div>
 
-        {filteredData.length > 0 && (
+        {/* Кнопка "Удалить все" — только для администраторов */}
+        {currentUser?.role === 'Moderator' && filteredData.length > 0 && (
           <button onClick={deleteAllNews} className="custom_button_mid" id="delete-all">
             Удалить все
           </button>
         )}
-
         {totalPages > 1 && (
           <Pagination totalPages={totalPages} currentPage={currentPage} paginate={setCurrentPage} />
         )}
@@ -290,16 +298,31 @@ function NewsList() {
                     ))}
                   </div>
                 )}
-                <button 
-                  onClick={() => handleEditNews(item)} 
-                  className="custom_button_short" 
-                  id="edit"
-                >
-                  Изменить
-                </button>
-                <button onClick={() => deleteNews(item.newsID)} className="custom_button_short" id="delete">
-                  Удалить
-                </button>
+
+                {/* Весь блок действий будет скрыт для Publisher */}
+                {(currentUser?.role === 'Administrator' || currentUser?.role === 'Moderator') && (
+                  <div className="list-actions">
+                    {/* Кнопка "Изменить" — для администраторов и модераторов */}
+                    <button 
+                      onClick={() => handleEditNews(item)} 
+                      className="custom_button_short" 
+                      id="edit"
+                    >
+                      Изменить
+                    </button>
+
+                    {/* Кнопка "Удалить" — только для администраторов */}
+                    {currentUser?.role === 'Administrator' && (
+                      <button 
+                        onClick={() => deleteNews(item.newsID)} 
+                        className="custom_button_short" 
+                        id="delete"
+                      >
+                        Удалить
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             ))
           )}

@@ -108,7 +108,7 @@ body {
 }
 
 .container .content label {
-  font-size: 16px;
+  font-size: 15px;
 }
 
 .container .content form {
@@ -183,6 +183,7 @@ body {
 .thumbnail-container {
   display: flex;
   flex-wrap: wrap;
+  flex-direction: column;
   gap: 20px;
   justify-content: center;
   max-width: 98%; /* Уменьшаем на 2% */
@@ -195,29 +196,33 @@ body {
   position: relative;
   flex-grow: 1;
   flex-shrink: 1;
-  flex-basis: calc(30% - 30px); /* Оставляем место для gap */
+  flex-basis: calc(30% - 30px);
+  flex-wrap: wrap;
+  flex-direction: column;
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  max-width: 100%; /* Убираем ограничение в 60%, чтобы миниатюра занимала всю ширину своего контейнера */
-  overflow: hidden; /* Скрываем всё, что выходит за границы */
-  flex-wrap: wrap;
-  flex-direction: column;
+  max-width: 100%;
+  overflow: hidden;
   transition: transform 0.3s ease, opacity 0.3s ease;
+  border-radius: 10px; /* Добавлено скругление контейнера */
+}
+
+/* Дополнить стилями для изображения */
+.thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+  will-change: transform; /* Оптимизация анимации */
+  border-radius: 10px; /* Добавлено скругление контейнера */
+
 }
 
 .thumbnail img:hover {
+  
+  transform: scale(1.02);
   cursor: pointer;
-  transform: scale(1.02); /* Увеличиваем миниатюру на 2% */
-}
-
-/* Изображение внутри миниатюры */
-.thumbnail img {
-  width: 100%; /* Занимает всю ширину контейнера */
-  height: auto; /* Автоматическая высота */
-  max-width: 100%; /* Ограничиваем ширину изображения */
-  object-fit: cover; /* Сохраняем пропорции и обрезаем изображение, если нужно */
-  transition: transform 0.3s ease; /* Плавное увеличение */
 }
 
 .delete-button {
@@ -269,7 +274,7 @@ button.custom_button:hover {
   color: #ffffff;
 }
 
-button.custom_button#login:hover {
+button.custom_button#auth:hover {
   background-color: #2d2f30;
   color: #ffffff;
 }
@@ -417,7 +422,7 @@ button.custom_button_short#delete:hover {
 
 .data-item {
   background-color: #fff;
-  padding: 0 20px;
+  padding: 0 20px 20px;
   border-radius: 10px;
   box-shadow: 
     0 2px 4px rgba(0, 0, 0, 0.1), /* Тень снизу и по бокам */
@@ -430,6 +435,7 @@ button.custom_button_short#delete:hover {
   box-shadow: 
     0 8px 16px rgba(0, 0, 0, 0.1), /* Усиленная тень снизу и по бокам */
     0 -4px 8px rgba(0, 0, 0, 0.05); /* Слегка усиленная тень сверху */
+    
 }
 
 /* Заголовок новости */
@@ -455,14 +461,7 @@ button.custom_button_short#delete:hover {
   font-size: 1.2rem;
   color: #555;
   margin-bottom: 15px;
-  text-align: justify;
-}
-
-/* Изображение новости */
-.data-image {
-  width: 100%;
-  height: auto;
-  border-radius: 10px;
+  text-align: left;
 }
 
 /* Стиль для уведомлений (toast) */
@@ -476,12 +475,6 @@ button.custom_button_short#delete:hover {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 10px;
-}
-
-.data-image {
-  width: 100%;
-  height: auto;
-  border-radius: 8px;
 }
 
 /* Стили для пагинации */
@@ -547,7 +540,8 @@ button.pagination_button.active {
 }
 
 /* Стили для контейнера фильтров */
-.filters-container {
+.filters-container,
+.user-info {
   display: flex;
   flex-wrap: nowrap; /* Запрещаем перенос на новую строку */
   gap: 15px;
@@ -565,13 +559,23 @@ button.pagination_button.active {
   margin: 0;
 }
 
-.filter-group label {
+.filter-group label,
+.user-info p {
   font-size: 12px;
   color: #555;
   margin-bottom: 5px;
   text-transform: uppercase;
   letter-spacing: 1px;
   text-align: left;
+}
+
+.user-info p {
+  font-size: 15px;
+}
+
+.user-info {
+  margin-bottom: 10px;
+  gap: 80px;
 }
 
 /* Общие стили для select и flatpickr */
@@ -611,11 +615,31 @@ input:hover,
   border-color: #888 !important; /* или любой другой темный цвет */
 }
 
+.list-actions {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+}
 
 button#delete-all {
   margin-bottom: 12px;
 }
 
+
 button#return {
   width: 15%;
 }
+
+.toggle-mode-btn {
+  background: none;
+  border: none;
+  color: #0066cc;
+  cursor: pointer;
+  margin-top: 15px;
+  font-size: 14px;
+}
+
+.toggle-mode-btn:hover {
+  text-decoration: underline;
+}
+

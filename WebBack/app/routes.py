@@ -1,18 +1,10 @@
-from app import app
 import os
-from flask import jsonify, request, make_response, g, send_from_directory
-from flask_cors import cross_origin, CORS
+import sqlite3
+from app import app
 from . import make_db_object
+from flask import jsonify, request, make_response, g, send_from_directory
+from werkzeug.security import generate_password_hash, check_password_hash
 
-# Настройки CORS с разрешением всех необходимых методов
-CORS(app, resources={
-    r"/api/*": {
-        "origins": "http://localhost:3000",
-        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "allow_headers": ["Content-Type"],
-        "supports_credentials": True
-    }
-})
 
 # Путь до папки с изображениями
 UPLOAD_FOLDER = os.path.join(os.path.abspath(os.path.dirname(__file__)), '../img')
@@ -22,33 +14,55 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 def upload_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
-@app.route("/api/news", methods=["GET", "POST", "DELETE"])
-@cross_origin()
+@app.route("/api/news", methods=["GET", "POST", "DELETE", "OPTIONS"])
 def news_line():
     """Handler for news list operations"""
+    if request.method == "OPTIONS":
+        return make_response(jsonify({}), 200)
+    
     make_db_object()
 
     if request.method == "GET":
-        requested_news_data = g.db.news_getlist()
-        if requested_news_data:
-            return make_response(jsonify(requested_news_data), 200)
-        return make_response(jsonify({
-            "STATUS": 404,
-            "DESCRIPTION": "No news found."
-        }), 404)
+        try:
+            news_list = g.db.news_getlist()
+            return make_response(jsonify(news_list), 200)
+        except Exception as e:
+            return make_response(jsonify({
+                "STATUS": 500,
+                "DESCRIPTION": f"Error fetching news: {str(e)}"
+            }), 500)
 
     elif request.method == "POST":
-        if all(key in ("nickname", "title", "description", "event_start") for key in request.form.keys()):
-            primary_news_data = request.form
-            user_id = g.db.user_auth(primary_news_data.get("nickname"))
+        try:
+            # Проверяем обязательные поля
+            required_fields = ["nickname", "title", "description", "event_start"]
+            if not all(field in request.form for field in required_fields):
+                return make_response(jsonify({
+                    "STATUS": 400,
+                    "DESCRIPTION": "Missing required fields."
+                }), 400)
 
-            files_received = len(request.files) > 0 and request.files.get('files[]').filename != ''
+            primary_news_data = request.form
+            nickname = primary_news_data.get("nickname")
+            
+            # Получаем пользователя по nickname
+            user = g.db.user_get_by_nick(nickname)
+            
+            if not user:
+                return make_response(jsonify({
+                    "STATUS": 401,
+                    "DESCRIPTION": "Invalid user credentials."
+                }), 401)
+
+            # Обработка файлов
+            files_received = 'files' in request.files
+            files_list = request.files.getlist('files') if files_received else []
 
             g.db.news_add(
-                user_id,
+                user[0],  # userID
                 primary_news_data,
                 files_received,
-                request.files.getlist('files[]'),
+                files_list,
                 app.config['UPLOAD_FOLDER']
             )
 
@@ -57,35 +71,36 @@ def news_line():
                 "DESCRIPTION": "News successfully added to database!"
             }), 200)
 
-        return make_response(jsonify({
-            "STATUS": 400,
-            "DESCRIPTION": "Missing required fields."
-        }), 400)
-
+        except Exception as e:
+            return make_response(jsonify({
+                "STATUS": 500,
+                "DESCRIPTION": f"Server error: {str(e)}"
+            }), 500)
     elif request.method == "DELETE":
         try:
+            # Проверка прав (добавьте свою логику проверки прав)
+            # if not is_admin(request):
+            #     return make_response(jsonify({"error": "Forbidden"}), 403
+            
             g.db.news_clear()
             return make_response(jsonify({
                 "STATUS": 200,
-                "DESCRIPTION": "All news deleted successfully"
+                "DESCRIPTION": "All news deleted successfully!"
             }), 200)
         except Exception as e:
             return make_response(jsonify({
                 "STATUS": 500,
-                "DESCRIPTION": f"Failed to delete all news: {str(e)}"
+                "DESCRIPTION": f"Error deleting news: {str(e)}"
             }), 500)
 
-    return make_response(jsonify({
-        "STATUS": 405,
-        "DESCRIPTION": "Method not allowed"
-    }), 405)
-
 @app.route("/api/news/<int:newsID>", methods=["GET", "PUT", "DELETE", "OPTIONS"])
-@cross_origin()
+
 def single_news(newsID):
     """Handler for single news operations"""
+    if request.method == "OPTIONS":
+        return make_response(jsonify({}), 200)
+    
     make_db_object()
-    print(f"PUT request for newsID: {newsID}")
 
     if request.method == "GET":
         news_data = g.db.news_get_single(newsID)
@@ -98,10 +113,6 @@ def single_news(newsID):
 
     elif request.method == "PUT":
         try:
-            # Логируем полученные данные
-            print("Form data:", request.form)
-            print("Files received:", request.files)
-            
             # Проверяем обязательные поля
             required_fields = ["nickname", "title", "description", "event_start"]
             if not all(field in request.form for field in required_fields):
@@ -111,30 +122,30 @@ def single_news(newsID):
                 }), 400)
                 
             primary_news_data = request.form
-            user_id = g.db.user_auth(primary_news_data.get("nickname"))
             
-            # Обрабатываем файлы
-            files_received = False
-            files_list = []
+            # Получаем пользователя
+            user = g.db.user_get_by_login(primary_news_data.get("nickname"))
+            if not user:
+                return make_response(jsonify({
+                    "STATUS": 401,
+                    "DESCRIPTION": "Invalid user credentials."
+                }), 401)
             
-            # Новые файлы
-            if 'files' in request.files:
-                files = request.files.getlist('files')
-                files_received = any(f.filename for f in files)
-                files_list = [f for f in files if f.filename]
+            # Обработка файлов
+            files_received = 'files' in request.files
+            files_list = request.files.getlist('files') if files_received else []
             
             # Существующие файлы
             existing_files = request.form.getlist('existing_files')
-            print(f"Existing files to keep: {existing_files}")
             
             g.db.news_update(
                 newsID,
-                user_id,
+                user[0],  # userID
                 primary_news_data,
                 files_received,
                 files_list,
                 app.config['UPLOAD_FOLDER'],
-                existing_files  # Передаем список существующих файлов
+                existing_files
             )
             
             return make_response(jsonify({
@@ -143,7 +154,6 @@ def single_news(newsID):
             }), 200)
             
         except Exception as e:
-            print(f"Error updating news {newsID}:", str(e))
             return make_response(jsonify({
                 "STATUS": 500,
                 "DESCRIPTION": f"Error updating news: {str(e)}"
@@ -162,16 +172,13 @@ def single_news(newsID):
                 "DESCRIPTION": f"Error deleting news: {str(e)}"
             }), 500)
 
-    elif request.method == "OPTIONS":
-        return make_response(jsonify({}), 200)
-
     return make_response(jsonify({
         "STATUS": 405,
         "DESCRIPTION": "Method not allowed"
     }), 405)
 
 @app.route("/api/auth/login", methods=["POST", "OPTIONS"])
-@cross_origin()
+
 def login():
     """User authentication endpoint"""
     if request.method == "OPTIONS":
@@ -189,49 +196,135 @@ def login():
                 "DESCRIPTION": "Login and password are required."
             }), 400)
 
-        g.db.cursor.execute('''
-            SELECT userID, user_role, nick
-            FROM Users
-            WHERE login = ? AND password = ?
-        ''', (login, password))
-
-        user = g.db.cursor.fetchone()
-        if user:
+        user = g.db.user_get_by_login(login)
+        if not user or not check_password_hash(user[1], password):
             return make_response(jsonify({
-                "STATUS": 200,
-                "userID": user[0],
-                "userRole": user[1],
-                "nickname": user[2]
-            }), 200)
-        
+                "STATUS": 401,
+                "DESCRIPTION": "Invalid login or password."
+            }), 401)
+
         return make_response(jsonify({
-            "STATUS": 401,
-            "DESCRIPTION": "Invalid login or password."
-        }), 401)
+            "STATUS": 200,
+            "userID": user[0],
+            "userRole": user[2],
+            "nickname": user[3]
+        }), 200)
 
     except Exception as e:
         return make_response(jsonify({
             "STATUS": 500,
             "DESCRIPTION": f"Server error: {str(e)}"
         }), 500)
+    
+@app.route("/api/auth/register", methods=["POST", "OPTIONS"])
+def register():
+    if request.method == "OPTIONS":
+        return make_response(jsonify({}), 200)
 
+    try:
+        data = request.get_json()
+        if not data:
+            return make_response(jsonify({
+                "STATUS": 400,
+                "DESCRIPTION": "Invalid request data"
+            }), 400)
+
+        login = data.get("login", "").strip()
+        password = data.get("password", "").strip()
+        nickname = data.get("nickname", "").strip()
+
+        if not all([login, password, nickname]):
+            return make_response(jsonify({
+                "STATUS": 400,
+                "DESCRIPTION": "All fields are required"
+            }), 400)
+
+        # Открываем соединение с повторными попытками
+        make_db_object()
+
+        # Проверяем существование пользователя
+        g.db.cursor.execute("BEGIN IMMEDIATE")
+        try:
+            g.db.cursor.execute(
+                "SELECT 1 FROM Users WHERE login = ? OR nick = ?",
+                (login, nickname)
+            )
+            if g.db.cursor.fetchone():
+                g.db.connection.rollback()
+                return make_response(jsonify({
+                    "STATUS": 409,
+                    "DESCRIPTION": "User already exists"
+                }), 409)
+
+            # Создаем пользователя
+            hashed_pw = generate_password_hash(password)
+            g.db.cursor.execute(
+                "INSERT INTO Users (login, password, nick, user_role) VALUES (?, ?, ?, ?)",
+                (login, hashed_pw, nickname, "Publisher")
+            )
+            g.db.connection.commit()
+
+            return make_response(jsonify({
+                "STATUS": 201,
+                "DESCRIPTION": "Registration successful",
+                "userID": g.db.cursor.lastrowid
+            }), 201)
+
+        except sqlite3.OperationalError:
+            g.db.connection.rollback()
+            return make_response(jsonify({
+                "STATUS": 503,
+                "DESCRIPTION": "Database busy, please try again"
+            }), 503)
+        except Exception as e:
+            g.db.connection.rollback()
+            raise
+
+    except Exception as e:
+        return make_response(jsonify({
+            "STATUS": 500,
+            "DESCRIPTION": "Internal server error"
+        }), 500)
+    
 @app.route("/api/auth/logout", methods=["POST", "OPTIONS"])
-@cross_origin(supports_credentials=True)  # Добавьте этот параметр
 def logout():
     """User logout endpoint"""
     if request.method == "OPTIONS":
-        response = make_response(jsonify({}), 200)
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-        return response
+        return make_response(jsonify({}), 200)
         
     response = make_response(jsonify({
         "STATUS": 200,
         "DESCRIPTION": "Logged out successfully"
     }), 200)
     
-    # Установите необходимые заголовки
-    response.headers['Access-Control-Allow-Credentials'] = 'true'
-    response.headers['Access-Control-Allow-Origin'] = 'http://localhost:3000'
+    # Очищаем куки, если они используются
+    response.set_cookie('session', '', expires=0)
     
-    # Здесь можно добавить очистку cookies/session
     return response
+
+def check_admin():
+    """Проверка прав администратора"""
+    # Здесь должна быть ваша логика проверки прав
+    # Например, проверка сессии или JWT-токена
+    return True  # Заглушка - замените на реальную проверку
+
+@app.route("/api/admin/users", methods=["GET", "OPTIONS"])
+def admin_users():
+    """Admin endpoint to get all users with password hashes"""
+    if request.method == "OPTIONS":
+        return make_response(jsonify({}), 200)
+    
+    # Проверка прав администратора (реализуйте свою логику)
+    # if not is_admin(request):
+    #     return make_response(jsonify({"error": "Forbidden"}), 403)
+    
+    make_db_object()
+    
+    try:
+        users = g.db.user_get_all_with_passwords()
+        return make_response(jsonify(users), 200)
+    except Exception as e:
+        return make_response(jsonify({
+            "STATUS": 500,
+            "DESCRIPTION": f"Error fetching users: {str(e)}"
+        }), 500)

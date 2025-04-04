@@ -65,6 +65,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import LoginPage from './LoginPage';
 import NewsCreator from './NewsCreator';
 import NewsList from './NewsList';
+import AdminPanel from './AdminPanel';
 import './styles.css';
 
 const root = createRoot(document.getElementById('root'));
@@ -76,6 +77,7 @@ root.render(
       <Route path="/login" element={<LoginPage />} />
       <Route path="/news-creator" element={<NewsCreator />} />
       <Route path="/news-list" element={<NewsList />} />
+      <Route path="/admin-panel" element={<AdminPanel />} />
     </Routes>
   </Router>
 );

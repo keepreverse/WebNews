@@ -13,6 +13,9 @@ import "react-image-lightbox/style.css";
 import LogoutButton from './LogoutButton';
 
 function NewsCreator() {
+
+  const [currentUser, setCurrentUser] = useState(null);
+
   const [nickname, setNickname] = useState("");
   
   const [event_start, setDate] = useState("");
@@ -281,6 +284,16 @@ function NewsCreator() {
     window.open("/news-list", "_blank");
   };
 
+  useEffect(() => {
+    const userData = JSON.parse(localStorage.getItem('user'));
+    if (userData) {
+      setCurrentUser(userData);
+      setNickname(userData.nickname); // Устанавливаем никнейм из данных пользователя
+    } else {
+      // Если нет данных пользователя, перенаправляем на страницу входа
+      window.location.href = '/login';
+    }
+  }, []);
 
   const loadNewsData = useCallback(async (newsId) => {
     try {
@@ -334,24 +347,10 @@ function NewsCreator() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const nickname = document.forms.newsForm.nickname.value;
-  
-    // Подробное логирование состояния
-    console.log('Current state:', {
-      nickname,
-      event_start,
-      title,
-      description,
-      newsImages: newsImages.map(img => ({
-        id: img.id,
-        hasFile: !!img.file,
-        fileName: img.file?.name || img.fileName
-      }))
-    });
   
     // Валидация полей
-    if (!nickname.trim()) {
-      toast.error("Пожалуйста, введите имя пользователя", configToast);
+    if (!currentUser.nickname.trim()) {
+      toast.error("Ошибка идентификации пользователя! Пожалуйста, авторизуйтесь заново", configToast);
       return;
     }
   
@@ -372,7 +371,7 @@ function NewsCreator() {
   
     // Подготовка FormData
     const newsData = new FormData();
-    newsData.append("nickname", nickname);
+    newsData.append("nickname", currentUser.nickname);
     newsData.append("event_start", new Date(event_start).toISOString());
     newsData.append("title", title);
     newsData.append("description", description);
@@ -468,18 +467,29 @@ function NewsCreator() {
       <title>Конфигуратор публикаций</title>
       <div id="news-form" className="container">
         <h1>Конфигуратор публикаций</h1>
+        {currentUser && (
+          <div className="user-info">
+            <p>
+              Текущий пользователь: {currentUser.nickname} ({currentUser.login})
+            </p>
+            <p>Роль: {currentUser.role}</p>
+          </div>
+        )}
         <div className="content">
           <form className="form" name="newsForm" onSubmit={handleSubmit}>
-            <input
-              type="text"
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              id="news-nickname"
-              name="nickname"
-              className="inpt"
-              placeholder="Введите имя пользователя"
-            />
-
+            {/* Полностью не рендерим поле, если Publisher */}
+            {(currentUser?.role === 'Administrator' || currentUser?.role === 'Moderator') && (
+              <input
+                type="text"
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                id="news-nickname"
+                name="nickname"
+                className="inpt"
+                placeholder="Введите имя пользователя"
+                disabled={!isEditMode}
+              />
+            )}
             {MemoizedFlatpickr}
 
             <input

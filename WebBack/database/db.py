@@ -7,63 +7,39 @@ import datetime
 
 from enums import InvalidValues
 
+from werkzeug.security import generate_password_hash, check_password_hash
+
+
 class Storage(object):
     def __init__(self):
         self.connection = None
         self.cursor = None
+        self.db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'storage.db')
 
     def open_connection(self):
-        """Open database connection"""
-        db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'storage.db')
-        self.connection = sqlite3.connect(db_path)
-        self.cursor = self.connection.cursor()
+        """Open database connection with timeout and check_same_thread=False"""
+        if self.connection is None:
+            self.connection = sqlite3.connect(
+                self.db_path,
+                timeout=10,  # Увеличиваем таймаут
+                check_same_thread=False  # Разрешаем использование из разных потоков
+            )
+            self.connection.row_factory = sqlite3.Row
+            self.cursor = self.connection.cursor()
+            # Включаем WAL режим для лучшей параллельной работы
+            self.cursor.execute('PRAGMA journal_mode=WAL')
+            self.connection.commit()
 
     def close_connection(self):
-        """Close database connection"""
-        if self.cursor:
-            self.cursor.close()
+        """Close database connection if it exists"""
         if self.connection:
-            self.connection.close()
-
-    # User methods
-    def user_auth(self, *args) -> int:
-        """Authenticate or register user"""
-        if len(args) == 0:
-            return InvalidValues.INVALID_ID.value
-            
-        user_id = self.user_check(args[0])
-        return user_id if user_id != InvalidValues.INVALID_ID.value else self.user_reg(*args)
-
-    def user_reg(self, *args) -> int:
-        """Register new user"""
-        if len(args) not in (1, 2, 3):
-            return InvalidValues.INVALID_ID.value
-
-        user_data = {
-            "nickname": args[0],
-            "login": args[1] if len(args) > 1 else "".join(random.choices(string.digits + string.ascii_letters, k=10)),
-            "password": args[2] if len(args) > 2 else "".join(random.choices(string.digits + string.ascii_letters, k=10)),
-            "user_role": "Moderator"
-        }
-
-        self.cursor.execute('''
-            INSERT INTO Users (nick, login, password, user_role)
-            VALUES (?, ?, ?, ?)
-        ''', (user_data["nickname"], user_data["login"], user_data["password"], user_data["user_role"]))
-
-        self.connection.commit()
-        return self.user_check(args[0])
-
-    def user_check(self, nickname: str) -> int:
-        """Check if user exists"""
-        self.cursor.execute('SELECT userID FROM Users WHERE nick = ?', (nickname,))
-        result = self.cursor.fetchone()
-        return result[0] if result else InvalidValues.INVALID_ID.value
-
-    def user_getlist(self) -> tuple:
-        """Get all users"""
-        self.cursor.execute('SELECT * FROM Users')
-        return self.cursor.fetchall()
+            try:
+                self.connection.close()
+            except:
+                pass
+            finally:
+                self.connection = None
+                self.cursor = None
 
     # News methods
     def news_add(self, user_id, news_input_data, files_received, files_list, files_folder):
@@ -366,3 +342,58 @@ class Storage(object):
         except Exception as e:
             self.connection.rollback()
             raise e
+            
+    def user_get_by_nick(self, nick: str):
+        """Get user by nickname with password hash"""
+        self.cursor.execute('''
+            SELECT userID, password, user_role, nick, login 
+            FROM Users 
+            WHERE nick = ?
+        ''', (nick,))
+        return self.cursor.fetchone()
+
+    def user_get_by_login(self, login: str):
+        """Get user by login with password hash"""
+        self.cursor.execute('''
+            SELECT userID, password, user_role, nick, login 
+            FROM Users 
+            WHERE login = ?
+        ''', (login,))
+        return self.cursor.fetchone()
+
+    def user_create(self, login: str, password: str, nickname: str, role: str = "Publisher"):
+        """Create new user with hashed password"""
+        if role not in ("Administrator", "Moderator", "Publisher"):
+            role = "Publisher"
+        
+        # Проверка уникальности логина и ника
+        self.cursor.execute('SELECT 1 FROM Users WHERE login = ? OR nick = ?', (login, nickname))
+        if self.cursor.fetchone():
+            raise ValueError("User with this login or nickname already exists")
+        
+        hashed_password = generate_password_hash(password)
+        self.cursor.execute('''
+            INSERT INTO Users (login, password, nick, user_role)
+            VALUES (?, ?, ?, ?)
+        ''', (login, hashed_password, nickname, role))
+        self.connection.commit()
+        return self.cursor.lastrowid
+    
+    # В класс Storage в db.py добавляем метод:
+    def user_get_all(self) -> list:
+        """Get all users"""
+        self.cursor.execute('''
+            SELECT userID, login, nick, user_role 
+            FROM Users
+            ORDER BY userID
+        ''')
+        return [dict(row) for row in self.cursor.fetchall()]
+
+    def user_get_all_with_passwords(self) -> list:
+        """Get all users with password hashes (for admin only)"""
+        self.cursor.execute('''
+            SELECT userID, login, nick, user_role, password 
+            FROM Users
+            ORDER BY userID
+        ''')
+        return [dict(row) for row in self.cursor.fetchall()]
