@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import PageWrapper from "./PageWrapper";
@@ -9,7 +9,8 @@ import { Russian } from "flatpickr/dist/l10n/ru.js";
 function AdminPanel() {
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [showPasswords, setShowPasswords] = useState(false);
+
   const [currentPage, setCurrentPage] = useState(1);
   const usersPerPage = 10;
 
@@ -27,34 +28,37 @@ function AdminPanel() {
     locale: Russian,
   }), []);
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const response = await fetch("http://127.0.0.1:5000/api/admin/users", {
-          credentials: "include"
-        });
-        
-        if (!response.ok) {
-          throw new Error("Ошибка при загрузке пользователей");
-        }
-        
-        const data = await response.json();
-        setUsers(data);
-        setFilteredUsers(data);
-        
-        // Получаем уникальные роли
-        const roles = [...new Set(data.map(user => user.user_role))];
-        setUniqueRoles(roles);
-        setLoading(false);
-      } catch (error) {
-        console.error("Ошибка загрузки пользователей:", error);
-        toast.error("Не удалось загрузить данные пользователей");
-        setLoading(false);
+  const fetchUsers = useCallback(async () => {
+    try {
+      const endpoint = showPasswords 
+        ? "http://127.0.0.1:5000/api/admin/users/real_passwords"
+        : "http://127.0.0.1:5000/api/admin/users";
+      
+      const response = await fetch(endpoint, {
+        credentials: "include"
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.DESCRIPTION || "Ошибка при загрузке пользователей");
       }
-    };
+      
+      const data = await response.json();
+      setUsers(data);
+      setFilteredUsers(data);
+      
+      // Получаем уникальные роли
+      const roles = [...new Set(data.map(user => user.user_role))];
+      setUniqueRoles(roles);
+    } catch (error) {
+      console.error("Ошибка загрузки пользователей:", error);
+      toast.error(error.message || "Не удалось загрузить данные пользователей");
+    }
+  }, [showPasswords]);
 
+  useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [fetchUsers]); // useEffect, который вызывает fetchUsers при изменении showPasswords
 
   useEffect(() => {
     let result = [...users];
@@ -62,9 +66,15 @@ function AdminPanel() {
     if (roleFilter) {
       result = result.filter(user => user.user_role === roleFilter);
     }
-    
-    // Фильтрация по дате (если нужно)
-    // if (dateRange[0] && dateRange[1]) { ... }
+
+    // Фильтрация по дате
+    if (dateRange[0] && dateRange[1]) {
+      const [startDate, endDate] = dateRange;
+      result = result.filter(user => {
+        const registrationDate = new Date(user.registration_date); // предполагаем, что у каждого пользователя есть поле registration_date
+        return registrationDate >= startDate && registrationDate <= endDate;
+      });
+    }
     
     setFilteredUsers(result);
     setCurrentPage(1);
@@ -90,6 +100,63 @@ function AdminPanel() {
   }, [filteredUsers, currentPage, usersPerPage]);
 
   const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
+
+  const handleEditUser = (user) => {
+    const newNickname = prompt("Введите новый никнейм:", user.nick);
+    if (newNickname && newNickname !== user.nick) {
+      updateUser(user.userID, { nick: newNickname });
+    }
+
+    const newRole = prompt("Введите новую роль (Administrator, Moderator, Publisher):", user.user_role);
+    if (newRole && ["Administrator", "Moderator", "Publisher"].includes(newRole) && newRole !== user.user_role) {
+      updateUser(user.userID, { user_role: newRole });
+    }
+  };
+
+  const handleDeleteUser = async (userId) => {
+    if (!window.confirm("Вы уверены, что хотите удалить этого пользователя?")) return;
+    
+    try {
+      const response = await fetch(`http://127.0.0.1:5000/api/admin/users/${userId}`, {
+        method: "DELETE",
+        credentials: "include"
+      });
+
+      if (!response.ok) {
+        throw new Error("Ошибка при удалении пользователя");
+      }
+
+      toast.success("Пользователь успешно удален");
+      fetchUsers(); // Обновляем список пользователей
+    } catch (error) {
+      console.error("Ошибка удаления пользователя:", error);
+      toast.error("Не удалось удалить пользователя");
+    }
+  };
+
+  const updateUser = async (userId, updateData) => {
+    try {
+      const response = await fetch(`http://127.0.0.1:5000/api/admin/users/${userId}`, {
+        method: "PUT",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updateData)
+      });
+
+      if (!response.ok) {
+        throw new Error("Ошибка при обновлении пользователя");
+      }
+
+      toast.success("Данные пользователя обновлены");
+      fetchUsers(); // Обновляем список пользователей
+    } catch (error) {
+      console.error("Ошибка обновления пользователя:", error);
+      toast.error("Не удалось обновить данные пользователя");
+    }
+  };
+
 
   return (
     <PageWrapper>
@@ -123,6 +190,17 @@ function AdminPanel() {
             />
           </div>
           
+          <div className="filter-group">
+            <label>
+              <input
+                type="checkbox"
+                checked={showPasswords}
+                onChange={() => setShowPasswords(!showPasswords)}
+              />
+              Показать пароли
+            </label>
+          </div>
+              
           <button 
             onClick={clearFilters} 
             className="custom_button_mid"
@@ -132,64 +210,58 @@ function AdminPanel() {
           </button>
         </div>
 
-        {loading ? (
-          <p>Загрузка...</p>
-        ) : (
-          <>
-            {totalPages > 1 && (
-              <Pagination 
-                totalPages={totalPages} 
-                currentPage={currentPage} 
-                paginate={setCurrentPage} 
-              />
-            )}
+          {totalPages > 1 && (
+            <Pagination 
+              totalPages={totalPages} 
+              currentPage={currentPage} 
+              paginate={setCurrentPage} 
+            />
+          )}
 
-            <div className="data-list">
-              {currentUsers.length === 0 ? (
-                <p>Пользователи не найдены</p>
-              ) : (
-                currentUsers.map(user => (
-                  <div key={user.userID} className="data-item">
-                    <h2>{user.nick || user.login}</h2>
-                    
-                    <div className="user-details">
-                      <p><strong>ID:</strong> {user.userID}</p>
-                      <p><strong>Логин:</strong> {user.login}</p>
-                      <p><strong>Никнейм:</strong> {user.nick || "Не указан"}</p>
-                      <p><strong>Роль:</strong> {user.user_role}</p>
-                      <p><strong>Пароль (hash):</strong> {user.password}</p>
-                    </div>
-
-                    <div className="list-actions">
-                      <button 
-                        className="custom_button_short" 
-                        id="edit"
-                        onClick={() => {/* Редактирование пользователя */}}
-                      >
-                        Изменить
-                      </button>
-                      <button 
-                        className="custom_button_short" 
-                        id="delete"
-                        onClick={() => {/* Удаление пользователя */}}
-                      >
-                        Удалить
-                      </button>
-                    </div>
+          <div className="data-list">
+            {currentUsers.length === 0 ? (
+              <p>Пользователи не найдены</p>
+            ) : (
+              currentUsers.map(user => (
+                <div key={user.userID} className="data-item">
+                  <h2>{user.nick || user.login}</h2>
+                  
+                  <div className="user-details">
+                    <p><strong>ID:</strong> {user.userID}</p>
+                    <p><strong>Роль:</strong> {user.user_role}</p>
+                    <p><strong>Никнейм:</strong> {user.nick || "Не указан"}</p>
+                    <p><strong>Логин:</strong> {user.login}</p>
+                    <p><strong>Пароль:</strong> {showPasswords ? user.password || '********' : '********'}</p>
                   </div>
-                ))
-              )}
-            </div>
 
-            {totalPages > 1 && (
-              <Pagination 
-                totalPages={totalPages} 
-                currentPage={currentPage} 
-                paginate={setCurrentPage} 
-              />
+                  <div className="list-actions">
+                    <button 
+                      className="custom_button_short" 
+                      id="edit"
+                      onClick={() => handleEditUser(user)}
+                    >
+                      Изменить
+                    </button>
+                    <button 
+                      className="custom_button_short" 
+                      id="delete"
+                      onClick={() => handleDeleteUser(user.userID)}
+                    >
+                      Удалить
+                    </button>
+                  </div>
+                </div>
+              ))
             )}
-          </>
-        )}
+          </div>
+
+          {totalPages > 1 && (
+            <Pagination 
+              totalPages={totalPages} 
+              currentPage={currentPage} 
+              paginate={setCurrentPage} 
+            />
+          )}
       </div>
       <ToastContainer />
     </PageWrapper>

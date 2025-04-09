@@ -86,7 +86,7 @@ body {
 
 #news-form,
 #data-list-form {
-  max-width: 800px; /* Максимальная ширина контейнера */
+  max-width: 1000px; /* Максимальная ширина контейнера */
   width: 100%; /* Занимает всю доступную ширину до max-width */
   margin: 0 auto; /* Центрирование по горизонтали */
   padding: 1% 0; /* Отступы внутри */
@@ -158,7 +158,7 @@ body {
 
 .drop-zone.drag-over,
 .drop-zone:hover {
-  background-color: rgba(70, 70, 70, 0.05);
+  background-color: rgba(60, 60, 60, 0.04);
   border: 1px dashed rgba(60, 60, 60, 0.5);
 }
 
@@ -440,7 +440,7 @@ button.custom_button_short#delete:hover {
 
 /* Заголовок новости */
 .data-item h2 {
-  font-size: 1.6rem;
+  font-size: 1.2rem;
   font-weight: bold;
   margin-bottom: 15px;
   color: #333;
@@ -449,7 +449,7 @@ button.custom_button_short#delete:hover {
 
 .news-description,
 .data-list p {
-  font-size: 1.3rem;
+  font-size: 1rem;
 }
 
 .data-list p {
@@ -458,7 +458,7 @@ button.custom_button_short#delete:hover {
 
 /* Описание новости */
 .data-item p {
-  font-size: 1.2rem;
+  font-size: 1rem;
   color: #555;
   margin-bottom: 15px;
   text-align: left;
@@ -555,7 +555,7 @@ button.pagination_button.active {
 .filter-group {
   display: flex;
   flex-direction: column;
-  min-width: 200px;
+  min-width: 300px;
   margin: 0;
 }
 

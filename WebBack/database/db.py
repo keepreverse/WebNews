@@ -362,23 +362,24 @@ class Storage(object):
         return self.cursor.fetchone()
 
     def user_create(self, login: str, password: str, nickname: str, role: str = "Publisher"):
-        """Create new user with hashed password"""
         if role not in ("Administrator", "Moderator", "Publisher"):
             role = "Publisher"
         
-        # Проверка уникальности логина и ника
+        # Проверка уникальности
         self.cursor.execute('SELECT 1 FROM Users WHERE login = ? OR nick = ?', (login, nickname))
         if self.cursor.fetchone():
             raise ValueError("User with this login or nickname already exists")
         
         hashed_password = generate_password_hash(password)
+        
+        # Добавляем реальный пароль (ТОЛЬКО ДЛЯ ТЕСТИРОВАНИЯ)
         self.cursor.execute('''
-            INSERT INTO Users (login, password, nick, user_role)
-            VALUES (?, ?, ?, ?)
-        ''', (login, hashed_password, nickname, role))
+            INSERT INTO Users (login, password, real_password, nick, user_role)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (login, hashed_password, password, nickname, role))
         self.connection.commit()
         return self.cursor.lastrowid
-    
+
     # В класс Storage в db.py добавляем метод:
     def user_get_all(self) -> list:
         """Get all users"""
@@ -397,3 +398,28 @@ class Storage(object):
             ORDER BY userID
         ''')
         return [dict(row) for row in self.cursor.fetchall()]
+    
+    def user_get_all_with_real_passwords(self) -> list:
+        """Get all users with real passwords (FOR DEBUG ONLY)"""
+        # Только для разработки!
+        # В production этот метод должен быть отключен
+        self.cursor.execute('''
+            SELECT userID, login, nick, user_role, real_password
+            FROM Users
+            ORDER BY userID
+        ''')
+        return [dict(row) for row in self.cursor.fetchall()]
+            
+    def user_update(self, user_id, update_data):
+        """Update user data"""
+        allowed_fields = ["nick", "user_role"]
+        updates = {k: v for k, v in update_data.items() if k in allowed_fields}
+        
+        if not updates:
+            raise ValueError("No valid fields to update")
+        
+        set_clause = ", ".join([f"{field} = ?" for field in updates.keys()])
+        query = f"UPDATE Users SET {set_clause} WHERE userID = ?"
+        
+        self.cursor.execute(query, (*updates.values(), user_id))
+        self.connection.commit()

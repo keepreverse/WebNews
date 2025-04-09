@@ -223,7 +223,7 @@ function NewsList() {
           </div>
           
           <div className="filter-group">
-            <label>Фильтр по дате:</label>
+            <label>Фильтр по дате публикации:</label>
               {MemoizedFlatpickr}
           </div>
           
