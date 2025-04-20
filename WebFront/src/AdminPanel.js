@@ -10,6 +10,7 @@ function AdminPanel() {
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [showPasswords, setShowPasswords] = useState(false);
+  const [passwordVisibility, setPasswordVisibility] = useState({});
 
   const [currentPage, setCurrentPage] = useState(1);
   const usersPerPage = 10;
@@ -28,13 +29,10 @@ function AdminPanel() {
     locale: Russian,
   }), []);
 
+  // Изменяем fetchUsers - убираем зависимость от showPasswords
   const fetchUsers = useCallback(async () => {
     try {
-      const endpoint = showPasswords 
-        ? "http://127.0.0.1:5000/api/admin/users/real_passwords"
-        : "http://127.0.0.1:5000/api/admin/users";
-      
-      const response = await fetch(endpoint, {
+      const response = await fetch("http://127.0.0.1:5000/api/admin/users", {
         credentials: "include"
       });
       
@@ -47,18 +45,101 @@ function AdminPanel() {
       setUsers(data);
       setFilteredUsers(data);
       
-      // Получаем уникальные роли
+      // Инициализируем состояние видимости паролей как false для всех
+      const visibility = {};
+      data.forEach(user => {
+        visibility[user.userID] = false;
+      });
+      setPasswordVisibility(visibility);
+      
       const roles = [...new Set(data.map(user => user.user_role))];
       setUniqueRoles(roles);
     } catch (error) {
       console.error("Ошибка загрузки пользователей:", error);
       toast.error(error.message || "Не удалось загрузить данные пользователей");
     }
-  }, [showPasswords]);
+  }, []); // Убрали showPasswords из зависимостей
 
   useEffect(() => {
     fetchUsers();
-  }, [fetchUsers]); // useEffect, который вызывает fetchUsers при изменении showPasswords
+  }, [fetchUsers]);
+
+  // Новый метод для загрузки реальных паролей
+  const fetchRealPasswords = useCallback(async () => {
+    try {
+      const response = await fetch(
+        "http://127.0.0.1:5000/api/admin/users/real_passwords", 
+        { credentials: "include" }
+      );
+      
+      if (!response.ok) throw new Error("Ошибка при загрузке паролей");
+      
+      const data = await response.json();
+      // Возвращаем массив объектов с userID и password
+      return data.map(user => ({
+        userID: user.userID,
+        password: user.real_password || user.password
+      }));
+    } catch (error) {
+      console.error("Ошибка загрузки паролей:", error);
+      toast.error("Не удалось загрузить пароли");
+      return null;
+    }
+  }, []);
+
+  // Обновленный обработчик переключения видимости всех паролей
+  const toggleAllPasswords = async () => {
+    const newShowPasswords = !showPasswords;
+    
+    if (newShowPasswords) {
+      // Если включаем показ паролей - загружаем только реальные пароли
+      const usersWithPasswords = await fetchRealPasswords();
+      if (usersWithPasswords) {
+        // Сохраняем текущие данные пользователей, добавляя к ним пароли
+        const updatedUsers = users.map(user => {
+          const userWithPassword = usersWithPasswords.find(u => u.userID === user.userID);
+          return userWithPassword ? {...user, password: userWithPassword.password} : user;
+        });
+        
+        setUsers(updatedUsers);
+
+        // Сразу фильтруем и обновляем filteredUsers
+        let updatedFilteredUsers = [...updatedUsers];
+        
+        if (roleFilter) {
+          updatedFilteredUsers = updatedFilteredUsers.filter(user => user.user_role === roleFilter);
+        }
+        
+        if (dateRange[0] && dateRange[1]) {
+          const [startDate, endDate] = dateRange;
+          updatedFilteredUsers = updatedFilteredUsers.filter(user => {
+            const registrationDate = new Date(user.registration_date);
+            return registrationDate >= startDate && registrationDate <= endDate;
+          });
+        }
+        
+        setFilteredUsers(updatedFilteredUsers);
+        
+      }
+    }
+    
+    // Обновляем состояние видимости для всех пользователей
+    const newVisibility = {};
+    users.forEach(user => {
+      newVisibility[user.userID] = newShowPasswords;
+    });
+    setPasswordVisibility(newVisibility);
+    setShowPasswords(newShowPasswords);
+  };
+
+  // Обработчик переключения для конкретного пользователя остается без изменений
+  const togglePasswordVisibility = (userId) => {
+    setPasswordVisibility(prev => ({
+      ...prev,
+      [userId]: !prev[userId]
+    }));
+  };
+
 
   useEffect(() => {
     let result = [...users];
@@ -195,7 +276,7 @@ function AdminPanel() {
               <input
                 type="checkbox"
                 checked={showPasswords}
-                onChange={() => setShowPasswords(!showPasswords)}
+                onChange={toggleAllPasswords}
               />
               Показать пароли
             </label>
@@ -218,7 +299,7 @@ function AdminPanel() {
             />
           )}
 
-          <div className="data-list">
+        <div className="data-list">
             {currentUsers.length === 0 ? (
               <p>Пользователи не найдены</p>
             ) : (
@@ -231,7 +312,30 @@ function AdminPanel() {
                     <p><strong>Роль:</strong> {user.user_role}</p>
                     <p><strong>Никнейм:</strong> {user.nick || "Не указан"}</p>
                     <p><strong>Логин:</strong> {user.login}</p>
-                    <p><strong>Пароль:</strong> {showPasswords ? user.password || '********' : '********'}</p>
+                    <p>
+                      <strong>Пароль:</strong> 
+                      {passwordVisibility[user.userID] ? (
+                        <>
+                          {user.password}
+                          <button 
+                            onClick={() => togglePasswordVisibility(user.userID)}
+                            className="password-toggle"
+                          >
+                            Скрыть
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          {'********'}
+                          <button 
+                            onClick={() => togglePasswordVisibility(user.userID)}
+                            className="password-toggle"
+                          >
+                            Показать
+                          </button>
+                        </>
+                      )}
+                    </p>
                   </div>
 
                   <div className="list-actions">
