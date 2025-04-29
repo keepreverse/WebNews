@@ -35,7 +35,7 @@ def news_line():
     elif request.method == "POST":
         try:
             # Проверяем обязательные поля
-            required_fields = ["nickname", "title", "description", "event_start"]
+            required_fields = ["login", "nickname", "title", "description", "event_start"]
             if not all(field in request.form for field in required_fields):
                 return make_response(jsonify({
                     "STATUS": 400,
@@ -43,10 +43,10 @@ def news_line():
                 }), 400)
 
             primary_news_data = request.form
-            nickname = primary_news_data.get("nickname")
+            login = primary_news_data.get("login")
             
-            # Получаем пользователя по nickname
-            user = g.db.user_get_by_nick(nickname)
+            # Получаем пользователя по login
+            user = g.db.user_get_by_login(login)
             
             if not user:
                 return make_response(jsonify({
@@ -114,7 +114,7 @@ def single_news(newsID):
     elif request.method == "PUT":
         try:
             # Проверяем обязательные поля
-            required_fields = ["nickname", "title", "description", "event_start"]
+            required_fields = ["login", "nickname", "title", "description", "event_start"]
             if not all(field in request.form for field in required_fields):
                 return make_response(jsonify({
                     "STATUS": 400,
@@ -124,7 +124,7 @@ def single_news(newsID):
             primary_news_data = request.form
             
             # Получаем пользователя
-            user = g.db.user_get_by_login(primary_news_data.get("nickname"))
+            user = g.db.user_get_by_login(primary_news_data.get("login"))
             if not user:
                 return make_response(jsonify({
                     "STATUS": 401,
@@ -215,7 +215,7 @@ def login():
             "STATUS": 500,
             "DESCRIPTION": f"Server error: {str(e)}"
         }), 500)
-    
+
 @app.route("/api/auth/register", methods=["POST", "OPTIONS"])
 def register():
     if request.method == "OPTIONS":
@@ -256,11 +256,13 @@ def register():
                     "DESCRIPTION": "User already exists"
                 }), 409)
 
-            # Создаем пользователя
+            # Создаем пользователя (сохраняем и хеш, и реальный пароль)
             hashed_pw = generate_password_hash(password)
             g.db.cursor.execute(
-                "INSERT INTO Users (login, password, nick, user_role) VALUES (?, ?, ?, ?)",
-                (login, hashed_pw, nickname, "Publisher")
+                """INSERT INTO Users 
+                (login, password, real_password, nick, user_role) 
+                VALUES (?, ?, ?, ?, ?)""",
+                (login, hashed_pw, password, nickname, "Publisher")
             )
             g.db.connection.commit()
 
@@ -364,8 +366,8 @@ def admin_user_operations(user_id):
     
     make_db_object()
 
-    if request.method == "PUT":
-        try:
+    try:
+        if request.method == "PUT":
             update_data = request.get_json()
             if not update_data:
                 return make_response(jsonify({
@@ -373,35 +375,15 @@ def admin_user_operations(user_id):
                     "DESCRIPTION": "Необходимо указать данные для обновления"
                 }), 400)
 
-            # Обновляем только разрешенные поля
-            allowed_fields = ["nick", "user_role"]
-            updates = {k: v for k, v in update_data.items() if k in allowed_fields}
+            # Используем метод из Storage
+            g.db.user_update(user_id, update_data)
             
-            if not updates:
-                return make_response(jsonify({
-                    "STATUS": 400,
-                    "DESCRIPTION": "Нет допустимых полей для обновления"
-                }), 400)
-
-            set_clause = ", ".join([f"{field} = ?" for field in updates.keys()])
-            query = f"UPDATE Users SET {set_clause} WHERE userID = ?"
-            
-            g.db.cursor.execute(query, (*updates.values(), user_id))
-            g.db.connection.commit()
-
             return make_response(jsonify({
                 "STATUS": 200,
                 "DESCRIPTION": "Данные пользователя обновлены"
             }), 200)
 
-        except Exception as e:
-            return make_response(jsonify({
-                "STATUS": 500,
-                "DESCRIPTION": f"Ошибка обновления пользователя: {str(e)}"
-            }), 500)
-
-    elif request.method == "DELETE":
-        try:
+        elif request.method == "DELETE":
             # Нельзя удалить самого себя
             # current_user = get_current_user(request)
             # if current_user and current_user["userID"] == user_id:
@@ -410,19 +392,24 @@ def admin_user_operations(user_id):
             #         "DESCRIPTION": "Нельзя удалить самого себя"
             #     }), 403)
 
-            g.db.cursor.execute("DELETE FROM Users WHERE userID = ?", (user_id,))
-            g.db.connection.commit()
-
+            # Используем метод из Storage
+            g.db.user_delete(user_id)
+            
             return make_response(jsonify({
                 "STATUS": 200,
                 "DESCRIPTION": "Пользователь удален"
             }), 200)
 
-        except Exception as e:
-            return make_response(jsonify({
-                "STATUS": 500,
-                "DESCRIPTION": f"Ошибка удаления пользователя: {str(e)}"
-            }), 500)
+    except ValueError as e:
+        return make_response(jsonify({
+            "STATUS": 400,
+            "DESCRIPTION": str(e)
+        }), 400)
+    except Exception as e:
+        return make_response(jsonify({
+            "STATUS": 500,
+            "DESCRIPTION": f"Ошибка сервера: {str(e)}"
+        }), 500)
 
     return make_response(jsonify({
         "STATUS": 405,

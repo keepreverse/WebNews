@@ -234,14 +234,16 @@ function NewsList() {
           >
             Сбросить фильтры
           </button>
+
+          {/* Кнопка "Удалить все" — только для администраторов */}
+          {(currentUser?.role === 'Moderator' || currentUser?.role === 'Administrator') && filteredData.length > 0 && (
+            <button onClick={deleteAllNews} className="custom_button_mid" id="delete-all">
+              Удалить все
+            </button>
+          )}
+
         </div>
 
-        {/* Кнопка "Удалить все" — только для администраторов */}
-        {currentUser?.role === 'Moderator' && filteredData.length > 0 && (
-          <button onClick={deleteAllNews} className="custom_button_mid" id="delete-all">
-            Удалить все
-          </button>
-        )}
         {totalPages > 1 && (
           <Pagination totalPages={totalPages} currentPage={currentPage} paginate={setCurrentPage} />
         )}

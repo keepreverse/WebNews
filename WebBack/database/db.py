@@ -404,7 +404,7 @@ class Storage(object):
         # Только для разработки!
         # В production этот метод должен быть отключен
         self.cursor.execute('''
-            SELECT userID, login, nick, user_role, real_password
+            SELECT userID, login, nick, user_role, password, real_password
             FROM Users
             ORDER BY userID
         ''')
@@ -412,7 +412,7 @@ class Storage(object):
             
     def user_update(self, user_id, update_data):
         """Update user data"""
-        allowed_fields = ["nick", "user_role"]
+        allowed_fields = ["nick", "login", "user_role"]
         updates = {k: v for k, v in update_data.items() if k in allowed_fields}
         
         if not updates:
@@ -422,4 +422,9 @@ class Storage(object):
         query = f"UPDATE Users SET {set_clause} WHERE userID = ?"
         
         self.cursor.execute(query, (*updates.values(), user_id))
+        self.connection.commit()
+
+    def user_delete(self, user_id):
+        """Delete user by ID"""
+        self.cursor.execute("DELETE FROM Users WHERE userID = ?", (user_id,))
         self.connection.commit()

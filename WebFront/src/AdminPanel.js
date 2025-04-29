@@ -10,7 +10,8 @@ function AdminPanel() {
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [showPasswords, setShowPasswords] = useState(false);
-  const [passwordVisibility, setPasswordVisibility] = useState({});
+  const [usersWithRealPasswords, setUsersWithRealPasswords] = useState([]);
+  const [editingUser, setEditingUser] = useState(null);
 
   const [currentPage, setCurrentPage] = useState(1);
   const usersPerPage = 10;
@@ -27,9 +28,15 @@ function AdminPanel() {
     altFormat: "F j, Y",
     dateFormat: "Y-m-d",
     locale: Russian,
+    onReady: (selectedDates, dateStr, instance) => {
+      // Установка ID на видимое поле
+      if (instance.altInput) {
+        instance.altInput.id = "date-filter-visible";
+      }
+    }
   }), []);
+  
 
-  // Изменяем fetchUsers - убираем зависимость от showPasswords
   const fetchUsers = useCallback(async () => {
     try {
       const response = await fetch("http://127.0.0.1:5000/api/admin/users", {
@@ -45,26 +52,18 @@ function AdminPanel() {
       setUsers(data);
       setFilteredUsers(data);
       
-      // Инициализируем состояние видимости паролей как false для всех
-      const visibility = {};
-      data.forEach(user => {
-        visibility[user.userID] = false;
-      });
-      setPasswordVisibility(visibility);
-      
       const roles = [...new Set(data.map(user => user.user_role))];
       setUniqueRoles(roles);
     } catch (error) {
       console.error("Ошибка загрузки пользователей:", error);
       toast.error(error.message || "Не удалось загрузить данные пользователей");
     }
-  }, []); // Убрали showPasswords из зависимостей
+  }, []);
 
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
 
-  // Новый метод для загрузки реальных паролей
   const fetchRealPasswords = useCallback(async () => {
     try {
       const response = await fetch(
@@ -75,11 +74,7 @@ function AdminPanel() {
       if (!response.ok) throw new Error("Ошибка при загрузке паролей");
       
       const data = await response.json();
-      // Возвращаем массив объектов с userID и password
-      return data.map(user => ({
-        userID: user.userID,
-        password: user.real_password || user.password
-      }));
+      return data;
     } catch (error) {
       console.error("Ошибка загрузки паролей:", error);
       toast.error("Не удалось загрузить пароли");
@@ -87,59 +82,27 @@ function AdminPanel() {
     }
   }, []);
 
-  // Обновленный обработчик переключения видимости всех паролей
   const toggleAllPasswords = async () => {
     const newShowPasswords = !showPasswords;
     
     if (newShowPasswords) {
-      // Если включаем показ паролей - загружаем только реальные пароли
-      const usersWithPasswords = await fetchRealPasswords();
-      if (usersWithPasswords) {
-        // Сохраняем текущие данные пользователей, добавляя к ним пароли
-        const updatedUsers = users.map(user => {
-          const userWithPassword = usersWithPasswords.find(u => u.userID === user.userID);
-          return userWithPassword ? {...user, password: userWithPassword.password} : user;
-        });
-        
-        setUsers(updatedUsers);
-
-        // Сразу фильтруем и обновляем filteredUsers
-        let updatedFilteredUsers = [...updatedUsers];
-        
-        if (roleFilter) {
-          updatedFilteredUsers = updatedFilteredUsers.filter(user => user.user_role === roleFilter);
+      if (usersWithRealPasswords.length === 0) {
+        const realPasswordsData = await fetchRealPasswords();
+        if (realPasswordsData) {
+          setUsersWithRealPasswords(realPasswordsData);
         }
-        
-        if (dateRange[0] && dateRange[1]) {
-          const [startDate, endDate] = dateRange;
-          updatedFilteredUsers = updatedFilteredUsers.filter(user => {
-            const registrationDate = new Date(user.registration_date);
-            return registrationDate >= startDate && registrationDate <= endDate;
-          });
-        }
-        
-        setFilteredUsers(updatedFilteredUsers);
-        
       }
     }
     
-    // Обновляем состояние видимости для всех пользователей
-    const newVisibility = {};
-    users.forEach(user => {
-      newVisibility[user.userID] = newShowPasswords;
-    });
-    setPasswordVisibility(newVisibility);
     setShowPasswords(newShowPasswords);
   };
 
-  // Обработчик переключения для конкретного пользователя остается без изменений
-  const togglePasswordVisibility = (userId) => {
-    setPasswordVisibility(prev => ({
-      ...prev,
-      [userId]: !prev[userId]
-    }));
+  const getPasswordDisplay = (user) => {
+    if (!showPasswords) return '********';
+    
+    const userWithPassword = usersWithRealPasswords.find(u => u.userID === user.userID);
+    return userWithPassword ? userWithPassword.real_password || userWithPassword.password : '********';
   };
-
 
   useEffect(() => {
     let result = [...users];
@@ -148,11 +111,10 @@ function AdminPanel() {
       result = result.filter(user => user.user_role === roleFilter);
     }
 
-    // Фильтрация по дате
     if (dateRange[0] && dateRange[1]) {
       const [startDate, endDate] = dateRange;
       result = result.filter(user => {
-        const registrationDate = new Date(user.registration_date); // предполагаем, что у каждого пользователя есть поле registration_date
+        const registrationDate = new Date(user.registration_date);
         return registrationDate >= startDate && registrationDate <= endDate;
       });
     }
@@ -172,7 +134,9 @@ function AdminPanel() {
   const clearFilters = () => {
     setRoleFilter("");
     setDateRange([null, null]);
+    setShowPasswords(false); // <-- добавляем это!
   };
+  
 
   const currentUsers = useMemo(() => {
     const indexOfLastUser = currentPage * usersPerPage;
@@ -182,16 +146,13 @@ function AdminPanel() {
 
   const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
 
-  const handleEditUser = (user) => {
-    const newNickname = prompt("Введите новый никнейм:", user.nick);
-    if (newNickname && newNickname !== user.nick) {
-      updateUser(user.userID, { nick: newNickname });
-    }
-
-    const newRole = prompt("Введите новую роль (Administrator, Moderator, Publisher):", user.user_role);
-    if (newRole && ["Administrator", "Moderator", "Publisher"].includes(newRole) && newRole !== user.user_role) {
-      updateUser(user.userID, { user_role: newRole });
-    }
+  const translateRole = (role) => {
+    const roleTranslations = {
+      'Administrator': 'Администратор',
+      'Moderator': 'Модератор',
+      'Publisher': 'Публикатор'
+    };
+    return roleTranslations[role] || role;
   };
 
   const handleDeleteUser = async (userId) => {
@@ -208,7 +169,7 @@ function AdminPanel() {
       }
 
       toast.success("Пользователь успешно удален");
-      fetchUsers(); // Обновляем список пользователей
+      fetchUsers();
     } catch (error) {
       console.error("Ошибка удаления пользователя:", error);
       toast.error("Не удалось удалить пользователя");
@@ -231,12 +192,79 @@ function AdminPanel() {
       }
 
       toast.success("Данные пользователя обновлены");
-      fetchUsers(); // Обновляем список пользователей
+      fetchUsers();
     } catch (error) {
       console.error("Ошибка обновления пользователя:", error);
       toast.error("Не удалось обновить данные пользователя");
     }
   };
+
+  const startEditing = (user) => {
+    setEditingUser(user.userID);
+
+  };
+
+  const cancelEditing = () => {
+    setEditingUser(null);
+  };
+
+  const saveUser = async (userId, updateData) => {
+    try {
+      await updateUser(userId, updateData);
+      setEditingUser(null);
+    } catch (error) {
+      console.error("Ошибка сохранения:", error);
+    }
+  };
+
+  const UserEditForm = ({ user, onSave, onCancel }) => {
+    const [formData, setFormData] = useState({
+      nick: user.nick || '',
+      user_role: user.user_role,
+      login: user.login
+    });
+  
+    return (
+      <div className="edit-form">
+        <div className="form-group">
+          <label>Логин:</label>
+          <input
+            type="text"
+            value={formData.login}
+            onChange={(e) => setFormData({ ...formData, login: e.target.value })}
+          />
+        </div>
+        <div className="form-group">
+          <label>Никнейм:</label>
+          <input
+            type="text"
+            value={formData.nick}
+            onChange={(e) => setFormData({ ...formData, nick: e.target.value })}
+          />
+        </div>
+        <div className="form-group">
+          <label>Роль:</label>
+          <select
+            value={formData.user_role}
+            onChange={(e) => setFormData({ ...formData, user_role: e.target.value })}
+          >
+            <option value="Administrator">Администратор</option>
+            <option value="Moderator">Модератор</option>
+            <option value="Publisher">Публикатор</option>
+          </select>
+        </div>
+        <div className="form-actions">
+          <button className="custom_button_short" id="submit" onClick={() => onSave(user.userID, formData)}>
+            Сохранить
+          </button>
+          <button className="custom_button_short" id="delete" onClick={onCancel}>
+            Отмена
+          </button>
+        </div>
+      </div>
+    );
+  };
+
 
 
   return (
@@ -244,11 +272,11 @@ function AdminPanel() {
       <title>Управление пользователями</title>
       <div id="data-list-form" className="container">
         <h1>Управление пользователями</h1>
-
+  
         {/* Фильтры */}
         <div className="filters-container">
           <div className="filter-group">
-            <label htmlFor="role-filter">Фильтр по роли:</label>
+            <label htmlFor="role-filter">Фильтр по роли</label>
             <select
               id="role-filter"
               value={roleFilter}
@@ -256,22 +284,23 @@ function AdminPanel() {
             >
               <option value="">Все роли</option>
               {uniqueRoles.map(role => (
-                <option key={role} value={role}>{role}</option>
+                <option key={role} value={role}>{translateRole(role)}</option>
               ))}
             </select>
           </div>
-          
+            
           <div className="filter-group">
-            <label>Фильтр по дате регистрации:</label>
+            <label htmlFor="date-filter-visible">Фильтр по дате регистрации</label>
             <Flatpickr
               options={configFlatpickr}
               onChange={handleDateChange}
               value={dateRange}
               placeholder="Выберите диапазон дат"
+              className="form-control"
             />
           </div>
-          
-          <div className="filter-group">
+  
+          <div className="filter-group filter-group--checkbox">
             <label>
               <input
                 type="checkbox"
@@ -281,92 +310,62 @@ function AdminPanel() {
               Показать пароли
             </label>
           </div>
-              
-          <button 
-            onClick={clearFilters} 
+  
+          <button
+            onClick={clearFilters}
             className="custom_button_mid"
-            disabled={!roleFilter && !dateRange[0]}
+            disabled={!roleFilter && !dateRange[0] && !showPasswords}
           >
             Сбросить фильтры
           </button>
         </div>
-
-          {totalPages > 1 && (
-            <Pagination 
-              totalPages={totalPages} 
-              currentPage={currentPage} 
-              paginate={setCurrentPage} 
-            />
-          )}
-
+  
+        {totalPages > 1 && (
+          <Pagination
+            totalPages={totalPages}
+            currentPage={currentPage}
+            paginate={setCurrentPage}
+          />
+        )}
+  
         <div className="data-list">
-            {currentUsers.length === 0 ? (
-              <p>Пользователи не найдены</p>
-            ) : (
-              currentUsers.map(user => (
-                <div key={user.userID} className="data-item">
-                  <h2>{user.nick || user.login}</h2>
-                  
-                  <div className="user-details">
-                    <p><strong>ID:</strong> {user.userID}</p>
-                    <p><strong>Роль:</strong> {user.user_role}</p>
-                    <p><strong>Никнейм:</strong> {user.nick || "Не указан"}</p>
-                    <p><strong>Логин:</strong> {user.login}</p>
-                    <p>
-                      <strong>Пароль:</strong> 
-                      {passwordVisibility[user.userID] ? (
-                        <>
-                          {user.password}
-                          <button 
-                            onClick={() => togglePasswordVisibility(user.userID)}
-                            className="password-toggle"
-                          >
-                            Скрыть
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          {'********'}
-                          <button 
-                            onClick={() => togglePasswordVisibility(user.userID)}
-                            className="password-toggle"
-                          >
-                            Показать
-                          </button>
-                        </>
-                      )}
-                    </p>
-                  </div>
-
-                  <div className="list-actions">
-                    <button 
-                      className="custom_button_short" 
-                      id="edit"
-                      onClick={() => handleEditUser(user)}
-                    >
-                      Изменить
-                    </button>
-                    <button 
-                      className="custom_button_short" 
-                      id="delete"
-                      onClick={() => handleDeleteUser(user.userID)}
-                    >
-                      Удалить
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          {totalPages > 1 && (
-            <Pagination 
-              totalPages={totalPages} 
-              currentPage={currentPage} 
-              paginate={setCurrentPage} 
-            />
-          )}
+          {currentUsers.length === 0 ? (
+            <p>Пользователи не найдены</p>
+          ) : currentUsers.map(user => (
+            <div key={user.userID} className="data-item">
+              <h2>{user.nick || user.login}</h2>
+  
+              {editingUser === user.userID
+                ? <UserEditForm user={user} onSave={saveUser} onCancel={cancelEditing} />
+                : (
+                  <>
+                    <div className="user-details">
+                      <p><strong>ID:</strong> {user.userID}</p>
+                      <p><strong>Роль:</strong> {translateRole(user.user_role)}</p>
+                      <p><strong>Никнейм:</strong> {user.nick || "Не указан"}</p>
+                      <p><strong>Логин:</strong> {user.login}</p>
+                      <p><strong>Пароль:</strong> {getPasswordDisplay(user)}</p>
+                    </div>
+                    <div className="list-actions">
+                      <button className="custom_button_short" id="edit" onClick={() => startEditing(user)}>Изменить</button>
+                      <button className="custom_button_short" id="delete" onClick={() => handleDeleteUser(user.userID)}>Удалить</button>
+                    </div>
+                  </>
+                )
+              }
+            </div>
+          ))}
+        </div>
+  
+        {totalPages > 1 && (
+          <Pagination
+            totalPages={totalPages}
+            currentPage={currentPage}
+            paginate={setCurrentPage}
+          />
+        )}
       </div>
+  
       <ToastContainer />
     </PageWrapper>
   );

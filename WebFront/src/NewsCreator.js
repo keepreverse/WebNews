@@ -48,7 +48,7 @@ function NewsCreator() {
     allowResizeX: false,
     autofocus: false,
     saveModeInStorage: true,
-    askBeforePasteHTML: true,
+    askBeforePasteHTML: false,
     askBeforePasteFromWord: true,
     toolbarButtonSize: "large",
     placeholder: "Введите текст новости",
@@ -301,19 +301,19 @@ function NewsCreator() {
       const response = await fetch(`http://127.0.0.1:5000/api/news/${newsId}`);
       
       if (response.ok) {
-        const newsData = await response.json();
+        const formData = await response.json();
         
-        setNickname(newsData.publisher_nick || "");
-        setTitle(newsData.title || "");
-        setDescription(newsData.description || "");
+        setNickname(formData.publisher_nick || "");
+        setTitle(formData.title || "");
+        setDescription(formData.description || "");
         
-        if (newsData.event_start) {
-          setDate(new Date(newsData.event_start));
+        if (formData.event_start) {
+          setDate(new Date(formData.event_start));
         }
         
-        if (newsData.files && newsData.files.length > 0) {
+        if (formData.files && formData.files.length > 0) {
           const images = await Promise.all(
-            newsData.files.map(async (file) => {
+            formData.files.map(async (file) => {
               return {
                 id: uuidv4(),
                 fileName: file.fileName,
@@ -348,6 +348,12 @@ function NewsCreator() {
   const handleSubmit = async (e) => {
     e.preventDefault();
   
+    // Проверка аутентификации
+    if (!currentUser || !currentUser.nickname) {
+      toast.error("Требуется авторизация!", configToast);
+      return;
+    }
+
     // Валидация полей
     if (!currentUser.nickname.trim()) {
       toast.error("Ошибка идентификации пользователя! Пожалуйста, авторизуйтесь заново", configToast);
@@ -370,31 +376,32 @@ function NewsCreator() {
     }
   
     // Подготовка FormData
-    const newsData = new FormData();
-    newsData.append("nickname", currentUser.nickname);
-    newsData.append("event_start", new Date(event_start).toISOString());
-    newsData.append("title", title);
-    newsData.append("description", description);
+    const formData = new FormData();
+    formData.append("login", currentUser.login);
+    formData.append("nickname", currentUser.nickname);
+    formData.append("title", title);
+    formData.append("description", description);
+    formData.append("event_start", new Date(event_start).toISOString());
   
     // Добавляем ВСЕ файлы (и новые, и существующие)
     newsImages.forEach((image) => {
       if (image.file) {
         // Новые файлы
-        newsData.append("files", image.file);
+        formData.append("files", image.file);
       } else if (image.fileName) {
         // Существующие файлы (передаем как строку)
-        newsData.append("existing_files", image.fileName);
+        formData.append("existing_files", image.fileName);
       }
     });
 
     // Добавляем флаг редактирования
     if (isEditMode) {
-      newsData.append("is_edit", "true");
+      formData.append("is_edit", "true");
     }
 
     // Логирование FormData
     console.log('FormData contents:');
-    for (let [key, value] of newsData.entries()) {
+    for (let [key, value] of formData.entries()) {
       console.log(key, value instanceof File ? `${value.name} (File)` : value);
     }
 
@@ -405,26 +412,32 @@ function NewsCreator() {
           : "http://127.0.0.1:5000/api/news",
         {
           method: isEditMode ? "PUT" : "POST",
-          body: newsData,
-          // headers: { 'Accept': 'application/json' } // Не нужно для FormData
+          credentials: "include",
+          body: formData,
         }
       );
+    
+      if (response.status === 401) {
+        toast.error("Вы не авторизованы. Пожалуйста, войдите в систему.", configToast);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || "Failed to save news");
+        return;
       }
-
+    
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.DESCRIPTION || "Ошибка сервера");
+      }
+    
       const result = await response.json();
       console.log("Server response:", result);
-
+    
       toast.success(
         isEditMode 
           ? "Новость успешно обновлена!" 
           : "Новость успешно отправлена!",
         configToast
       );
-      
+    
     } catch (error) {
       console.error("Full error:", error);
       toast.error(
@@ -462,6 +475,15 @@ function NewsCreator() {
 
   const MemoizedToastContainer = useMemo(() => <ToastContainer options={configToast}/>, [configToast]);
 
+  const translateRole = (role) => {
+    const roleTranslations = {
+      'Administrator': 'Администратор',
+      'Moderator': 'Модератор',
+      'Publisher': 'Публикатор'
+    };
+    return roleTranslations[role] || role;
+  };
+  
   return (
     <PageWrapper>
       <title>Конфигуратор публикаций</title>
@@ -472,13 +494,13 @@ function NewsCreator() {
             <p>
               Текущий пользователь: {currentUser.nickname} ({currentUser.login})
             </p>
-            <p>Роль: {currentUser.role}</p>
+            <p>Роль: {translateRole(currentUser.role)}</p>
           </div>
         )}
         <div className="content">
           <form className="form" name="newsForm" onSubmit={handleSubmit}>
             {/* Полностью не рендерим поле, если Publisher */}
-            {(currentUser?.role === 'Administrator' || currentUser?.role === 'Moderator') && (
+            {(currentUser?.role === 'Administrator' || currentUser?.role === 'Moderator') && isEditMode && (
               <input
                 type="text"
                 value={nickname}
@@ -603,6 +625,16 @@ function NewsCreator() {
             {isEditMode ? "Обновить публикацию" : "Отправить публикацию"}
           </button>
           </form>
+
+          {currentUser?.role === 'Administrator' && (
+            <button 
+              className="custom_button" 
+              id="admin-panel"
+              onClick={() => window.location.href = '/admin-panel'}
+            >
+              Администрирование
+            </button>
+          )}
 
           <button className="custom_button" id="newslist" onClick={handleNewsList}>
             Список публикаций

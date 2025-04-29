@@ -158,9 +158,9 @@ body {
 
 .drop-zone.drag-over,
 .drop-zone:hover {
-  background-color: rgba(60, 60, 60, 0.04);
+  background-color: rgba(250, 250, 250);
   border: 1px dashed rgba(60, 60, 60, 0.5);
-}
+} 
 
 .drop-zone span {
   position: absolute;
@@ -183,62 +183,59 @@ body {
 .thumbnail-container {
   display: flex;
   flex-wrap: wrap;
-  flex-direction: column;
-  gap: 20px;
+  gap: 30px;
   justify-content: center;
-  max-width: 98%; /* Уменьшаем на 2% */
-  margin: 24px auto 0; /* Центрируем и добавляем отступ сверху */
-  overflow: hidden; /* Скрываем всё, что выходит за границы */
+  max-width: 100%;
+  margin: 24px auto 0;
 }
 
 /* Каждая миниатюра */
 .thumbnail {
   position: relative;
-  flex-grow: 1;
-  flex-shrink: 1;
-  flex-basis: calc(30% - 30px);
-  flex-wrap: wrap;
-  flex-direction: column;
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  max-width: 100%;
+  flex-grow: 0;
+  flex-shrink: 0;
+  flex-basis: calc(33% - 20px);
+  max-width: calc(33% - 20px);
   overflow: hidden;
-  transition: transform 0.3s ease, opacity 0.3s ease;
-  border-radius: 10px; /* Добавлено скругление контейнера */
+  border-radius: 10px;
+  display: flex;
+  justify-content: center;
+  transition: transform 0.3sease, opacity 0.3sease;
+  align-items: center;
+  flex-direction: column;
 }
 
-/* Дополнить стилями для изображения */
+/* Изображение внутри миниатюры */
 .thumbnail img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  max-width: 100%;
+  max-height: 300px; /* ограничение по высоте, чтобы не растягивались вверх */
+  width: auto;
+  height: auto;
+  object-fit: contain; /* сохраняем исходные пропорции без обрезки */
   transition: transform 0.3s ease;
-  will-change: transform; /* Оптимизация анимации */
-  border-radius: 10px; /* Добавлено скругление контейнера */
-
+  border-radius: 6px;
 }
 
+/* Эффект наведения */
 .thumbnail img:hover {
-  
-  transform: scale(1.02);
+  transform: scale(1.05);
   cursor: pointer;
 }
+
 
 .delete-button {
   position: relative;
   cursor: pointer;
   border-radius: 50%;
   font-size: 20px;
-  line-height: 1;
-  padding: 2% 2% 2% 2%;
+  padding: 4%;
 }
 
 /* Общие стили для кнопок */
 button.custom_button,
 button.custom_button_short,
 button.custom_button_mid {
-  font-size: 14px;
+  font-size: 10pt;
   line-height: 38px;
   display: block;
   width: 100%;
@@ -259,10 +256,6 @@ button.custom_button_short {
   margin: 20px auto;
 }
 
-button.custom_button_mid {
-  width: 97%;
-}
-
 button.custom_button:active {
   filter: brightness(
     110%
@@ -279,14 +272,20 @@ button.custom_button#auth:hover {
   color: #ffffff;
 }
 
-button.custom_button#submit:hover {
-  background-color: hsl(120, 50%, 35%);
+button.custom_button#submit:hover,
+.form-actions button#submit:hover {
+  background-color: #458745;
   color: #ffffff;
 }
 
 button.custom_button#view:hover,
 button.custom_button_short#edit:hover {
   background-color: #b99c46;
+  color: #ffffff;
+}
+
+button.custom_button#admin-panel:hover {
+  background-color: #54a493;
   color: #ffffff;
 }
 
@@ -499,7 +498,6 @@ button.pagination_button {
   transition: background-color 0.2s ease;
   transition: color 0.2s ease-in;
   transition: font-weight 0.1s ease-in-out;
-
 }
 
 button.pagination_button:hover {
@@ -523,7 +521,6 @@ button.pagination_button.active {
   font-size: 100% !important; 
 }
 
-
 /* Затемненный, но не черный фон */
 .ril__outer {
   background-color: rgba(0, 0, 0, 0.5) !important; /* Полупрозрачный черный */
@@ -540,82 +537,133 @@ button.pagination_button.active {
 }
 
 /* Стили для контейнера фильтров */
-.filters-container,
-.user-info {
+.user-info,
+.filters-container {
   display: flex;
-  flex-wrap: nowrap; /* Запрещаем перенос на новую строку */
-  gap: 15px;
-  justify-content: center;
-  align-items: flex-end; /* Выравниваем по нижнему краю */
-  margin: 0 12px;
+  flex-wrap: wrap; /* приоритет от первого */
+  align-items: center; /* приоритет от первого */
+  justify-content: center; 
+  margin: 0 12px; /* заменит margin-bottom на отдельную настройку ниже */
   padding: 15px 0;
 }
 
-/* Стили для группы фильтров */
+.user-info {
+  gap: 80px;
+}
+
+.filters-container {
+  gap: 10px;
+}
+
+/* Точное соответствие стилю фильтров */
+.user-info p {
+  font-size: 10pt;
+  color: #555;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-family: inherit;
+  font-weight: normal;
+}
+
+.filters-container button.custom_button_mid,
+.custom_button_mid {
+  margin: 0;
+  flex: 0 0 auto;
+  height: 42px;
+  align-self: flex-end;
+}
+
+.filters-container button.custom_button_mid:hover,
+.form-actions button#submit:hover,
+.form-actions button#delete:hover {
+  background-color: #2d2f30;
+  color: #ffffff;
+}
+
+.form-actions button#submit:hover {
+  background-color: hsl(120, 50%, 30%);
+}
+
 .filter-group {
   display: flex;
   flex-direction: column;
-  min-width: 300px;
-  margin: 0;
+  flex: 1 1 180px; /* Уменьшил минимальную ширину */
+  min-width: 0; /* Важно для правильного сжатия */
 }
 
+.filter-group--checkbox {
+  flex: 0 0 auto;
+  padding-top: 22px; /* Выравниваем по базовой линии */
+  user-select: none;
+  white-space: nowrap;
+}
+
+.filter-group--checkbox label {
+  display: flex;
+  align-items: center;
+  margin-right: 8px;
+  cursor: pointer;
+}
+
+.filter-group--checkbox input[type="checkbox"] {
+  position: relative;
+  top: 2px;
+  margin-right: 6px; /* Отступ от текста */
+  cursor: pointer;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+/* Стили для label внутри фильтров */
 .filter-group label,
-.user-info p {
-  font-size: 12px;
+.form-group label {
+  font-size: 10pt;
   color: #555;
   margin-bottom: 5px;
   text-transform: uppercase;
   letter-spacing: 1px;
   text-align: left;
+  display: block;
 }
 
-.user-info p {
-  font-size: 15px;
-}
-
-.user-info {
-  margin-bottom: 10px;
-  gap: 80px;
-}
-
-/* Общие стили для select и flatpickr */
+/* Общие стили для input, select и flatpickr */
 .filter-group select,
-.filter-group .form-control {
+.filter-group .form-control,
+.form-group input,
+.form-group select {
   font-family: "Lato", sans-serif;
-  font-size: 14px;
-  padding: 10px 12px; /* Увеличиваем padding для выравнивания высоты */
+  font-size: 15px;
+  padding: 10px 12px;
   border: 1px solid #b5b5b5;
   border-radius: 4px;
   background-color: transparent;
   color: #2d2f30;
   transition: all 0.2s ease-in-out;
   width: 100%;
-  height: 42px; /* Фиксированная высота как у кнопок */
+  height: 42px;
   box-sizing: border-box;
   outline: none;
 }
 
-.filters-container button.custom_button_mid {
-  margin-bottom: 0px;
-}
-
-
-/* Hover эффект для кнопки */
-.filters-container button.custom_button_mid:hover {
-  background-color: #2d2f30;
-  color: #ffffff;
-}
-
-
-/* Hover и focus эффекты */
+/* Hover и focus эффекты для input, select, flatpickr */
 .filter-group select:hover,
 .filter-group .form-control:hover,
 input:hover,
+input:focus,
+.form-group input:hover,
+.form-group select:hover,
+.form-group input:focus,
+.form-group select:focus,
 .jodit-container.jodit.jodit_theme_default.jodit-wysiwyg_mode:hover {
-  border-color: #888 !important; /* или любой другой темный цвет */
+  border-color: #888 !important;
 }
 
-.list-actions {
+/* Структура действий в списках и формах */
+.list-actions,
+.form-actions {
   display: flex;
   justify-content: center;
   gap: 15px;
@@ -625,21 +673,20 @@ button#delete-all {
   margin-bottom: 12px;
 }
 
-
 button#return {
   width: 15%;
 }
 
+/* Переключатель режимов */
 .toggle-mode-btn {
   background: none;
   border: none;
   color: #0066cc;
   cursor: pointer;
   margin-top: 15px;
-  font-size: 14px;
+  font-size: 10pt;
 }
 
 .toggle-mode-btn:hover {
   text-decoration: underline;
 }
-
