@@ -1,3 +1,4 @@
+import datetime
 import os
 import sqlite3
 from app import app
@@ -58,9 +59,15 @@ def news_line():
             files_received = 'files' in request.files
             files_list = request.files.getlist('files') if files_received else []
 
+            # Получаем статус из формы (по умолчанию "Pending")
+            status = "Pending"
+
             g.db.news_add(
                 user[0],  # userID
-                primary_news_data,
+                {
+                    **primary_news_data,
+                    "status": status
+                },
                 files_received,
                 files_list,
                 app.config['UPLOAD_FOLDER']
@@ -76,6 +83,7 @@ def news_line():
                 "STATUS": 500,
                 "DESCRIPTION": f"Server error: {str(e)}"
             }), 500)
+        
     elif request.method == "DELETE":
         try:
             # Проверка прав (добавьте свою логику проверки прав)
@@ -415,3 +423,106 @@ def admin_user_operations(user_id):
         "STATUS": 405,
         "DESCRIPTION": "Method not allowed"
     }), 405)
+
+
+@app.route("/api/admin/pending-news", methods=["GET", "OPTIONS"])
+def admin_pending_news():
+    """Get all pending news for moderation"""
+    if request.method == "OPTIONS":
+        return make_response(jsonify({}), 200)
+    
+    make_db_object()
+    
+    try:
+        # Получаем только новости со статусом "Pending"
+        g.db.cursor.execute('''
+            SELECT n.newsID, title, description, status, create_date,
+                   event_start, event_end, up.nick AS publisher_nick
+            FROM News n
+            JOIN Users up ON up.userID = n.publisherID
+            WHERE n.status = 'Pending'
+            ORDER BY create_date DESC
+        ''')
+        
+        pending_news = [dict(row) for row in g.db.cursor.fetchall()]
+        return make_response(jsonify(pending_news), 200)
+    except Exception as e:
+        return make_response(jsonify({
+            "STATUS": 500,
+            "DESCRIPTION": f"Error fetching pending news: {str(e)}"
+        }), 500)
+
+@app.route("/api/admin/moderate-news/<int:newsID>", methods=["POST", "OPTIONS"])
+def moderate_news(newsID):
+    """Moderate news (approve/reject)"""
+    if request.method == "OPTIONS":
+        return make_response(jsonify({}), 200)
+    
+    make_db_object()
+    
+    try:
+        # Проверка прав администратора/модератора
+        # if not check_admin(request):
+        #     return make_response(jsonify({"error": "Forbidden"}), 403
+        
+        data = request.get_json()
+        if not data:
+            return make_response(jsonify({
+                "STATUS": 400,
+                "DESCRIPTION": "Необходимо указать данные"
+            }), 400)
+            
+        action = data.get("action")  # "approve" или "reject"
+        moderator_id = data.get("moderator_id")  # ID модератора
+        
+        if not moderator_id:
+            return make_response(jsonify({
+                "STATUS": 400,
+                "DESCRIPTION": "Не указан ID модератора"
+            }), 400)
+            
+        if action not in ["approve", "reject"]:
+            return make_response(jsonify({
+                "STATUS": 400,
+                "DESCRIPTION": "Допустимые действия: approve или reject"
+            }), 400)
+
+        # Проверяем существование новости
+        news_data = g.db.news_get_single(newsID)
+        if not news_data[0]:
+            return make_response(jsonify({
+                "STATUS": 404,
+                "DESCRIPTION": "Новость не найдена"
+            }), 404)
+            
+        # Проверяем статус новости (должна быть "Pending")
+        if news_data[0]['status'] != "Pending":
+            return make_response(jsonify({
+                "STATUS": 400,
+                "DESCRIPTION": "Новость уже была промодерирована"
+            }), 400)
+        
+        # Обновляем статус новости
+        new_status = "Approved" if action == "approve" else "Rejected"
+        publish_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") if action == "approve" else None
+        
+        g.db.cursor.execute('''
+            UPDATE News
+            SET status = ?, moderated_byID = ?, publish_date = ?
+            WHERE newsID = ?
+        ''', (new_status, moderator_id, publish_date, newsID))
+        
+        g.db.connection.commit()
+        
+        return make_response(jsonify({
+            "STATUS": 200,
+            "DESCRIPTION": f"News {action}d successfully",
+            "newsID": newsID,
+            "newStatus": new_status
+        }), 200)
+        
+    except Exception as e:
+        return make_response(jsonify({
+            "STATUS": 500,
+            "DESCRIPTION": f"Error moderating news: {str(e)}"
+        }), 500)

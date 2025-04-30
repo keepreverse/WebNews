@@ -156,11 +156,11 @@ body {
   transition: background-color 0.2s ease; /* Добавляем плавный переход для фона */
 }
 
-.drop-zone.drag-over,
+.drop-zone.drag-active,
 .drop-zone:hover {
-  background-color: rgba(250, 250, 250);
-  border: 1px dashed rgba(60, 60, 60, 0.5);
-} 
+  background-color: rgba(252, 252, 252, 1) !important;
+  border: 2px dashed rgba(50, 50, 50, 0.5) !important;
+}
 
 .drop-zone span {
   position: absolute;
@@ -285,7 +285,7 @@ button.custom_button_short#edit:hover {
 }
 
 button.custom_button#admin-panel:hover {
-  background-color: #54a493;
+  background-color: #8e5248;
   color: #ffffff;
 }
 
@@ -689,4 +689,219 @@ button#return {
 
 .toggle-mode-btn:hover {
   text-decoration: underline;
+}
+
+
+
+
+
+
+
+/* Стили для вкладок админ-панели */
+.admin-tabs {
+  display: flex;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #b5b5b5;
+  justify-content: center;
+  width: 100%;
+}
+
+.tab-button {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 10px;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-size: 12pt;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: all 0.3s ease, font-weight 0.1s ease; /* Добавляем анимацию для font-weight */
+  text-align: center;
+  position: relative;
+  margin: 0 -1px;
+  font-weight: 400; /* Явно указываем нормальное начертание */
+}
+
+.tab-button:first-child {
+  margin-left: 0;
+}
+
+.tab-button:last-child {
+  margin-right: 0;
+}
+
+.tab-button:hover {
+  color: #2d2f30;
+  background-color: rgba(45, 47, 48, 0.05);
+}
+
+.tab-button.active {
+  color: #2d2f30;
+  border-bottom-color: #2d2f30;
+  font-weight: 600; /* Используем полужирное вместо bold для более плавного перехода */
+  z-index: 1;
+}
+
+/* Убираем лишние отступы и выравниваем текст */
+.tab-button span {
+  display: inline-block;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Остальные стили остаются без изменений */
+.moderation-panel {
+  margin-top: 15px;
+}
+
+.moderation-item {
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.1),
+    0 -1px 2px rgba(0, 0, 0, 0.05);
+  margin-bottom: 20px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+
+.moderation-item:hover {
+  transform: translateY(-4px);
+  box-shadow: 
+    0 8px 16px rgba(0, 0, 0, 0.1),
+    0 -4px 8px rgba(0, 0, 0, 0.05);
+}
+
+.moderation-item h3 {
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-bottom: 15px;
+  color: #333;
+  text-align: center;
+}
+
+.news-content {
+  font-size: 1rem;
+  color: #555;
+  margin-bottom: 15px;
+  line-height: 1.6;
+}
+
+.moderation-item p {
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.moderation-actions {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+/* Стили для кнопок модерации */
+.custom_button_short.approve {
+  background-color: transparent;
+  border: 1px solid #458745;
+  color: #458745;
+  width: 120px;
+}
+
+.custom_button_short.approve:hover {
+  background-color: #458745;
+  color: #ffffff;
+}
+
+.custom_button_short.reject {
+  background-color: transparent;
+  border: 1px solid hsl(0, 50%, 35%);
+  color: hsl(0, 50%, 35%);
+  width: 120px;
+}
+
+.custom_button_short.reject:hover {
+  background-color: hsl(0, 50%, 35%);
+  color: #ffffff;
+}
+
+/* Стили для формы редактирования пользователей */
+.edit-form {
+  margin-top: 15px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  font-size: 10pt;
+  color: #555;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  display: block;
+  text-align: left;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #b5b5b5;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: border-color 0.3s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  border-color: #888;
+  outline: none;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+/* Адаптивные стили */
+@media (max-width: 768px) {
+  .admin-tabs {
+    flex-direction: column;
+    border-bottom: none;
+  }
+  
+  .tab-button {
+    width: 100%;
+    margin: 0;
+    padding: 12px 15px;
+    border-bottom: none;
+    border-left: 3px solid transparent;
+    text-align: left;
+    margin-bottom: 2px;
+  }
+  
+  .tab-button.active {
+    border-bottom: none;
+    border-left: 3px solid #2d2f30;
+  }
+  
+  .moderation-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .custom_button_short.approve,
+  .custom_button_short.reject {
+    width: 100%;
+  }
 }

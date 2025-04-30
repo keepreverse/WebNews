@@ -29,6 +29,7 @@ function NewsCreator() {
 
   const [dragActive, setDragActive] = useState(false);
 
+
   // Lightbox State
   const [isOpen, setIsOpen] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
@@ -84,7 +85,7 @@ function NewsCreator() {
           for (const file of dt.files) {
             if (file.type.startsWith("image/")) {
               event.preventDefault();
-              toast.warn("Перетаскивание изображений запрещено!");
+              toast.warn("Вставка изображений запрещена!");
               return false;
             }
           }
@@ -93,17 +94,14 @@ function NewsCreator() {
     }
   }), []);
 
-  // Конфигурация Flatpickr
   const configFlatpickr = useMemo(() => ({
     enableTime: true,
     altInput: true,
     altFormat: "F j, Y, H:i",
     dateFormat: "Y-m-d\\TH:i:ss",
     locale: Russian,
-    defaultDate: event_start, // Добавляем текущую дату из состояния
-    date: event_start, // Альтернативный вариант
-  }), [event_start]); // Добавляем date в зависимости
-
+  }), []);
+  
   // Конфигурация Toast
   const configToast = useMemo(() => ({
     position: "top-right",
@@ -139,35 +137,6 @@ function NewsCreator() {
     setTitle(e.target.value);
   }, []);
 
-  const handleDateChange = (selectedDate) => {
-    setDate(selectedDate[0]);
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-  
-    const files = Array.from(e.dataTransfer.files);
-    const hasInvalidFiles = files.some(file => !file.type.startsWith('image/'));
-  
-    if (hasInvalidFiles) {
-      // Очищаем только если есть невалидные файлы
-      if (e.dataTransfer.items) {
-        const items = Array.from(e.dataTransfer.items);
-        items.forEach((item, index) => {
-          if (item.kind === 'file' && !files[index].type.startsWith('image/')) {
-            e.dataTransfer.items.remove(item);
-          }
-        });
-      } else {
-        e.dataTransfer.clearData();
-      }
-    }
-  
-    handleFiles(files);
-  };
-  
   const handleFiles = (files) => {
     const validImages = [];
     const invalidFiles = [];
@@ -201,12 +170,6 @@ function NewsCreator() {
     }
   };
   
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    e.dataTransfer.dropEffect = 'copy';
-  };
-  
   const handleDragEnter = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -217,6 +180,30 @@ function NewsCreator() {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
+  };
+  
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(true);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+  
+    const files = Array.from(e.dataTransfer.files);
+    const hasInvalidFiles = files.some(file => !file.type.startsWith('image/'));
+  
+    if (hasInvalidFiles) {
+      toast.warn('Можно загружать только изображения (JPG, PNG, GIF)!', {
+        autoClose: 5000,
+      });
+      return; // Прерываем обработку, если есть невалидные файлы
+    }
+  
+    handleFiles(files); // Обрабатываем только валидные файлы
   };
 
   const handleDeleteThumbnail = (thumbnailId) => {
@@ -282,6 +269,10 @@ function NewsCreator() {
 
   const handleNewsList = () => {
     window.open("/news-list", "_blank");
+  };
+
+  const handleAdminPanel = () => {
+    window.open("/admin-panel", "_blank");
   };
 
   useEffect(() => {
@@ -353,7 +344,7 @@ function NewsCreator() {
       toast.error("Требуется авторизация!", configToast);
       return;
     }
-
+  
     // Валидация полей
     if (!currentUser.nickname.trim()) {
       toast.error("Ошибка идентификации пользователя! Пожалуйста, авторизуйтесь заново", configToast);
@@ -382,6 +373,11 @@ function NewsCreator() {
     formData.append("title", title);
     formData.append("description", description);
     formData.append("event_start", new Date(event_start).toISOString());
+    
+    // Добавляем статус "Pending" для всех новых публикаций
+    if (!isEditMode) {
+      formData.append("status", "Pending");
+    }
   
     // Добавляем ВСЕ файлы (и новые, и существующие)
     newsImages.forEach((image) => {
@@ -393,18 +389,12 @@ function NewsCreator() {
         formData.append("existing_files", image.fileName);
       }
     });
-
+  
     // Добавляем флаг редактирования
     if (isEditMode) {
       formData.append("is_edit", "true");
     }
-
-    // Логирование FormData
-    console.log('FormData contents:');
-    for (let [key, value] of formData.entries()) {
-      console.log(key, value instanceof File ? `${value.name} (File)` : value);
-    }
-
+  
     try {
       const response = await fetch(
         isEditMode 
@@ -419,7 +409,6 @@ function NewsCreator() {
     
       if (response.status === 401) {
         toast.error("Вы не авторизованы. Пожалуйста, войдите в систему.", configToast);
-
         return;
       }
     
@@ -434,10 +423,11 @@ function NewsCreator() {
       toast.success(
         isEditMode 
           ? "Новость успешно обновлена!" 
-          : "Новость успешно отправлена!",
+          : "Новость отправлена на проверку! Она появится после одобрения модератором.",
         configToast
       );
-    
+      
+
     } catch (error) {
       console.error("Full error:", error);
       toast.error(
@@ -459,19 +449,22 @@ function NewsCreator() {
     );
   }, [description, configJoditEditor]);
 
+  // Обработчик изменения даты (теперь работает с диапазоном)
+  const handleDateChange = (selectedDate) => {
+    setDate(selectedDate);
+  };
+
   const MemoizedFlatpickr = useMemo(() => {
     return (
       <Flatpickr
-        id="news-date"
         name="event_start"
         placeholder="Выберите дату события"
-        options={configFlatpickr}
+        options={configFlatpickr} // onChange теперь внутри configFlatpickr
+        value={event_start}
         onChange={handleDateChange}
-        value={event_start} // Передаем текущее значение даты
-        key={event_start ? event_start.toString() : 'empty'} // Принудительное обновление при изменении даты
       />
     );
-  }, [configFlatpickr, event_start]); // Добавляем event_start в зависимости
+  }, [configFlatpickr, event_start]);
 
   const MemoizedToastContainer = useMemo(() => <ToastContainer options={configToast}/>, [configToast]);
 
@@ -626,19 +619,15 @@ function NewsCreator() {
           </button>
           </form>
 
-          {currentUser?.role === 'Administrator' && (
-            <button 
-              className="custom_button" 
-              id="admin-panel"
-              onClick={() => window.location.href = '/admin-panel'}
-            >
-              Администрирование
-            </button>
-          )}
-
           <button className="custom_button" id="newslist" onClick={handleNewsList}>
             Список публикаций
           </button>
+
+          {currentUser?.role === 'Administrator' && (
+            <button className="custom_button" id="admin-panel" onClick={handleAdminPanel}>
+              Администрирование
+            </button>
+          )}
 
           <LogoutButton />
 

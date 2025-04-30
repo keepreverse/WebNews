@@ -55,7 +55,7 @@ class Storage(object):
                 self.cursor.execute('''
                     INSERT INTO Files (guid, format)
                     VALUES (?, ?)
-                ''', (file_guid, file.mimetype.split('/')[1]))
+                ''', (file_guid, file.mimetype.split('/')[1]))  
 
         # Add news entry
         self.cursor.execute('''
@@ -66,7 +66,7 @@ class Storage(object):
             user_id,
             news_input_data.get("title"),
             news_input_data.get("description"),
-            "Unchecked",
+            news_input_data.get("status", "Pending"),  # Статус по умолчанию
             news_input_data.get("event_start"),
             news_input_data.get("event_end", None),
             datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -87,15 +87,49 @@ class Storage(object):
         self.connection.commit()
 
     def news_getlist(self) -> list:
-        """Get all news items"""
-        news_list = []
-        current_news = self.news_get_one(InvalidValues.INVALID_ID.value)
+        """Get all news items with single query"""
+        self.cursor.execute('''
+            SELECT n.newsID, title, description, status,
+                create_date, publish_date, event_start, event_end,
+                up.nick AS publisher_nick, um.nick AS moderator_nick
+            FROM News n
+            JOIN Users up ON up.userID = n.publisherID
+            LEFT JOIN Users um ON um.userID = n.moderated_byID
+            ORDER BY create_date DESC
+        ''')
         
-        while current_news[1] != InvalidValues.INVALID_ID.value:
-            news_list.append(current_news[0])
-            current_news = self.news_get_one(current_news[1])
+        news_items = []
+        for row in self.cursor.fetchall():
+            news_id = row[0]
+            # Получаем файлы для каждой новости
+            self.cursor.execute('''
+                SELECT f.fileID, guid, format 
+                FROM Files f
+                JOIN File_Link fl ON fl.fileID = f.fileID
+                WHERE fl.newsID = ?
+            ''', (news_id,))
             
-        return news_list
+            files = [{
+                'fileID': r[0],
+                'fileName': r[1],
+                'fileFormat': r[2]
+            } for r in self.cursor.fetchall()]
+            
+            news_items.append({
+                'newsID': news_id,
+                'title': row[1],
+                'description': row[2],
+                'status': row[3],
+                'create_date': row[4],
+                'publish_date': row[5],
+                'event_start': row[6],
+                'event_end': row[7],
+                'publisher_nick': row[8],
+                'moderator_nick': row[9],
+                'files': files
+            })
+        
+        return news_items
 
     def news_get_one(self, last_received_newsID) -> list:
         """Get single news item"""

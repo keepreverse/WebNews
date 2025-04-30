@@ -44,24 +44,21 @@ function NewsList() {
   
   
   useEffect(() => {
+    // В NewsList.js измените fetchData:
     const fetchData = async () => {
       try {
         const response = await fetch("http://127.0.0.1:5000/api/news");
-        if (!response.ok) {
-          if (response.status === 404) {
-            toast.warn("Новости не найдены.");
-          } else {
-            throw new Error("Ошибка при загрузке данных");
-          }
-        } else {
-          const result = await response.json();
-          setData(result);
-          setFilteredData(result);
-          
-          // Получаем уникальных авторов
-          const authors = [...new Set(result.map(item => item.publisher_nick).filter(Boolean))];
-          setUniqueAuthors(authors);
-        }
+        if (!response.ok) throw new Error("Ошибка при загрузке данных");
+        
+        const result = await response.json();
+        // Фильтруем только опубликованные новости
+        const publishedNews = result.filter(item => item.status === "Approved");
+        setData(publishedNews);
+        setFilteredData(publishedNews);
+        
+        // Получаем уникальных авторов
+        const authors = [...new Set(publishedNews.map(item => item.publisher_nick).filter(Boolean))];
+        setUniqueAuthors(authors);
       } catch (error) {
         console.error("Ошибка загрузки данных:", error);
         toast.error("Не удалось загрузить данные");
@@ -117,7 +114,6 @@ function NewsList() {
   const handleAuthorChange = (e) => {
     setAuthorFilter(e.target.value || "");
   };
-
 
   const currentNews = useMemo(() => {
     const indexOfLastNews = currentPage * newsPerPage;
