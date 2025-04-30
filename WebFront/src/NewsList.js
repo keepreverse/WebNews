@@ -67,26 +67,27 @@ function NewsList() {
 
     fetchData();
   }, []);
+
+
   useEffect(() => {
     let result = [...data];
-    
+  
     if (authorFilter) {
       result = result.filter(item => item.publisher_nick === authorFilter);
     }
-    
+  
     if (dateRange[0] && dateRange[1]) {
       const [startDate, endDate] = dateRange;
       const filterStartDate = new Date(startDate).setHours(0, 0, 0, 0);
       const filterEndDate = new Date(endDate).setHours(23, 59, 59, 999);
-      
+  
       result = result.filter(item => {
         const itemDate = new Date(item.event_start).getTime();
         return itemDate >= filterStartDate && itemDate <= filterEndDate;
       });
     }
-    
+  
     setFilteredData(result);
-    setCurrentPage(1);
   }, [data, authorFilter, dateRange]);
 
   // Обработчик изменения даты (теперь работает с диапазоном)
@@ -136,8 +137,6 @@ function NewsList() {
   };
 
   const deleteNews = useCallback(async (newsID) => {
-    if (!window.confirm("Вы уверены, что хотите удалить эту новость?")) return;
-
     try {
       const response = await fetch(`http://127.0.0.1:5000/api/news/${newsID}`, {
         method: "DELETE",

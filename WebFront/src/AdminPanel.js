@@ -4,6 +4,9 @@ import "react-toastify/dist/ReactToastify.css";
 import PageWrapper from "./PageWrapper";
 import Flatpickr from "react-flatpickr";
 import "flatpickr/dist/flatpickr.min.css";
+import HTMLReactParser from "html-react-parser";
+import Lightbox from "react-image-lightbox";
+import "react-image-lightbox/style.css";
 import { Russian } from "flatpickr/dist/l10n/ru.js";
 
 function AdminPanel() {
@@ -141,16 +144,19 @@ function AdminPanel() {
       const response = await fetch("http://127.0.0.1:5000/api/admin/pending-news", {
         credentials: "include"
       });
-      
+  
       if (!response.ok) throw new Error("Ошибка при загрузке новостей");
-      
+  
       const data = await response.json();
       setPendingNews(data);
+      return data; // <-- добавь это
     } catch (error) {
       console.error("Ошибка загрузки новостей:", error);
       toast.error("Не удалось загрузить новости на модерацию");
+      return []; // <-- безопасный возврат при ошибке
     }
   }, []);
+  
 
   useEffect(() => {
     if (activeTab === 'news') {
@@ -233,20 +239,12 @@ function AdminPanel() {
     }
   };
 
-  // Действия с новостями
   const handleModerate = async (newsID, action) => {
     if (!currentUser?.id) {
       toast.error("Требуется авторизация");
       return;
     }
-  
-    // Проверяем, что action имеет допустимое значение
-    const allowedActions = ['approve', 'reject'];
-    if (!allowedActions.includes(action)) {
-      toast.error("Недопустимое действие модерации");
-      return;
-    }
-  
+
     try {
       const response = await fetch(`http://127.0.0.1:5000/api/admin/moderate-news/${newsID}`, {
         method: "POST",
@@ -255,21 +253,29 @@ function AdminPanel() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          action: action, // 'approve' или 'reject' в нижнем регистре
+          action: action,
           moderator_id: currentUser.id
         })
       });
-  
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Moderation error:', errorData);
-        throw new Error(errorData.DESCRIPTION || "Ошибка при модерации");
-      }
+
+      if (!response.ok) throw new Error("Ошибка при модерации");
       
       toast.success(`Новость успешно ${action === 'approve' ? 'одобрена' : 'отклонена'}`);
-      fetchPendingNews();
+      
+      // Обновляем список новостей
+      const updatedNews = await fetchPendingNews();
+      
+      // Корректируем пагинацию, если текущая страница стала пустой
+      if (updatedNews.length > 0) {
+        const maxPossiblePage = Math.ceil(updatedNews.length / newsPerPage);
+        if (newsCurrentPage > maxPossiblePage) {
+          setNewsCurrentPage(maxPossiblePage);
+        }
+      } else {
+        setNewsCurrentPage(1);
+      }
     } catch (error) {
-      console.error("Full moderation error:", error);
+      console.error("Ошибка модерации:", error);
       toast.error(error.message || "Не удалось выполнить модерацию");
     }
   };
@@ -421,7 +427,36 @@ function AdminPanel() {
     </>
   );
 
-  const NewsModerationTab = () => (
+
+// В компоненте NewsModerationTab изменим рендеринг новостей:
+const NewsModerationTab = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [photoIndex, setPhotoIndex] = useState(0);
+  const [currentImages, setCurrentImages] = useState([]);
+  const [currentNewsItem, setCurrentNewsItem] = useState(null);
+
+  const openLightbox = (newsItem, images, index) => {
+    setCurrentNewsItem(newsItem);
+    setCurrentImages(images);
+    setPhotoIndex(index);
+    setIsOpen(true);
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+      document.body.removeAttribute("aria-hidden");
+    } else {
+      document.body.style.overflow = "auto";
+    }
+
+    return () => {
+      document.body.style.overflow = "auto";
+      document.body.removeAttribute("aria-hidden");
+    };
+  }, [isOpen]);
+
+  return (
     <>
       {newsTotalPages > 1 && (
         <Pagination
@@ -435,11 +470,90 @@ function AdminPanel() {
         {currentNews.length === 0 ? (
           <p>Нет новостей на модерации</p>
         ) : currentNews.map(news => (
-          <div key={news.newsID} className="moderation-item">
-            <h3>{news.title}</h3>
-            <div className="news-content" dangerouslySetInnerHTML={{ __html: news.description }} />
-            <p><strong>Автор:</strong> {news.publisher_nick}</p>
-            <p><strong>Дата создания:</strong> {new Date(news.create_date).toLocaleString()}</p>
+          <div key={news.newsID} className="data-item">
+            <h2>{news.title}</h2>
+            <div className="news-description">{HTMLReactParser(news.description)}</div>
+            
+            <div className="news-meta">
+              {news.publisher_nick && (
+                <p><strong>Автор:</strong> {news.publisher_nick}</p>
+              )}
+              
+              {news.event_start && (
+                <p>
+                  <strong>Дата события:</strong>{" "}
+                  {new Date(news.event_start).toLocaleDateString("ru-RU", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                  {", "}
+                  {new Date(news.event_start).toLocaleTimeString("ru-RU", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
+              )}
+              
+              {news.event_end && (
+                <p>
+                  <strong>Дата окончания:</strong>{" "}
+                  {new Date(news.event_end).toLocaleDateString("ru-RU", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                  {", "}
+                  {new Date(news.event_end).toLocaleTimeString("ru-RU", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
+              )}
+              
+              {news.event_location && (
+                <p><strong>Место проведения:</strong> {news.event_location}</p>
+              )}
+              
+              {news.creation_date && (
+                <p>
+                  <strong>Дата создания:</strong>{" "}
+                  {new Date(news.creation_date).toLocaleDateString("ru-RU", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </p>
+              )}
+              
+              {news.files?.length > 0 && (
+                <>
+                  <p><strong>Количество фотографий:</strong> {news.files.length}</p>
+                  <div className="thumbnail-container">
+                    {news.files.map((file, index) => (
+                      <div key={index} className="thumbnail">
+                        <img
+                          src={`http://127.0.0.1:5000/uploads/${file.fileName}`}
+                          alt={`Фото ${index + 1}`}
+                          className="data-image"
+                          onClick={() =>
+                            openLightbox(
+                              news,
+                              news.files.map(f => `http://127.0.0.1:5000/uploads/${f.fileName}`),
+                              index
+                            )
+                          }
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = '/path/to/placeholder/image.jpg';
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
             
             <div className="moderation-actions">
               <button 
@@ -466,50 +580,72 @@ function AdminPanel() {
           paginate={setNewsCurrentPage}
         />
       )}
+
+      {isOpen && (
+        <Lightbox
+          mainSrc={currentImages[photoIndex]}
+          nextSrc={currentImages[(photoIndex + 1) % currentImages.length]}
+          prevSrc={currentImages[(photoIndex + currentImages.length - 1) % currentImages.length]}
+          onCloseRequest={() => setIsOpen(false)}
+          onMovePrevRequest={() => 
+            setPhotoIndex((photoIndex + currentImages.length - 1) % currentImages.length)
+          }
+          onMoveNextRequest={() => 
+            setPhotoIndex((photoIndex + 1) % currentImages.length)
+          }
+          imageTitle={`Изображение ${photoIndex + 1} из ${currentImages.length}`}
+          imageCaption={
+            currentNewsItem 
+              ? `Новость: ${currentNewsItem.title}${currentNewsItem.publisher_nick ? ` (Автор: ${currentNewsItem.publisher_nick})` : ''}`
+              : ''
+          }
+        />
+      )}
     </>
   );
+};
 
-  return (
-    <PageWrapper>
-      <title>Панель администратора</title>
-      <div id="data-list-form" className="container">
-        <h1>Панель администратора</h1>
-        
-        <div className="admin-tabs">
-          <button 
-            className={`tab-button ${activeTab === 'users' ? 'active' : ''}`}
-            onClick={() => setActiveTab('users')}
-          >
-            Управление пользователями
-          </button>
-          <button 
-            className={`tab-button ${activeTab === 'news' ? 'active' : ''}`}
-            onClick={() => setActiveTab('news')}
-          >
-            Модерация новостей
-          </button>
-        </div>
-        
-        {activeTab === 'users' ? <UsersTab /> : <NewsModerationTab />}
+return (
+  <PageWrapper>
+    <title>Панель администратора</title>
+    <div id="data-list-form" className="container">
+      <h1>Панель администратора</h1>
+      
+      <div className="admin-tabs">
+        <button 
+          className={`tab-button ${activeTab === 'users' ? 'active' : ''}`}
+          onClick={() => setActiveTab('users')}
+        >
+          Управление пользователями
+        </button>
+        <button 
+          className={`tab-button ${activeTab === 'news' ? 'active' : ''}`}
+          onClick={() => setActiveTab('news')}
+        >
+          Модерация новостей
+        </button>
       </div>
       
-      <ToastContainer />
-    </PageWrapper>
-  );
+      {activeTab === 'users' ? <UsersTab /> : <NewsModerationTab />}
+    </div>
+    
+    <ToastContainer />
+  </PageWrapper>
+);
 }
 
 const Pagination = React.memo(({ totalPages, currentPage, paginate }) => (
-  <div className="pagination">
-    {Array.from({ length: totalPages }).map((_, index) => (
-      <button
-        key={index}
-        onClick={() => paginate(index + 1)}
-        className={`pagination_button ${currentPage === index + 1 ? "active" : ""}`}
-      >
-        {index + 1}
-      </button>
-    ))}
-  </div>
+<div className="pagination">
+  {Array.from({ length: totalPages }).map((_, index) => (
+    <button
+      key={index}
+      onClick={() => paginate(index + 1)}
+      className={`pagination_button ${currentPage === index + 1 ? "active" : ""}`}
+    >
+      {index + 1}
+    </button>
+  ))}
+</div>
 ));
 
 export default AdminPanel;
