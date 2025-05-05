@@ -1,17 +1,24 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
+import { useNavigate } from 'react-router-dom';
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import PageWrapper from "./PageWrapper";
 import Flatpickr from "react-flatpickr";
 import "flatpickr/dist/flatpickr.min.css";
 import HTMLReactParser from "html-react-parser";
-import Lightbox from "react-image-lightbox";
-import "react-image-lightbox/style.css";
+import Lightbox from "yet-another-react-lightbox";
+import "yet-another-react-lightbox/styles.css";
 import { Russian } from "flatpickr/dist/l10n/ru.js";
+import { api } from './apiClient';
+
+import { initAuthToken } from './apiClient';
 
 function AdminPanel() {
+
+  const navigate = useNavigate();
+
   // Состояние для активного раздела
-  const [activeTab, setActiveTab] = useState('users');
+  const [activeTab, setActiveTab] = useState('news');
   
   // Состояния для управления пользователями
   const [users, setUsers] = useState([]);
@@ -43,25 +50,31 @@ function AdminPanel() {
   }), []);
   
 
-  // Загрузка текущего пользователя
   useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem('user'));
-    setCurrentUser(userData);
-  }, []);
+    // Инициализируем токен из хранилища
+    initAuthToken();
+    
+    const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
+    if (userData) {
+      setCurrentUser(userData);
+      
+      // Проверяем, есть ли у пользователя права администратора
+      if (userData.role !== 'Administrator') {
+        toast.error('Недостаточно прав для доступа к панели администратора');
+        // Перенаправляем на главную или страницу входа
+        navigate('/');
+      }
+    } else {
+      toast.error('Требуется авторизация');
+      navigate('/login');
+    }
+  }, [navigate]);
 
   // Загрузка пользователей
   const fetchUsers = useCallback(async () => {
     try {
-      const response = await fetch("http://127.0.0.1:5000/api/admin/users", {
-        credentials: "include"
-      });
+      const data = await api.get("/api/admin/users");
       
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.DESCRIPTION || "Ошибка при загрузке пользователей");
-      }
-      
-      const data = await response.json();
       setUsers(data);
       setFilteredUsers(data);
       
@@ -82,18 +95,11 @@ function AdminPanel() {
   // Загрузка паролей
   const fetchRealPasswords = useCallback(async () => {
     try {
-      const response = await fetch(
-        "http://127.0.0.1:5000/api/admin/users/real_passwords", 
-        { credentials: "include" }
-      );
-      
-      if (!response.ok) throw new Error("Ошибка при загрузке паролей");
-      
-      const data = await response.json();
+      const data = await api.get("/api/admin/users/real_passwords");
       return data;
     } catch (error) {
       console.error("Ошибка загрузки паролей:", error);
-      toast.error("Не удалось загрузить пароли");
+      toast.error(error.message || "Не удалось загрузить пароли");
       return null;
     }
   }, []);
@@ -141,19 +147,14 @@ function AdminPanel() {
   // Загрузка новостей на модерацию
   const fetchPendingNews = useCallback(async () => {
     try {
-      const response = await fetch("http://127.0.0.1:5000/api/admin/pending-news", {
-        credentials: "include"
-      });
-  
-      if (!response.ok) throw new Error("Ошибка при загрузке новостей");
-  
-      const data = await response.json();
+      const data = await api.get("/api/admin/pending-news");
+
       setPendingNews(data);
-      return data; // <-- добавь это
+      return data;
     } catch (error) {
       console.error("Ошибка загрузки новостей:", error);
       toast.error("Не удалось загрузить новости на модерацию");
-      return []; // <-- безопасный возврат при ошибке
+      return [];
     }
   }, []);
   
@@ -179,14 +180,7 @@ function AdminPanel() {
     return filteredUsers.slice(indexOfFirstUser, indexOfLastUser);
   }, [filteredUsers, currentPage, usersPerPage]);
 
-  const currentNews = useMemo(() => {
-    const indexOfLastNews = newsCurrentPage * newsPerPage;
-    const indexOfFirstNews = indexOfLastNews - newsPerPage;
-    return pendingNews.slice(indexOfFirstNews, indexOfLastNews);
-  }, [pendingNews, newsCurrentPage, newsPerPage]);
-
   const usersTotalPages = Math.ceil(filteredUsers.length / usersPerPage);
-  const newsTotalPages = Math.ceil(pendingNews.length / newsPerPage);
 
   const translateRole = (role) => {
     const roleTranslations = {
@@ -202,40 +196,24 @@ function AdminPanel() {
     if (!window.confirm("Вы уверены, что хотите удалить этого пользователя?")) return;
     
     try {
-      const response = await fetch(`http://127.0.0.1:5000/api/admin/users/${userId}`, {
-        method: "DELETE",
-        credentials: "include"
-      });
-
-      if (!response.ok) throw new Error("Ошибка при удалении пользователя");
-
+      await api.delete(`/api/admin/users/${userId}`);
       toast.success("Пользователь успешно удален");
       fetchUsers();
     } catch (error) {
       console.error("Ошибка удаления пользователя:", error);
-      toast.error("Не удалось удалить пользователя");
+      toast.error(error.message || "Не удалось удалить пользователя");
     }
   };
 
   const updateUser = async (userId, updateData) => {
     try {
-      const response = await fetch(`http://127.0.0.1:5000/api/admin/users/${userId}`, {
-        method: "PUT",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(updateData)
-      });
-
-      if (!response.ok) throw new Error("Ошибка при обновлении пользователя");
-
+      await api.put(`/api/admin/users/${userId}`, updateData);
       toast.success("Данные пользователя обновлены");
       setEditingUser(null);
       fetchUsers();
     } catch (error) {
       console.error("Ошибка обновления пользователя:", error);
-      toast.error("Не удалось обновить данные пользователя");
+      toast.error(error.message || "Не удалось обновить данные пользователя");
     }
   };
 
@@ -244,33 +222,22 @@ function AdminPanel() {
       toast.error("Требуется авторизация");
       return;
     }
-
+  
     try {
-      const response = await fetch(`http://127.0.0.1:5000/api/admin/moderate-news/${newsID}`, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          action: action,
-          moderator_id: currentUser.id
-        })
+      await api.post(`/api/admin/moderate-news/${newsID}`, {
+        action: action,
+        moderator_id: currentUser.id
       });
-
-      if (!response.ok) throw new Error("Ошибка при модерации");
-      
+  
       toast.success(`Новость успешно ${action === 'approve' ? 'одобрена' : 'отклонена'}`);
       
       // Обновляем список новостей
       const updatedNews = await fetchPendingNews();
       
-      // Корректируем пагинацию, если текущая страница стала пустой
+      // Корректируем пагинацию
       if (updatedNews.length > 0) {
         const maxPossiblePage = Math.ceil(updatedNews.length / newsPerPage);
-        if (newsCurrentPage > maxPossiblePage) {
-          setNewsCurrentPage(maxPossiblePage);
-        }
+        setNewsCurrentPage(prev => Math.min(prev, maxPossiblePage));
       } else {
         setNewsCurrentPage(1);
       }
@@ -427,225 +394,329 @@ function AdminPanel() {
     </>
   );
 
+  // Компонент модерации новостей с фильтрами
+  const NewsModerationTab = () => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [photoIndex, setPhotoIndex] = useState(0);
+    const [currentImages, setCurrentImages] = useState([]);
+    const [authorFilter, setAuthorFilter] = useState("");
+    const [dateRangeNews, setDateRangeNews] = useState([null, null]);
+    const [uniqueAuthors, setUniqueAuthors] = useState([]);
+  
+    // Получаем уникальных авторов при загрузке новостей
+    useEffect(() => {
+      if (pendingNews.length > 0) {
+        const authors = [...new Set(pendingNews.map(item => item.publisher_nick).filter(Boolean))];
+        setUniqueAuthors(authors);
+      }
+    }, []); // Убрал pendingNews из зависимостей
+  
+    // Обработчик изменения автора
+    const handleAuthorChange = (e) => {
+      setAuthorFilter(e.target.value || "");
+      setNewsCurrentPage(1);
+    };
+  
+    // Обработчик изменения даты
+    const handleDateChangeNews = (selectedDates) => {
+      setDateRangeNews(selectedDates);
+      setNewsCurrentPage(1);
+    };
+  
+    // Сброс фильтров
+    const clearNewsFilters = () => {
+      setAuthorFilter("");
+      setDateRangeNews([null, null]);
+    };
 
-// В компоненте NewsModerationTab изменим рендеринг новостей:
-const NewsModerationTab = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [photoIndex, setPhotoIndex] = useState(0);
-  const [currentImages, setCurrentImages] = useState([]);
-  const [currentNewsItem, setCurrentNewsItem] = useState(null);
+    const handleArchive = async (newsID) => {
+      try {
+        await api.post(`/api/news/${newsID}/archive`, {});
+        toast.success("Новость успешно архивирована");
+        fetchPendingNews();
+      } catch (error) {
+        console.error("Ошибка архивации:", error);
+        toast.error(error.message || "Не удалось архивировать новость");
+      }
+    };
 
-  const openLightbox = (newsItem, images, index) => {
-    setCurrentNewsItem(newsItem);
-    setCurrentImages(images);
-    setPhotoIndex(index);
-    setIsOpen(true);
+    // Фильтрация новостей
+    const filteredNews = useMemo(() => {
+      let result = [...pendingNews];
+      
+      if (authorFilter) {
+        result = result.filter(item => item.publisher_nick === authorFilter);
+      }
+    
+      if (dateRangeNews[0] && dateRangeNews[1]) {
+        const [startDate, endDate] = dateRangeNews;
+        const filterStartDate = new Date(startDate).setHours(0, 0, 0, 0);
+        const filterEndDate = new Date(endDate).setHours(23, 59, 59, 999);
+    
+        result = result.filter(item => {
+          const itemDate = new Date(item.event_start).getTime();
+          return itemDate >= filterStartDate && itemDate <= filterEndDate;
+        });
+      }
+      
+      return result;
+    }, [authorFilter, dateRangeNews]); // Убрал pendingNews из зависимостей
+  
+    // Текущие новости с учетом пагинации
+    const currentNews = useMemo(() => {
+      const indexOfLastNews = newsCurrentPage * newsPerPage;
+      const indexOfFirstNews = indexOfLastNews - newsPerPage;
+      return filteredNews.slice(indexOfFirstNews, indexOfLastNews);
+    }, [filteredNews]); // Убрал newsCurrentPage и newsPerPage из зависимостей
+  
+    const newsTotalPages = Math.ceil(filteredNews.length / newsPerPage);
+
+    const openLightbox = (newsItem, images, index) => {
+      setCurrentImages(images);
+      setPhotoIndex(index);
+      setIsOpen(true);
+    };
+
+    useEffect(() => {
+      if (isOpen) {
+        document.body.style.overflow = "hidden";
+        document.body.removeAttribute("aria-hidden");
+      } else {
+        document.body.style.overflow = "auto";
+      }
+
+      return () => {
+        document.body.style.overflow = "auto";
+        document.body.removeAttribute("aria-hidden");
+      };
+    }, [isOpen]);
+
+    return (
+      <>
+        {/* Блок фильтров для новостей */}
+        <div className="filters-container">
+          <div className="filter-group">
+            <label htmlFor="author-filter">Фильтр по автору:</label>
+            <select
+              id="author-filter"
+              value={authorFilter}
+              onChange={handleAuthorChange}
+            >
+              <option value="">Все авторы</option>
+              {uniqueAuthors.map(author => (
+                <option key={author} value={author}>{author}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="filter-group">
+            <label>Фильтр по дате события:</label>
+            <Flatpickr
+              options={configFlatpickr}
+              onChange={handleDateChangeNews}
+              value={dateRangeNews}
+              placeholder="Выберите диапазон дат"
+            />
+          </div>
+          
+          <button 
+            onClick={clearNewsFilters} 
+            className="custom_button_mid"
+            disabled={!authorFilter && !dateRangeNews[0]}
+          >
+            Сбросить фильтры
+          </button>
+
+          {/* Кнопка "Удалить все" - только для администраторов */}
+          {currentUser?.userRole === 'Administrator' && (
+            <button 
+              onClick={() => {
+                if (window.confirm("Вы уверены, что хотите удалить ВСЕ новости на модерации?")) {
+                  // Здесь можно добавить логику удаления всех новостей
+                }
+              }} 
+              className="custom_button_mid" 
+              id="delete-all"
+            >
+              Удалить все
+            </button>
+          )}
+        </div>
+
+        {newsTotalPages > 1 && (
+          <Pagination
+            totalPages={newsTotalPages}
+            currentPage={newsCurrentPage}
+            paginate={setNewsCurrentPage}
+          />
+        )}
+
+        <div className="data-list">
+          {currentNews.length === 0 ? (
+            <p>Нет новостей на модерации</p>
+          ) : currentNews.map(news => (
+            <div key={news.newsID} className="data-item">
+              <h2>{news.title}</h2>
+              <div className="news-description">{HTMLReactParser(news.description)}</div>
+              
+              <div className="news-meta">
+                {news.publisher_nick && (
+                  <p><strong>Автор:</strong> {news.publisher_nick}</p>
+                )}
+                
+                {news.event_start && (
+                  <p>
+                    <strong>Дата события:</strong>{" "}
+                    {new Date(news.event_start).toLocaleDateString("ru-RU", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                    {", "}
+                    {new Date(news.event_start).toLocaleTimeString("ru-RU", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                )}
+                
+                {news.event_end && (
+                  <p>
+                    <strong>Дата окончания:</strong>{" "}
+                    {new Date(news.event_end).toLocaleDateString("ru-RU", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                    {", "}
+                    {new Date(news.event_end).toLocaleTimeString("ru-RU", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                )}
+                
+                {news.files?.length > 0 && (
+                  <>
+                    <p><strong>Количество фотографий:</strong> {news.files.length}</p>
+                    <div className="thumbnail-container">
+                      {news.files.map((file, index) => (
+                        <div key={index} className="thumbnail">
+                          <img
+                            src={`http://127.0.0.1:5000/uploads/${file.fileName}`}
+                            alt={`Фото ${index + 1}`}
+                            className="data-image"
+                            onClick={() =>
+                              openLightbox(
+                                news,
+                                news.files.map(f => `http://127.0.0.1:5000/uploads/${f.fileName}`),
+                                index
+                              )
+                            }
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = '/path/to/placeholder/image.jpg';
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+              
+              <div className="moderation-actions">
+                <button 
+                  onClick={() => handleModerate(news.newsID, 'approve')}
+                  className="custom_button_short approve"
+                >
+                  Одобрить
+                </button>
+                <button 
+                  onClick={() => handleModerate(news.newsID, 'reject')}
+                  className="custom_button_short reject"
+                >
+                  Отклонить
+                </button>
+                <button
+                  onClick={() => handleArchive(news.newsID)}
+                  className="custom_button_short archive"
+                >
+                  В архив
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {newsTotalPages > 1 && (
+          <Pagination
+            totalPages={newsTotalPages}
+            currentPage={newsCurrentPage}
+            paginate={setNewsCurrentPage}
+          />
+        )}
+
+        {isOpen && (
+          <Lightbox
+            mainSrc={currentImages[photoIndex]}
+            nextSrc={currentImages[(photoIndex + 1) % currentImages.length]}
+            prevSrc={currentImages[(photoIndex + currentImages.length - 1) % currentImages.length]}
+            onCloseRequest={() => setIsOpen(false)}
+            onMovePrevRequest={() => 
+              setPhotoIndex((photoIndex + currentImages.length - 1) % currentImages.length)
+            }
+            onMoveNextRequest={() => 
+              setPhotoIndex((photoIndex + 1) % currentImages.length)
+            }
+            imageTitle={`Изображение ${photoIndex + 1} из ${currentImages.length}`}
+          />
+        )}
+      </>
+    );
   };
 
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-      document.body.removeAttribute("aria-hidden");
-    } else {
-      document.body.style.overflow = "auto";
-    }
-
-    return () => {
-      document.body.style.overflow = "auto";
-      document.body.removeAttribute("aria-hidden");
-    };
-  }, [isOpen]);
-
   return (
-    <>
-      {newsTotalPages > 1 && (
-        <Pagination
-          totalPages={newsTotalPages}
-          currentPage={newsCurrentPage}
-          paginate={setNewsCurrentPage}
-        />
-      )}
-
-      <div className="data-list">
-        {currentNews.length === 0 ? (
-          <p>Нет новостей на модерации</p>
-        ) : currentNews.map(news => (
-          <div key={news.newsID} className="data-item">
-            <h2>{news.title}</h2>
-            <div className="news-description">{HTMLReactParser(news.description)}</div>
-            
-            <div className="news-meta">
-              {news.publisher_nick && (
-                <p><strong>Автор:</strong> {news.publisher_nick}</p>
-              )}
-              
-              {news.event_start && (
-                <p>
-                  <strong>Дата события:</strong>{" "}
-                  {new Date(news.event_start).toLocaleDateString("ru-RU", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
-                  {", "}
-                  {new Date(news.event_start).toLocaleTimeString("ru-RU", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </p>
-              )}
-              
-              {news.event_end && (
-                <p>
-                  <strong>Дата окончания:</strong>{" "}
-                  {new Date(news.event_end).toLocaleDateString("ru-RU", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
-                  {", "}
-                  {new Date(news.event_end).toLocaleTimeString("ru-RU", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </p>
-              )}
-              
-              {news.event_location && (
-                <p><strong>Место проведения:</strong> {news.event_location}</p>
-              )}
-              
-              {news.creation_date && (
-                <p>
-                  <strong>Дата создания:</strong>{" "}
-                  {new Date(news.creation_date).toLocaleDateString("ru-RU", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
-                </p>
-              )}
-              
-              {news.files?.length > 0 && (
-                <>
-                  <p><strong>Количество фотографий:</strong> {news.files.length}</p>
-                  <div className="thumbnail-container">
-                    {news.files.map((file, index) => (
-                      <div key={index} className="thumbnail">
-                        <img
-                          src={`http://127.0.0.1:5000/uploads/${file.fileName}`}
-                          alt={`Фото ${index + 1}`}
-                          className="data-image"
-                          onClick={() =>
-                            openLightbox(
-                              news,
-                              news.files.map(f => `http://127.0.0.1:5000/uploads/${f.fileName}`),
-                              index
-                            )
-                          }
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = '/path/to/placeholder/image.jpg';
-                          }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-            
-            <div className="moderation-actions">
-              <button 
-                onClick={() => handleModerate(news.newsID, 'approve')}
-                className="custom_button_short approve"
-              >
-                Одобрить
-              </button>
-              <button 
-                onClick={() => handleModerate(news.newsID, 'reject')}
-                className="custom_button_short reject"
-              >
-                Отклонить
-              </button>
-            </div>
-          </div>
-        ))}
+    <PageWrapper>
+      <title>Панель администратора</title>
+      <div id="data-list-form" className="container">
+        <h1>Панель администратора</h1>
+        
+        <div className="admin-tabs">
+          <button 
+            className={`tab-button ${activeTab === 'news' ? 'active' : ''}`}
+            onClick={() => setActiveTab('news')}
+          >
+            Модерация новостей
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'users' ? 'active' : ''}`}
+            onClick={() => setActiveTab('users')}
+          >
+            Управление пользователями
+          </button>
+        </div>
+        
+        {activeTab === 'users' ? <UsersTab /> : <NewsModerationTab />}
       </div>
-
-      {newsTotalPages > 1 && (
-        <Pagination
-          totalPages={newsTotalPages}
-          currentPage={newsCurrentPage}
-          paginate={setNewsCurrentPage}
-        />
-      )}
-
-      {isOpen && (
-        <Lightbox
-          mainSrc={currentImages[photoIndex]}
-          nextSrc={currentImages[(photoIndex + 1) % currentImages.length]}
-          prevSrc={currentImages[(photoIndex + currentImages.length - 1) % currentImages.length]}
-          onCloseRequest={() => setIsOpen(false)}
-          onMovePrevRequest={() => 
-            setPhotoIndex((photoIndex + currentImages.length - 1) % currentImages.length)
-          }
-          onMoveNextRequest={() => 
-            setPhotoIndex((photoIndex + 1) % currentImages.length)
-          }
-          imageTitle={`Изображение ${photoIndex + 1} из ${currentImages.length}`}
-          imageCaption={
-            currentNewsItem 
-              ? `Новость: ${currentNewsItem.title}${currentNewsItem.publisher_nick ? ` (Автор: ${currentNewsItem.publisher_nick})` : ''}`
-              : ''
-          }
-        />
-      )}
-    </>
+      
+      <ToastContainer />
+    </PageWrapper>
   );
-};
-
-return (
-  <PageWrapper>
-    <title>Панель администратора</title>
-    <div id="data-list-form" className="container">
-      <h1>Панель администратора</h1>
-      
-      <div className="admin-tabs">
-        <button 
-          className={`tab-button ${activeTab === 'users' ? 'active' : ''}`}
-          onClick={() => setActiveTab('users')}
-        >
-          Управление пользователями
-        </button>
-        <button 
-          className={`tab-button ${activeTab === 'news' ? 'active' : ''}`}
-          onClick={() => setActiveTab('news')}
-        >
-          Модерация новостей
-        </button>
-      </div>
-      
-      {activeTab === 'users' ? <UsersTab /> : <NewsModerationTab />}
-    </div>
-    
-    <ToastContainer />
-  </PageWrapper>
-);
 }
 
 const Pagination = React.memo(({ totalPages, currentPage, paginate }) => (
-<div className="pagination">
-  {Array.from({ length: totalPages }).map((_, index) => (
-    <button
-      key={index}
-      onClick={() => paginate(index + 1)}
-      className={`pagination_button ${currentPage === index + 1 ? "active" : ""}`}
-    >
-      {index + 1}
-    </button>
-  ))}
-</div>
+  <div className="pagination">
+    {Array.from({ length: totalPages }).map((_, index) => (
+      <button
+        key={index}
+        onClick={() => paginate(index + 1)}
+        className={`pagination_button ${currentPage === index + 1 ? "active" : ""}`}
+      >
+        {index + 1}
+      </button>
+    ))}
+  </div>
 ));
 
 export default AdminPanel;

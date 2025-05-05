@@ -8,19 +8,6 @@ from flask import jsonify, request, make_response, g, send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 
-
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 5MB
-
-def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-# Добавим конфигурацию JWT
-app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'your-secret-key-here')
-app.config['JWT_ALGORITHM'] = 'HS256'
-app.config['JWT_EXPIRATION_DELTA'] = timedelta(hours=24)
-
 def jwt_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -32,96 +19,13 @@ def jwt_required(f):
             return jsonify({"error": "Token is missing"}), 401
 
         try:
-            data = jwt.decode(
-                token, 
-                app.config['JWT_SECRET_KEY'], 
-                algorithms=[app.config['JWT_ALGORITHM']]
-            )
-            g.current_user = {
-                'userID': data['userID'],
-                'login': data['login'],
-                'userRole': data['userRole'],
-                'nickname': data['nickname']
-            }
-        except jwt.ExpiredSignatureError:
-            return jsonify({"error": "Token has expired"}), 401
-        except jwt.InvalidTokenError:
-            return jsonify({"error": "Invalid token"}), 401
+            data = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
+            g.current_user = data
         except Exception as e:
-            return jsonify({"error": f"Token verification failed: {str(e)}"}), 401
+            return jsonify({"error": "Invalid token"}), 401
 
         return f(*args, **kwargs)
     return decorated
-
-def admin_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        # Пропускаем OPTIONS запросы
-        if request.method == 'OPTIONS':
-            return make_response(jsonify({}), 200)
-            
-        # Проверяем токен
-        token = None
-        if 'Authorization' in request.headers:
-            token = request.headers['Authorization'].split()[1]
-        
-        if not token:
-            return make_response(jsonify({"error": "Требуется авторизация"}), 401)
-
-        try:
-            data = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
-            g.current_user = data
-        except jwt.ExpiredSignatureError:
-            return make_response(jsonify({"error": "Токен истёк"}), 401)
-        except jwt.InvalidTokenError:
-            return make_response(jsonify({"error": "Неверный токен"}), 401)
-
-        # Проверяем роль
-        if g.current_user['userRole'] != 'Administrator':
-            return make_response(jsonify({
-                "error": f"Доступ запрещен. Требуются права администратора. Ваша роль: {g.current_user['userRole']}"
-            }), 403)
-            
-        return f(*args, **kwargs)
-    return decorated
-
-def moderator_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        # Пропускаем OPTIONS запросы
-        if request.method == 'OPTIONS':
-            return make_response(jsonify({}), 200)
-            
-        # Проверяем токен
-        token = None
-        if 'Authorization' in request.headers:
-            token = request.headers['Authorization'].split()[1]
-        
-        if not token:
-            return make_response(jsonify({"error": "Требуется авторизация"}), 401)
-
-        try:
-            data = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
-            g.current_user = data
-        except jwt.ExpiredSignatureError:
-            return make_response(jsonify({"error": "Токен истёк"}), 401)
-        except jwt.InvalidTokenError:
-            return make_response(jsonify({"error": "Неверный токен"}), 401)
-
-        # Проверяем роль
-        if g.current_user['userRole'] not in ['Administrator', 'Moderator']:
-            return make_response(jsonify({
-                "error": f"Доступ запрещен. Требуются права администратора/модератора. Ваша роль: {g.current_user['userRole']}"
-            }), 403)
-            
-        return f(*args, **kwargs)
-    return decorated
-
-@app.errorhandler(403)
-def forbidden(error):
-    return make_response(jsonify({
-        "error": "Доступ запрещен. Требуются права администратора/модератора."
-    }), 403)
 
 # Путь до папки с изображениями
 UPLOAD_FOLDER = os.path.join(os.path.abspath(os.path.dirname(__file__)), '../img')
@@ -202,6 +106,8 @@ def news_line():
         
     elif request.method == "DELETE":
         try:
+            # Проверка прав (добавьте свою логику проверки прав)
+
             g.db.news_clear()
             return make_response(jsonify({
                 "STATUS": 200,
@@ -214,6 +120,7 @@ def news_line():
             }), 500)
 
 @app.route("/api/news/<int:newsID>", methods=["GET", "PUT", "DELETE", "OPTIONS"])
+
 def single_news(newsID):
     """Handler for single news operations"""
     if request.method == "OPTIONS":
@@ -321,13 +228,13 @@ def login():
                 "DESCRIPTION": "Неверный логин или пароль"
             }), 401)
 
-        # Создаем JWT токен с правильной структурой
+        # Создаем JWT токен
         token = jwt.encode({
             'userID': user[0],
             'login': user[4],  # login из user tuple
             'userRole': user[2],
             'nickname': user[3],
-            'exp': datetime.utcnow() + app.config['JWT_EXPIRATION_DELTA']
+            'exp': datetime.utcnow() + timedelta(hours=24)  # Токен действителен 24 часа
         }, app.config['JWT_SECRET_KEY'], algorithm=app.config['JWT_ALGORITHM'])
 
         return make_response(jsonify({
@@ -335,8 +242,7 @@ def login():
             "token": token,
             "userID": user[0],
             "userRole": user[2],
-            "nickname": user[3],
-            "login": user[4]
+            "nickname": user[3]
         }), 200)
 
     except Exception as e:
@@ -435,20 +341,21 @@ def logout():
 
 
 @app.route("/api/admin/users", methods=["GET"])
-@admin_required
+@jwt_required  # Добавляем JWT-аутентификацию
 def admin_users():
     """Admin endpoint to get all users (without sensitive data)"""
     if request.method == "OPTIONS":
         return make_response(jsonify({}), 200)
-    if g.current_user['userRole'] not in ['Administrator']:
-        return make_response(jsonify({
-            "error": "Только администраторы могут просматривать эту страницу"
-        }), 403)
+    
+    # Проверка прав администратора через JWT
+    if g.current_user['userRole'] != 'Administrator':
+        return make_response(jsonify({"error": "Forbidden"}), 403)
     
     make_db_object()
     
     try:
-        users = g.db.user_get_all()
+        # Безопасная версия - не возвращаем пароли!
+        users = g.db.user_get_all()  # Используйте новый метод без паролей
         return make_response(jsonify(users), 200)
     except Exception as e:
         return make_response(jsonify({
@@ -457,20 +364,22 @@ def admin_users():
         }), 500)
     
 @app.route("/api/admin/users/real_passwords", methods=["GET", "OPTIONS"])
-@admin_required
 def admin_users_real_passwords():
     """Admin endpoint to get all users with real passwords (ONLY FOR DEMO/DEBUG)"""
     if request.method == "OPTIONS":
         return make_response(jsonify({}), 200)
-    if g.current_user['userRole'] not in ['Administrator']:
-        return make_response(jsonify({
-            "error": "Только администраторы могут просматривать эту страницу"
-        }), 403)
+    
+    # Проверка прав администратора
+    # if not is_admin(request):
+    #     return make_response(jsonify({"error": "Forbidden"}), 403
     
     make_db_object()
     
     try:
-        users = g.db.user_get_all_with_real_passwords()
+        # В реальном приложении пароли не должны храниться в открытом виде!
+        # Это только для демонстрационных целей
+        #users = g.db.user_get_all_with_real_passwords()
+        users = g.db.user_get_all()
         return make_response(jsonify(users), 200)
     except Exception as e:
         app.logger.error(f"Error fetching users with real passwords: {str(e)}")
@@ -480,14 +389,13 @@ def admin_users_real_passwords():
         }), 500)
 
 @app.route("/api/admin/users/<int:user_id>", methods=["PUT", "DELETE", "OPTIONS"])
-@admin_required
 def admin_user_operations(user_id):
     if request.method == "OPTIONS":
         return make_response(jsonify({}), 200)
-    if g.current_user['userRole'] not in ['Administrator']:
-        return make_response(jsonify({
-            "error": "Только администраторы могут просматривать эту страницу"
-        }), 403)
+    
+    # Проверка прав администратора
+    # if not is_admin(request):
+    #     return make_response(jsonify({"error": "Forbidden"}), 403
     
     make_db_object()
 
@@ -500,6 +408,7 @@ def admin_user_operations(user_id):
                     "DESCRIPTION": "Необходимо указать данные для обновления"
                 }), 400)
 
+            # Используем метод из Storage
             g.db.user_update(user_id, update_data)
             
             return make_response(jsonify({
@@ -508,12 +417,15 @@ def admin_user_operations(user_id):
             }), 200)
 
         elif request.method == "DELETE":
-            if g.current_user['userID'] == user_id:
-                return make_response(jsonify({
-                    "STATUS": 403,
-                    "DESCRIPTION": "Нельзя удалить самого себя"
-                }), 403)
+            # Нельзя удалить самого себя
+            # current_user = get_current_user(request)
+            # if current_user and current_user["userID"] == user_id:
+            #     return make_response(jsonify({
+            #         "STATUS": 403,
+            #         "DESCRIPTION": "Нельзя удалить самого себя"
+            #     }), 403)
 
+            # Используем метод из Storage
             g.db.user_delete(user_id)
             
             return make_response(jsonify({
@@ -539,16 +451,10 @@ def admin_user_operations(user_id):
 
 
 @app.route("/api/admin/pending-news", methods=["GET", "OPTIONS"])
-@moderator_required
 def admin_pending_news():
     """Get all pending news for moderation"""
     if request.method == "OPTIONS":
         return make_response(jsonify({}), 200)
-    
-    if g.current_user['userRole'] not in ['Administrator', 'Moderator']:
-        return make_response(jsonify({
-            "error": "Только администраторы и модераторы могут просматривать эту страницу"
-        }), 403)
     
     make_db_object()
     
@@ -598,19 +504,18 @@ def admin_pending_news():
         }), 500)
 
 @app.route("/api/admin/moderate-news/<int:newsID>", methods=["POST", "OPTIONS"])
-@moderator_required
 def moderate_news(newsID):
     """Moderate news (approve/reject)"""
     if request.method == "OPTIONS":
         return make_response(jsonify({}), 200)
-    if g.current_user['userRole'] not in ['Administrator', 'Moderator']:
-        return make_response(jsonify({
-            "error": "Только администраторы и модераторы могут просматривать эту страницу"
-        }), 403)
     
     make_db_object()
     
     try:
+        # Проверка прав администратора/модератора
+        # if not check_admin(request):
+        #     return make_response(jsonify({"error": "Forbidden"}), 403
+        
         data = request.get_json()
         if not data:
             return make_response(jsonify({
@@ -619,7 +524,14 @@ def moderate_news(newsID):
             }), 400)
             
         action = data.get("action")  # "approve" или "reject"
+        moderator_id = data.get("moderator_id")  # ID модератора
         
+        if not moderator_id:
+            return make_response(jsonify({
+                "STATUS": 400,
+                "DESCRIPTION": "Не указан ID модератора"
+            }), 400)
+            
         if action not in ["approve", "reject"]:
             return make_response(jsonify({
                 "STATUS": 400,
@@ -643,7 +555,6 @@ def moderate_news(newsID):
         
         # Обновляем статус новости
         new_status = "Approved" if action == "approve" else "Rejected"
-        moderator_id = g.current_user['userID']
 
         # Удаляем файлы только при отклонении
         if action == "reject":
@@ -679,6 +590,11 @@ def archive_news(newsID):
     make_db_object()
     
     try:
+        # Проверка прав
+        # if not check_admin(request):
+        #     return make_response(jsonify({"error": "Forbidden"}), 403)
+        
+        # Обновляем статус на Archived
         g.db.cursor.execute('''
             UPDATE News
             SET status = 'Archived'

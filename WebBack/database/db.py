@@ -16,18 +16,70 @@ class Storage(object):
         self.cursor = None
         self.db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'storage.db')
 
+    def user_get_by_token(self, token):
+        self.cursor.execute('''SELECT userID, password, user_role FROM Users WHERE auth_token = ?''', (token,))
+        return self.cursor.fetchone()
+
+    def user_set_token(self, user_id, token):
+        self.cursor.execute('''UPDATE Users SET auth_token = ? WHERE userID = ?''', (token, user_id))
+        self.connection.commit()
+        
+    def _create_triggers(self):
+        """Создать триггеры при подключении к БД"""
+        try:
+            # Триггер для каскадного удаления файлов при удалении новости
+            self.cursor.execute('''
+                CREATE TRIGGER IF NOT EXISTS delete_news_files
+                AFTER DELETE ON News
+                FOR EACH ROW
+                BEGIN
+                    DELETE FROM File_Link WHERE newsID = OLD.newsID;
+                    DELETE FROM Files WHERE fileID NOT IN (SELECT fileID FROM File_Link);
+                END;
+            ''')
+
+            # Триггер для проверки дат событий
+            self.cursor.execute('''
+                CREATE TRIGGER IF NOT EXISTS validate_event_dates
+                BEFORE INSERT ON News
+                FOR EACH ROW
+                WHEN NEW.event_end IS NOT NULL AND NEW.event_start > NEW.event_end
+                BEGIN
+                    SELECT RAISE(ABORT, 'event_start must be <= event_end');
+                END;
+            ''')
+
+            # Триггер для обновления publish_date
+            self.cursor.execute('''
+                CREATE TRIGGER IF NOT EXISTS update_publish_date
+                AFTER UPDATE OF status ON News
+                FOR EACH ROW
+                WHEN NEW.status = 'Approved' AND OLD.status != 'Approved'
+                BEGIN
+                    UPDATE News SET publish_date = datetime('now') WHERE newsID = NEW.newsID;
+                END;
+            ''')
+
+        except sqlite3.OperationalError as e:
+            print(f"Ошибка создания триггеров: {str(e)}")
+
     def open_connection(self):
         """Open database connection with timeout and check_same_thread=False"""
         if self.connection is None:
             self.connection = sqlite3.connect(
                 self.db_path,
-                timeout=10,  # Увеличиваем таймаут
-                check_same_thread=False  # Разрешаем использование из разных потоков
+                timeout=10,
+                check_same_thread=False
             )
             self.connection.row_factory = sqlite3.Row
             self.cursor = self.connection.cursor()
-            # Включаем WAL режим для лучшей параллельной работы
+            
+            # Включаем WAL режим
             self.cursor.execute('PRAGMA journal_mode=WAL')
+            
+            # Создаем триггеры
+            self._create_triggers()  # <-- Добавляем вызов метода создания триггеров
+            
             self.connection.commit()
 
     def close_connection(self):
@@ -95,18 +147,19 @@ class Storage(object):
             FROM News n
             JOIN Users up ON up.userID = n.publisherID
             LEFT JOIN Users um ON um.userID = n.moderated_byID
-            ORDER BY create_date DESC
+            ORDER BY n.create_date DESC
         ''')
         
         news_items = []
         for row in self.cursor.fetchall():
             news_id = row[0]
-            # Получаем файлы для каждой новости
+            # Получаем файлы для каждой новости с сортировкой по fileID
             self.cursor.execute('''
                 SELECT f.fileID, guid, format 
                 FROM Files f
                 JOIN File_Link fl ON fl.fileID = f.fileID
                 WHERE fl.newsID = ?
+                ORDER BY f.fileID ASC
             ''', (news_id,))
             
             files = [{
@@ -193,8 +246,8 @@ class Storage(object):
         """Get specific news item by ID"""
         self.cursor.execute('''
             SELECT n.newsID, title, description, status,
-                   create_date, publish_date, event_start, event_end,
-                   up.nick AS publisher_nick, um.nick AS moderator_nick
+                create_date, publish_date, event_start, event_end,
+                up.nick AS publisher_nick, um.nick AS moderator_nick
             FROM News n
             JOIN Users up ON up.userID = n.publisherID
             LEFT JOIN Users um ON um.userID = n.moderated_byID
@@ -205,12 +258,13 @@ class Storage(object):
         if not news_data:
             return [{}, InvalidValues.INVALID_ID.value]
 
-        # Get files for news
+        # Get files for news with sorting
         self.cursor.execute('''
             SELECT f.fileID, guid, format 
             FROM Files f
             JOIN File_Link fl ON fl.fileID = f.fileID
             WHERE fl.newsID = ?
+            ORDER BY f.fileID ASC
         ''', (newsID,))
         
         files = [{
@@ -238,7 +292,7 @@ class Storage(object):
         self.cursor.execute('BEGIN TRANSACTION;')
         
         try:
-            # Update news info
+            # 1. Обновление основной информации о новости
             self.cursor.execute('''
                 UPDATE News
                 SET title = ?, description = ?, event_start = ?, publisherID = ?
@@ -251,32 +305,71 @@ class Storage(object):
                 news_id
             ))
 
-            # Удаляем только те файлы, которые не в списке existing_files
-            if existing_files:
-                placeholders = ','.join(['?'] * len(existing_files))
-                self.cursor.execute(f'''
-                    DELETE FROM Files
-                    WHERE fileID IN (
-                        SELECT fl.fileID FROM File_Link fl
-                        WHERE fl.newsID = ? AND fl.fileID NOT IN (
-                            SELECT f.fileID FROM Files f
-                            WHERE f.guid IN ({placeholders})
-                        )
-                    )
-                ''', [news_id] + existing_files)
-            else:
-                # Если нет existing_files, удаляем все
+            # 2. Обработка файлов
+            all_existing_files = existing_files if existing_files else []
+            files_to_delete = []
+
+            if not all_existing_files:
+                # Случай 1: Полное удаление всех файлов
                 self.cursor.execute('''
-                    DELETE FROM Files
+                    SELECT guid FROM Files
                     WHERE fileID IN (
                         SELECT fileID FROM File_Link WHERE newsID = ?
                     )
                 ''', (news_id,))
-                
-            self.cursor.execute('DELETE FROM File_Link WHERE newsID = ?', (news_id,))
+                files_to_delete = [row[0] for row in self.cursor.fetchall()]
 
-            # Добавляем новые файлы
-            if files_received:
+                # Удаляем связи и файлы
+                self.cursor.execute('DELETE FROM File_Link WHERE newsID = ?', (news_id,))
+                self.cursor.execute('DELETE FROM Files WHERE fileID IN (SELECT fileID FROM File_Link WHERE newsID = ?)', (news_id,))
+
+            else:
+                # Случай 2: Частичное удаление
+                placeholders = ','.join(['?'] * len(all_existing_files))
+                
+                # Получаем файлы для удаления
+                self.cursor.execute(f'''
+                    SELECT guid FROM Files
+                    WHERE fileID IN (
+                        SELECT fileID FROM File_Link WHERE newsID = ?
+                    )
+                    AND guid NOT IN ({placeholders})
+                ''', [news_id] + all_existing_files)
+                files_to_delete = [row[0] for row in self.cursor.fetchall()]
+
+                # Удаляем файлы из БД
+                self.cursor.execute(f'''
+                    DELETE FROM Files 
+                    WHERE fileID IN (
+                        SELECT fl.fileID FROM File_Link fl
+                        WHERE fl.newsID = ? 
+                        AND fl.fileID NOT IN (
+                            SELECT f.fileID FROM Files f
+                            WHERE f.guid IN ({placeholders})
+                        )
+                    )
+                ''', [news_id] + all_existing_files)
+
+                # Обновляем связи
+                self.cursor.execute('DELETE FROM File_Link WHERE newsID = ?', (news_id,))
+                for guid in all_existing_files:
+                    self.cursor.execute('''
+                        INSERT INTO File_Link (fileID, newsID)
+                        SELECT fileID, ? FROM Files WHERE guid = ?
+                    ''', (news_id, guid))
+
+            # 3. Физическое удаление файлов
+            img_folder = os.path.abspath('img')
+            for img_name in files_to_delete:
+                img_path = os.path.join(img_folder, img_name)
+                if os.path.exists(img_path):
+                    try:
+                        os.remove(img_path)
+                    except Exception as e:
+                        print(f"Ошибка удаления файла {img_path}: {str(e)}")
+
+            # 4. Добавление новых файлов
+            if files_received and files:
                 for file in files:
                     if file.filename:
                         file_guid = str(uuid.uuid4().hex)
@@ -292,25 +385,18 @@ class Storage(object):
                             VALUES (last_insert_rowid(), ?)
                         ''', (news_id,))
 
-            # Восстанавливаем привязки к существующим файлам
-            if existing_files:
-                for file_guid in existing_files:
-                    self.cursor.execute('''
-                        INSERT INTO File_Link (fileID, newsID)
-                        SELECT fileID, ? FROM Files WHERE guid = ?
-                    ''', (news_id, file_guid))
-
             self.connection.commit()
+
         except Exception as e:
             self.connection.rollback()
             raise e
-
+    
     def news_delete(self, newsID: int):
         """Delete single news item"""
         self.cursor.execute('BEGIN TRANSACTION;')
         
         try:
-            # Get files to delete
+            # Получаем GUID файлов для физического удаления
             self.cursor.execute('''
                 SELECT guid FROM Files
                 WHERE fileID IN (
@@ -319,21 +405,39 @@ class Storage(object):
             ''', (newsID,))
             files_to_delete = [row[0] for row in self.cursor.fetchall()]
 
-            # Delete from File_Link
-            self.cursor.execute('DELETE FROM File_Link WHERE newsID = ?', (newsID,))
-            
-            # Delete from Files
+            # Удаляем новость (триггер delete_news_files сделает остальное)
+            self.cursor.execute('DELETE FROM News WHERE newsID = ?', (newsID,))
+
+            # Удаляем файлы из файловой системы
+            img_folder = os.path.abspath('img')
+            for img_name in files_to_delete:
+                img_path = os.path.join(img_folder, img_name)
+                if os.path.isfile(img_path) or os.path.islink(img_path):
+                    os.unlink(img_path)
+
+            self.connection.commit()
+        except Exception as e:
+            self.connection.rollback()
+            raise e
+
+    def news_delete_files(self, newsID: int):
+        """Удалить файлы новости (без удаления самой новости)"""
+        self.cursor.execute('BEGIN TRANSACTION;')
+        try:
+            # Получаем GUID файлов для удаления
             self.cursor.execute('''
-                DELETE FROM Files
+                SELECT guid FROM Files
                 WHERE fileID IN (
                     SELECT fileID FROM File_Link WHERE newsID = ?
                 )
             ''', (newsID,))
-            
-            # Delete from News
-            self.cursor.execute('DELETE FROM News WHERE newsID = ?', (newsID,))
+            files_to_delete = [row[0] for row in self.cursor.fetchall()]
 
-            # Delete actual files
+            # Удаляем связи и файлы
+            self.cursor.execute('DELETE FROM File_Link WHERE newsID = ?', (newsID,))
+            self.cursor.execute('DELETE FROM Files WHERE fileID IN (SELECT fileID FROM File_Link WHERE newsID = ?)', (newsID,))
+
+            # Удаляем файлы из файловой системы
             img_folder = os.path.abspath('img')
             for img_name in files_to_delete:
                 img_path = os.path.join(img_folder, img_name)
@@ -350,25 +454,17 @@ class Storage(object):
         self.cursor.execute('BEGIN TRANSACTION;')
         
         try:
-            # Get all files to delete
-            self.cursor.execute('''
-                SELECT guid FROM Files
-                WHERE fileID IN (
-                    SELECT fileID FROM File_Link WHERE newsID != -1
-                )
-            ''')
+            # Получаем все файлы для удаления
+            self.cursor.execute('SELECT guid FROM Files')
             files_to_delete = [row[0] for row in self.cursor.fetchall()]
 
-            # Clear all tables
-            self.cursor.execute('DELETE FROM File_Link WHERE newsID != -1')
-            self.cursor.execute('DELETE FROM Files WHERE fileID != -1')
-            self.cursor.execute('DELETE FROM News WHERE newsID != -1')
+            # Удаляем все новости (триггеры очистят File_Link и Files)
+            self.cursor.execute('DELETE FROM News')
 
-            # Delete actual files
+            # Удаляем файлы из папки
             img_folder = os.path.abspath('img')
-            for img_name in os.listdir(img_folder):
+            for img_name in files_to_delete:
                 img_path = os.path.join(img_folder, img_name)
-
                 if os.path.isfile(img_path) or os.path.islink(img_path):
                     os.unlink(img_path)
 
@@ -414,7 +510,6 @@ class Storage(object):
         self.connection.commit()
         return self.cursor.lastrowid
 
-    # В класс Storage в db.py добавляем метод:
     def user_get_all(self) -> list:
         """Get all users"""
         self.cursor.execute('''

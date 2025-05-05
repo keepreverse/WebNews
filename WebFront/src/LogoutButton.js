@@ -2,29 +2,24 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
+import { api } from './apiClient';
+
 function LogoutButton() {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:5000/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error('Logout failed');
-      }
+      await api.post('/api/auth/logout', {}); // Пустой объект в качестве тела запроса
       
       localStorage.removeItem('user');
+      sessionStorage.removeItem('user'); // Добавьте очистку sessionStorage для полноты
+      api.setAuthToken(null); // Очищаем токен в apiClient
+      
       toast.success('Вы успешно вышли из системы');
       navigate('/login');
     } catch (error) {
       console.error('Logout error:', error);
-      toast.error('Ошибка при выходе из системы');
+      toast.error(error.message || 'Ошибка при выходе из системы');
     }
   };
 

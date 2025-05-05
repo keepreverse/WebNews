@@ -3,11 +3,18 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import PageWrapper from "./PageWrapper";
 import HTMLReactParser from "html-react-parser";
-import Lightbox from "react-image-lightbox";
-import "react-image-lightbox/style.css";
 import Flatpickr from "react-flatpickr";
 import "flatpickr/dist/flatpickr.min.css";
 import { Russian } from "flatpickr/dist/l10n/ru.js";
+
+import Lightbox from "yet-another-react-lightbox";
+import Fullscreen from "yet-another-react-lightbox/plugins/fullscreen";
+import Thumbnails from "yet-another-react-lightbox/plugins/thumbnails";
+import Zoom from "yet-another-react-lightbox/plugins/zoom";
+import "yet-another-react-lightbox/plugins/thumbnails.css";
+import "yet-another-react-lightbox/styles.css";
+
+import { api } from './apiClient';
 
 function NewsList() {
 
@@ -24,9 +31,9 @@ function NewsList() {
   const [uniqueAuthors, setUniqueAuthors] = useState([]);
 
   // Lightbox State
-  const [isOpen, setIsOpen] = useState(false);
-  const [photoIndex, setPhotoIndex] = useState(0);
-  const [currentImages, setCurrentImages] = useState([]);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [lightboxSlides, setLightboxSlides] = useState([]);
 
   // Конфигурация Flatpickr для диапазона дат
   const configFlatpickr = useMemo(() => ({
@@ -42,15 +49,11 @@ function NewsList() {
     setCurrentUser(userData);
   }, []);
   
-  
   useEffect(() => {
-    // В NewsList.js измените fetchData:
     const fetchData = async () => {
       try {
-        const response = await fetch("http://127.0.0.1:5000/api/news");
-        if (!response.ok) throw new Error("Ошибка при загрузке данных");
-        
-        const result = await response.json();
+        const result = await api.get("/api/news");
+
         // Фильтруем только опубликованные новости
         const publishedNews = result.filter(item => item.status === "Approved");
         setData(publishedNews);
@@ -67,7 +70,6 @@ function NewsList() {
 
     fetchData();
   }, []);
-
 
   useEffect(() => {
     let result = [...data];
@@ -124,7 +126,6 @@ function NewsList() {
 
   const totalPages = Math.ceil(filteredData.length / newsPerPage);
 
-
   useEffect(() => {
     if (currentNews.length === 0 && currentPage > 1) {
       setCurrentPage((prev) => Math.max(prev - 1, 1));
@@ -138,62 +139,39 @@ function NewsList() {
 
   const deleteNews = useCallback(async (newsID) => {
     try {
-      const response = await fetch(`http://127.0.0.1:5000/api/news/${newsID}`, {
-        method: "DELETE",
-      });
-
-      if (response.ok) {
-        toast.success("Новость удалена успешно!");
-        setData((prevData) => prevData.filter((item) => item.newsID !== newsID));
-      } else {
-        toast.error("Не удалось удалить новость");
-      }
+      await api.delete(`/api/news/${newsID}`);
+      toast.success("Новость удалена успешно!");
+      setData((prevData) => prevData.filter((item) => item.newsID !== newsID));
     } catch (error) {
       console.error("Ошибка при удалении новости:", error);
-      toast.error("Ошибка при удалении новости");
+      toast.error(error.message || "Ошибка при удалении новости");
     }
   }, []);
-
+  
   const deleteAllNews = useCallback(async () => {
     if (!window.confirm("Вы уверены, что хотите удалить ВСЕ новости?")) return;
-
+  
     try {
-      const response = await fetch("http://127.0.0.1:5000/api/news", {
-        method: "DELETE",
-      });
-
-      if (response.ok) {
-        toast.success("Все новости удалены успешно!");
-        setData([]);
-        setCurrentPage(1);
-      } else {
-        toast.error("Не удалось удалить все новости");
-      }
+      await api.delete("/api/news");
+      toast.success("Все новости удалены успешно!");
+      setData([]);
+      setCurrentPage(1);
     } catch (error) {
       console.error("Ошибка при удалении всех новостей:", error);
-      toast.error("Ошибка при удалении всех новостей");
+      toast.error(error.message || "Ошибка при удалении всех новостей");
     }
   }, []);
 
-  const openLightbox = (images, index) => {
-    setCurrentImages(images);
-    setPhotoIndex(index);
-    setIsOpen(true);
+  // Функция для открытия лайтбокса
+  const openLightbox = (imageUrls, index) => {
+    const slides = imageUrls.map((url, i) => ({
+      src: url,
+      alt: `Изображение ${i + 1}`,
+    }));
+    setLightboxSlides(slides);
+    setLightboxIndex(index);
+    setLightboxOpen(true);
   };
-  
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-      document.body.removeAttribute("aria-hidden"); // Удаляем атрибут
-    } else {
-      document.body.style.overflow = "auto";
-    }
-  
-    return () => {
-      document.body.style.overflow = "auto";
-      document.body.removeAttribute("aria-hidden"); // Очистка
-    };
-  }, [isOpen]);
 
   return (
     <PageWrapper>
@@ -331,21 +309,41 @@ function NewsList() {
       </div>
       <ToastContainer />
 
-      {isOpen && (
-        <Lightbox
-          mainSrc={currentImages[photoIndex]}
-          nextSrc={currentImages[(photoIndex + 1) % currentImages.length]}
-          prevSrc={currentImages[(photoIndex + currentImages.length - 1) % currentImages.length]}
-          onCloseRequest={() => setIsOpen(false)}
-          onMovePrevRequest={() => 
-            setPhotoIndex((photoIndex + currentImages.length - 1) % currentImages.length)
+      <Lightbox
+        open={lightboxOpen}
+        close={() => setLightboxOpen(false)}
+        index={lightboxIndex}
+        slides={lightboxSlides}
+        plugins={[Fullscreen, Thumbnails, Zoom]}
+        styles={{
+          container: { backgroundColor: "rgba(0, 0, 0, 0.8)" },
+          thumbnail: {
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+          },
+          thumbnailsContainer: {
+            backgroundColor: "rgba(0, 0, 0, 0.8)",
+          },
+          icon: {
+            color: "rgba(255, 255, 255, 0.7)",
+            filter: "drop-shadow(0 0 2px rgba(0, 0, 0, 0.5))",
+          },
+          iconDisabled: {
+            color: "rgba(255, 255, 255, 0.3)",
+          },
+          iconHover: {
+            color: "#fff",
+            backgroundColor: "rgba(0, 0, 0, 0.3)",
           }
-          onMoveNextRequest={() => 
-            setPhotoIndex((photoIndex + 1) % currentImages.length)
-          }
-          imageTitle={`Изображение ${photoIndex + 1} из ${currentImages.length}`}
-        />
-      )}
+        }}
+        thumbnails={{
+          vignette: false,
+        }}
+        zoom={{
+          maxZoomPixelRatio: 4, // Максимальный уровень увеличения
+          zoomInMultiplier: 1.2,  // Множитель увеличения
+          scrollToZoom: true    // Включить зум скроллом
+        }}
+      />
 
     </PageWrapper>
   );

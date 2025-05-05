@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useNavigate, useLocation } from 'react-router-dom';
 import { v4 as uuidv4 } from "uuid";
 import JoditEditor from "jodit-react";
 import PageWrapper from "./PageWrapper";
@@ -8,11 +9,22 @@ import "react-toastify/dist/ReactToastify.css";
 import Flatpickr from "react-flatpickr";
 import "flatpickr/dist/flatpickr.min.css";
 import { Russian } from "flatpickr/dist/l10n/ru.js";
-import Lightbox from "react-image-lightbox";
-import "react-image-lightbox/style.css";
 import LogoutButton from './LogoutButton';
 
+import Lightbox from "yet-another-react-lightbox";
+import Fullscreen from "yet-another-react-lightbox/plugins/fullscreen";
+import Thumbnails from "yet-another-react-lightbox/plugins/thumbnails";
+import Zoom from "yet-another-react-lightbox/plugins/zoom";
+import "yet-another-react-lightbox/plugins/thumbnails.css";
+import "yet-another-react-lightbox/styles.css";
+
+import { api } from './apiClient';
+import { isTokenValid } from './utils/jwt';
+
 function NewsCreator() {
+
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const [currentUser, setCurrentUser] = useState(null);
 
@@ -31,9 +43,10 @@ function NewsCreator() {
 
 
   // Lightbox State
-  const [isOpen, setIsOpen] = useState(false);
-  const [photoIndex, setPhotoIndex] = useState(0);
-  const [currentImages, setCurrentImages] = useState([]);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [lightboxSlides, setLightboxSlides] = useState([]);
+
 
   // Добавляем состояние для режима редактирования
   const [isEditMode, setIsEditMode] = useState(false);
@@ -235,29 +248,15 @@ function NewsCreator() {
     }
   };
 
-
   // Функция для открытия лайтбокса
   const openLightbox = (index) => {
-    setCurrentImages(newsImages.map(img => img.preview));
-    setPhotoIndex(index);
-    setIsOpen(true);
+    setLightboxSlides(newsImages.map(img => ({
+      src: img.file ? URL.createObjectURL(img.file) : img.preview, // Используем оригинальный файл если есть
+      alt: `Изображение ${index + 1}`
+    })));
+    setLightboxIndex(index);
+    setLightboxOpen(true);
   };
-
-  // Эффект для управления прокруткой страницы
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-      document.body.removeAttribute("aria-hidden"); // Удаляем атрибут
-    } else {
-      document.body.style.overflow = "auto";
-    }
-  
-    return () => {
-      document.body.style.overflow = "auto";
-      document.body.removeAttribute("aria-hidden"); // Очистка
-    };
-  }, [isOpen]);
-
 
   const handlePreview = () => {
     setPreviewMode(!previewMode);
@@ -276,52 +275,72 @@ function NewsCreator() {
   };
 
   useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem('user'));
-    if (userData) {
-      setCurrentUser(userData);
-      setNickname(userData.nickname); // Устанавливаем никнейм из данных пользователя
-    } else {
-      // Если нет данных пользователя, перенаправляем на страницу входа
-      window.location.href = '/login';
-    }
-  }, []);
+    const checkAuth = async () => {
+      try {
+        // 1. Получаем данные пользователя
+        const userData = JSON.parse(
+          localStorage.getItem('user') || 
+          sessionStorage.getItem('user') || 
+          'null'
+        );
+  
+        // 2. Проверка наличия данных
+        if (!userData?.token) {
+          navigate('/login', { replace: true });
+          return;
+        }
+  
+        // 3. Валидация токена
+        if (!isTokenValid(userData.token)) {
+          throw new Error('Сессия истекла');
+        }
+  
+        // 4. Установка состояния
+        setCurrentUser(userData);
+        setNickname(userData.nickname || '');
+        api.setAuthToken(userData.token);
+  
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        // Очистка данных
+        localStorage.removeItem('user');
+        sessionStorage.removeItem('user');
+        api.setAuthToken(null);
+        
+        toast.error(error.message || 'Требуется авторизация');
+        navigate('/login', { replace: true });
+      }
+    };
+  
+    checkAuth();
+  }, [navigate]); // Добавляем navigate в зависимости
 
   const loadNewsData = useCallback(async (newsId) => {
     try {
       console.log('Loading news data for ID:', newsId);
-      const response = await fetch(`http://127.0.0.1:5000/api/news/${newsId}`);
+      const formData = await api.get(`/api/news/${newsId}`);
       
-      if (response.ok) {
-        const formData = await response.json();
-        
-        setNickname(formData.publisher_nick || "");
-        setTitle(formData.title || "");
-        setDescription(formData.description || "");
-        
-        if (formData.event_start) {
-          setDate(new Date(formData.event_start));
-        }
-        
-        if (formData.files && formData.files.length > 0) {
-          const images = await Promise.all(
-            formData.files.map(async (file) => {
-              return {
-                id: uuidv4(),
-                fileName: file.fileName,
-                preview: `http://127.0.0.1:5000/uploads/${file.fileName}`
-              };
-            })
-          );
-          setNewsImages(images.filter(Boolean));
-        }
-      } else {
-        toast.error("Не удалось загрузить данные новости", configToast);
+      setNickname(formData.publisher_nick || "");
+      setTitle(formData.title || "");
+      setDescription(formData.description || "");
+      
+      if (formData.event_start) {
+        setDate(new Date(formData.event_start));
+      }
+      
+      if (formData.files && formData.files.length > 0) {
+        const images = formData.files.map(file => ({
+          id: uuidv4(),
+          fileName: file.fileName,
+          preview: `http://127.0.0.1:5000/uploads/${file.fileName}`
+        }));
+        setNewsImages(images);
       }
     } catch (error) {
       console.error("Error loading news data:", error);
-      toast.error("Не удалось загрузить данные новости", configToast);
+      toast.error(error.message || "Не удалось загрузить данные новости", configToast);
     }
-  }, [configToast]); // Все зависимости функции
+  }, [configToast]);
 
 
   useEffect(() => {
@@ -379,63 +398,67 @@ function NewsCreator() {
       formData.append("status", "Pending");
     }
   
-    // Добавляем ВСЕ файлы (и новые, и существующие)
-    newsImages.forEach((image) => {
-      if (image.file) {
-        // Новые файлы
-        formData.append("files", image.file);
-      } else if (image.fileName) {
-        // Существующие файлы (передаем как строку)
-        formData.append("existing_files", image.fileName);
-      }
-    });
+    // Фильтруем и разделяем файлы
+    const existingFiles = newsImages
+      .filter(img => img.fileName) // Только существующие файлы из БД
+      .map(img => img.fileName);   // Получаем только GUID
   
-    // Добавляем флаг редактирования
+    const newFiles = newsImages
+      .filter(img => img.file)     // Только новые файлы
+      .map(img => img.file);
+  
+    // Добавляем существующие файлы как отдельные поля
     if (isEditMode) {
-      formData.append("is_edit", "true");
+      if (existingFiles.length === 0 && newsImages.length === 0) {
+        formData.append("delete_all_files", "true"); // Специальный флаг
+      } else {
+        existingFiles.forEach(fileName => {
+          formData.append("existing_files", fileName);
+        });
+      }
     }
   
+    // Добавляем новые файлы
+    newFiles.forEach(file => {
+      formData.append("files", file);
+    });
+  
     try {
-      const response = await fetch(
-        isEditMode 
-          ? `http://127.0.0.1:5000/api/news/${editNewsId}`
-          : "http://127.0.0.1:5000/api/news",
-        {
-          method: isEditMode ? "PUT" : "POST",
-          credentials: "include",
-          body: formData,
-        }
+      const result = await (isEditMode
+        ? api.put(`/api/news/${editNewsId}`, formData, true)  // PUT для редактирования
+        : api.post("/api/news", formData, true)  // POST для создания
       );
-    
-      if (response.status === 401) {
-        toast.error("Вы не авторизованы. Пожалуйста, войдите в систему.", configToast);
-        return;
-      }
-    
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.DESCRIPTION || "Ошибка сервера");
-      }
-    
-      const result = await response.json();
       console.log("Server response:", result);
-    
+      
       toast.success(
         isEditMode 
           ? "Новость успешно обновлена!" 
           : "Новость отправлена на проверку!",
-        configToast
+        {
+          ...configToast,
+          onClose: isEditMode ? () => navigate('/news-list') : undefined
+        }
       );
-      
-
+    
     } catch (error) {
-      console.error("Full error:", error);
+      console.error("Request error:", error);
+      
+      if (error.message.includes("401")) {
+        navigate('/login', { 
+          state: { from: location }, // Теперь используем корректный location
+          replace: true 
+        });
+        return;
+      }
+    
       toast.error(
         error.message || "Ошибка при сохранении новости",
         configToast
       );
     }
   };
+
+
 
   const MemoizedJoditEditor = useMemo(() => {
     return (
@@ -564,21 +587,41 @@ function NewsCreator() {
               </div>
             )}
 
-            {isOpen && (
-              <Lightbox
-              mainSrc={currentImages[photoIndex]}
-              nextSrc={currentImages[(photoIndex + 1) % currentImages.length]}
-              prevSrc={currentImages[(photoIndex + currentImages.length - 1) % currentImages.length]}
-              onCloseRequest={() => setIsOpen(false)}
-              onMovePrevRequest={() => 
-                setPhotoIndex((photoIndex + currentImages.length - 1) % currentImages.length)
-              }
-              onMoveNextRequest={() => 
-                setPhotoIndex((photoIndex + 1) % currentImages.length)
-              }
-              imageTitle={`Изображение ${photoIndex + 1} из ${currentImages.length}`}
-              />
-            )}
+            <Lightbox
+              open={lightboxOpen}
+              close={() => setLightboxOpen(false)}
+              index={lightboxIndex}
+              slides={lightboxSlides}
+              plugins={[Fullscreen, Thumbnails, Zoom]}
+              styles={{
+                container: { backgroundColor: "rgba(0, 0, 0, 0.8)" },
+                thumbnail: {
+                  backgroundColor: "rgba(0, 0, 0, 0.5)",
+                },
+                thumbnailsContainer: {
+                  backgroundColor: "rgba(0, 0, 0, 0.8)",
+                },
+                icon: {
+                  color: "rgba(255, 255, 255, 0.7)",
+                  filter: "drop-shadow(0 0 2px rgba(0, 0, 0, 0.5))",
+                },
+                iconDisabled: {
+                  color: "rgba(255, 255, 255, 0.3)",
+                },
+                iconHover: {
+                  color: "#fff",
+                  backgroundColor: "rgba(0, 0, 0, 0.3)",
+                }
+              }}
+              thumbnails={{
+                vignette: false,
+              }}
+              zoom={{
+                maxZoomPixelRatio: 4, // Максимальный уровень увеличения
+                zoomInMultiplier: 1.2,  // Множитель увеличения
+                scrollToZoom: true    // Включить зум скроллом
+              }}
+            />
 
             {newsImages.length > 0 && (
               <button

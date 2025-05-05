@@ -52,7 +52,7 @@ body {
 /* Кастомный чекбокс */
 .checkbox-label {
   position: relative;
-  padding-left: 28px; /* Было 24px — увеличиваем отступ */
+  padding-left: 28px;
   cursor: pointer;
   user-select: none;
 }
@@ -69,7 +69,7 @@ body {
   border: 1px solid #b5b5b5;
   border-radius: 3px;
   background: #fff;
-
+  transition: background 0.1s ease; /* Добавляем плавный переход */
 }
 
 /* Галочка при выборе */
@@ -83,6 +83,11 @@ body {
   font-weight: bold;
 }
 
+/* Затемнение при нажатии */
+.checkbox-input:active + .checkbox-label:before,
+.checkbox-label:active:before {
+  background: #e0e0e0; /* Цвет затемнения */
+}
 
 #news-form,
 #data-list-form {
@@ -512,30 +517,6 @@ button.pagination_button.active {
   font-weight: bold;
 }
 
-.ril__toolbar {
-  background-color: rgb(0, 0, 0, 0) !important;
-}
-
-.ril__toolbarItem { 
-  color: hsl(0, 0%, 90%) !important; 
-  font-size: 100% !important; 
-}
-
-/* Затемненный, но не черный фон */
-.ril__outer {
-  background-color: rgba(0, 0, 0, 0.5) !important; /* Полупрозрачный черный */
-}
-
-/* Дополнительно можно изменить анимацию появления */
-.ril__outerAnimating {
-  transition: background-color 0.3s ease-in-out;
-}
-
-/* Настроим саму область изображения */
-.ril__image {
-  border-radius: 8px; /* Немного сгладим углы */
-}
-
 /* Стили для контейнера фильтров */
 .user-info,
 .filters-container {
@@ -684,7 +665,7 @@ button#return {
   color: #0066cc;
   cursor: pointer;
   margin-top: 15px;
-  font-size: 10pt;
+  font-size: 11pt;
 }
 
 .toggle-mode-btn:hover {
@@ -831,6 +812,20 @@ button#return {
   color: #ffffff;
 }
 
+
+.custom_button_short.archive {
+  background-color: transparent;
+  border: 1px solid hsl(200, 50%, 35%);
+  color: hsl(200, 50%, 35%);
+  width: 120px;
+}
+
+.custom_button_short.archive:hover {
+  background-color: hsl(200, 50%, 35%);
+  color: #ffffff;
+}
+
+
 /* Стили для формы редактирования пользователей */
 .edit-form {
   margin-top: 15px;
@@ -901,10 +896,8 @@ button#return {
   }
   
   .custom_button_short.approve,
-  .custom_button_short.reject {
+  .custom_button_short.reject,
+  .custom_button_short.archive {
     width: 100%;
   }
 }
-
-
-

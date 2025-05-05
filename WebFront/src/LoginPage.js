@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PageWrapper from './PageWrapper';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import './styles.css';
+import { api } from './apiClient';
+import { decodeJWT } from './utils/jwt';
 
 function LoginPage() {
   const [login, setLogin] = useState('');
@@ -13,8 +14,36 @@ function LoginPage() {
   const [isLoginMode, setIsLoginMode] = useState(true);
 
   const navigate = useNavigate();
+
+  // Проверяем сохраненную сессию при монтировании компонента
+  useEffect(() => {
+    const checkExistingSession = () => {
+      const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
+      if (userData?.token) {
+        try {
+          const decoded = decodeJWT(userData.token);
+          if (decoded && decoded.exp * 1000 > Date.now()) {
+            api.setAuthToken(userData.token);
+            navigate('/news-creator');
+          } else {
+            // Токен истек, очищаем
+            localStorage.removeItem('user');
+            sessionStorage.removeItem('user');
+          }
+        } catch (e) {
+          console.error('Invalid token:', e);
+          localStorage.removeItem('user');
+          sessionStorage.removeItem('user');
+        }
+      }
+    };
+
+    checkExistingSession();
+  }, [navigate]);
+
   const handleAuth = async (e) => {
     e.preventDefault();
+    
     try {
       const endpoint = isLoginMode ? 'login' : 'register';
       const body = {
@@ -22,43 +51,64 @@ function LoginPage() {
         password: password.trim(),
         ...(!isLoginMode && { nickname: nickname.trim() })
       };
-  
-      const response = await fetch(`http://127.0.0.1:5000/api/auth/${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(body)
-      });
-  
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.DESCRIPTION || 'Ошибка сервера');
+
+      // Валидация полей
+      if (!body.login || !body.password || (!isLoginMode && !body.nickname)) {
+        throw new Error('Заполните все обязательные поля');
       }
-  
-      const data = await response.json();
-      // В handleAuth после успешного входа
+
+      const response = await api.post(`/api/auth/${endpoint}`, body);
+
       if (isLoginMode) {
-        const userData = {
-          id: data.userID,
-          login: login.trim(),
-          role: data.userRole,
-          nickname: data.nickname
-        };
+        if (!response?.token) {
+          throw new Error('Неверный ответ сервера: отсутствует токен');
+        }
+
+        const decoded = decodeJWT(response.token);
         
-        // Сохраняем в куки и localStorage
-        document.cookie = `user=${JSON.stringify(userData)}; path=/; max-age=${rememberMe ? 86400 : 3600}`;
-        localStorage.setItem('user', JSON.stringify(userData));
+        // Проверка структуры декодированного токена
+        if (!decoded?.userID || !decoded?.userRole) {
+          throw new Error('Неверная структура токена');
+        }
+
+        // Проверка срока действия токена
+        if (decoded.exp * 1000 < Date.now()) {
+          throw new Error('Токен уже истек');
+        }
+
+        const userData = {
+          id: decoded.userID,
+          login: decoded.login || body.login,
+          role: decoded.userRole,
+          nickname: decoded.nickname || '',
+          token: response.token
+        };
+
+        // Очищаем предыдущие данные
+        localStorage.removeItem('user');
+        sessionStorage.removeItem('user');
+        
+        // Сохраняем новые данные
+        const storage = rememberMe ? localStorage : sessionStorage;
+        storage.setItem('user', JSON.stringify(userData));
+        
+        api.setAuthToken(response.token);
         
         navigate('/news-creator');
       } else {
-        toast.success('Регистрация прошла успешна! Теперь можно войти в учетную запись');
+        toast.success('Регистрация прошла успешно!');
         setIsLoginMode(true);
       }
     } catch (error) {
       console.error('Auth error:', error);
-      toast.error(error.message || 'Ошибка соединения');
+      toast.error(error.message || 'Ошибка аутентификации');
+      
+      // Если ошибка 401, очищаем сохраненные данные
+      if (error.message.includes('Сессия истекла') || error.message.includes('401')) {
+        localStorage.removeItem('user');
+        sessionStorage.removeItem('user');
+        api.setAuthToken(null);
+      }
     }
   };
 

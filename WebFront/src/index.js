@@ -66,7 +66,11 @@ import LoginPage from './LoginPage';
 import NewsCreator from './NewsCreator';
 import NewsList from './NewsList';
 import AdminPanel from './AdminPanel';
+import { initAuthToken } from './apiClient';
 import './styles.css';
+
+
+initAuthToken();
 
 const root = createRoot(document.getElementById('root'));
 
