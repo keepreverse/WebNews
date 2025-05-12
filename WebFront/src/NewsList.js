@@ -27,8 +27,9 @@ function NewsList() {
 
   // Фильтры
   const [authorFilter, setAuthorFilter] = useState("");
-  const [dateRange, setDateRange] = useState([null, null]); // Теперь храним диапазон дат
+  const [dateRange, setDateRange] = useState([null, null]);
   const [uniqueAuthors, setUniqueAuthors] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Lightbox State
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -45,10 +46,22 @@ function NewsList() {
   }), []);
 
   useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem('user'));
-    setCurrentUser(userData);
+    const checkAuth = () => {
+      try {
+        const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
+        console.log("User data from storage:", userData);
+        if (userData) {
+          setCurrentUser(userData);
+          api.setAuthToken(userData.token); // Устанавливаем токен в API
+        }
+      } catch (error) {
+        console.error('Error loading user data:', error);
+      }
+    };
+    
+    checkAuth();
   }, []);
-  
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -89,8 +102,17 @@ function NewsList() {
       });
     }
   
+    // Добавляем поиск по заголовку и тексту новости
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(item => 
+        item.title.toLowerCase().includes(query) || 
+        (item.description && item.description.toLowerCase().includes(query))
+      );
+    }
+  
     setFilteredData(result);
-  }, [data, authorFilter, dateRange]);
+  }, [data, authorFilter, dateRange, searchQuery]);
 
   // Обработчик изменения даты (теперь работает с диапазоном)
   const handleDateChange = (selectedDates) => {
@@ -100,6 +122,7 @@ function NewsList() {
   const clearFilters = () => {
     setAuthorFilter("");
     setDateRange([null, null]);
+    setSearchQuery("");
   };
 
   // MemoizedFlatpickr с поддержкой диапазона
@@ -173,14 +196,48 @@ function NewsList() {
     setLightboxOpen(true);
   };
 
+  const translateRole = (role) => {
+    const roleTranslations = {
+      'Administrator': 'Администратор',
+      'Moderator': 'Модератор',
+      'Publisher': 'Публикатор'
+    };
+    return roleTranslations[role] || role;
+  };
+  
+
   return (
     <PageWrapper>
       <title>Список публикаций</title>
       <div id="data-list-form" className="container">
         <h1>Список публикаций</h1>
+        {currentUser && (
+          <div className="user-info-large">
+            <p>
+              Текущий пользователь: {currentUser.nickname} ({currentUser.login})
+            </p>
+            <p>Роль: {translateRole(currentUser.role)}</p>
+            <p>Доступные действия: 
+              {currentUser.role === 'Administrator' && ' Удаление, Редактирование'}
+              {currentUser.role === 'Moderator' && ' Удаление, Редактирование'}
+              {currentUser.role === 'Publisher' && ' Просмотр'}
+            </p>
+          </div>
+        )}
 
         {/* Фильтры */}
         <div className="filters-container">
+          <div className="filter-group">
+            <label htmlFor="search-news">Поиск по новостям:</label>
+            <input
+              id="search-news"
+              type="text"
+              placeholder="Поиск по заголовку или тексту"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          
           <div className="filter-group">
             <label htmlFor="author-filter">Фильтр по автору:</label>
             <select
@@ -202,15 +259,15 @@ function NewsList() {
           
           <button 
             onClick={clearFilters} 
-            className="custom_button_mid"
-            disabled={!authorFilter && !dateRange[0]}
+            className="custom_button_long"
+            disabled={!authorFilter && !dateRange[0] && !searchQuery}
           >
             Сбросить фильтры
           </button>
 
           {/* Кнопка "Удалить все" — только для администраторов */}
-          {(currentUser?.role === 'Moderator' || currentUser?.role === 'Administrator') && filteredData.length > 0 && (
-            <button onClick={deleteAllNews} className="custom_button_mid" id="delete-all">
+          {(currentUser?.role === 'Administrator' || currentUser?.role === 'Moderator')  && filteredData.length > 0 && (
+            <button onClick={deleteAllNews} className="custom_button_long" id="delete-all">
               Удалить все
             </button>
           )}
@@ -287,7 +344,7 @@ function NewsList() {
                     </button>
 
                     {/* Кнопка "Удалить" — только для администраторов */}
-                    {currentUser?.role === 'Administrator' && (
+                    {(currentUser?.role === 'Administrator' || currentUser?.role === 'Moderator') && (
                       <button 
                         onClick={() => deleteNews(item.newsID)} 
                         className="custom_button_short" 

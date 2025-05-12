@@ -24,6 +24,26 @@ class Storage(object):
         self.cursor.execute('''UPDATE Users SET auth_token = ? WHERE userID = ?''', (token, user_id))
         self.connection.commit()
         
+    def _create_indexes(self):
+        """Создать индексы при подключении к БД"""
+        try:
+            # Users
+            self.cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_login ON Users(login)')
+            self.cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_nick ON Users(nick)')
+            
+            # News
+            self.cursor.execute('CREATE INDEX IF NOT EXISTS idx_news_publisher ON News(publisherID)')
+            self.cursor.execute('CREATE INDEX IF NOT EXISTS idx_news_status ON News(status)')
+            self.cursor.execute('CREATE INDEX IF NOT EXISTS idx_news_create_date ON News(create_date)')
+            
+            # Files
+            self.cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_files_guid ON Files(guid)')
+            
+            self.connection.commit()
+        except sqlite3.OperationalError as e:
+            print(f"Ошибка создания индексов: {str(e)}")
+
+
     def _create_triggers(self):
         """Создать триггеры при подключении к БД"""
         try:
@@ -77,8 +97,9 @@ class Storage(object):
             # Включаем WAL режим
             self.cursor.execute('PRAGMA journal_mode=WAL')
             
-            # Создаем триггеры
-            self._create_triggers()  # <-- Добавляем вызов метода создания триггеров
+            # Создаем триггеры и индексы
+            self._create_triggers()
+            self._create_indexes()  # <-- Добавляем вызов метода создания индексов
             
             self.connection.commit()
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PageWrapper from './PageWrapper';
 import { ToastContainer, toast } from 'react-toastify';
@@ -53,34 +53,32 @@ function LoginPage() {
       };
 
       // Валидация полей
-      if (!body.login || !body.password || (!isLoginMode && !body.nickname)) {
-        throw new Error('Заполните все обязательные поля');
+      if (!body.login || !body.password) {
+        throw new Error('Логин и пароль обязательны');
+      }
+      if (!isLoginMode && !body.nickname) {
+        throw new Error('Никнейм обязателен при регистрации');
       }
 
+      // Отправка запроса через ваш apiClient
       const response = await api.post(`/api/auth/${endpoint}`, body);
+      console.log('Server response:', response); // Для отладки
 
       if (isLoginMode) {
-        if (!response?.token) {
-          throw new Error('Неверный ответ сервера: отсутствует токен');
+        // Проверяем наличие токена в ответе
+        if (!response.token) {
+          throw new Error('Сервер не вернул токен авторизации');
         }
 
-        const decoded = decodeJWT(response.token);
-        
-        // Проверка структуры декодированного токена
-        if (!decoded?.userID || !decoded?.userRole) {
-          throw new Error('Неверная структура токена');
-        }
+        // Устанавливаем токен в apiClient
+        api.setAuthToken(response.token);
 
-        // Проверка срока действия токена
-        if (decoded.exp * 1000 < Date.now()) {
-          throw new Error('Токен уже истек');
-        }
-
+        // Сохраняем данные пользователя
         const userData = {
-          id: decoded.userID,
-          login: decoded.login || body.login,
-          role: decoded.userRole,
-          nickname: decoded.nickname || '',
+          id: response.userID,
+          login: response.login,
+          role: response.user_role,
+          nickname: response.nickname,
           token: response.token
         };
 
@@ -92,8 +90,6 @@ function LoginPage() {
         const storage = rememberMe ? localStorage : sessionStorage;
         storage.setItem('user', JSON.stringify(userData));
         
-        api.setAuthToken(response.token);
-        
         navigate('/news-creator');
       } else {
         toast.success('Регистрация прошла успешно!');
@@ -101,10 +97,17 @@ function LoginPage() {
       }
     } catch (error) {
       console.error('Auth error:', error);
-      toast.error(error.message || 'Ошибка аутентификации');
       
-      // Если ошибка 401, очищаем сохраненные данные
-      if (error.message.includes('Сессия истекла') || error.message.includes('401')) {
+      // Формируем понятное сообщение об ошибке
+      let errorMessage = error.message;
+      if (error.message.includes('Failed to fetch')) {
+        errorMessage = 'Ошибка соединения с сервером';
+      }
+      
+      toast.error(errorMessage);
+      
+      // Очищаем данные только при явных ошибках аутентификации (истекший токен)
+      if (error.message.includes('Сессия истекла')) {
         localStorage.removeItem('user');
         sessionStorage.removeItem('user');
         api.setAuthToken(null);

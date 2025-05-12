@@ -1,5 +1,5 @@
 body {
-  font-family: "Lato", sans-serif;
+  font-family: 'Lato', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background-color: hsl(0, 0%, 100%);
   display: block;
   /* justify-content: center; */
@@ -227,7 +227,6 @@ body {
   cursor: pointer;
 }
 
-
 .delete-button {
   position: relative;
   cursor: pointer;
@@ -237,9 +236,9 @@ body {
 }
 
 /* Общие стили для кнопок */
-button.custom_button,
-button.custom_button_short,
-button.custom_button_mid {
+.custom_button,
+.custom_button_short,
+.custom_button_long {
   font-size: 10pt;
   line-height: 38px;
   display: block;
@@ -253,60 +252,66 @@ button.custom_button_mid {
   color: #2d2f30;
   border: 1px solid #b5b5b5;
   background: transparent;
-  transition: background-color 0.2s ease;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-button.custom_button_short {
+.custom_button:active,
+.custom_button_short:active,
+.custom_button_long:active {
+  transform: translateY(0);
+  filter: brightness(110%);
+}
+
+.custom_button_short {
   width: 30%;
   margin: 20px auto;
 }
 
-button.custom_button:active {
-  filter: brightness(
-    110%
-  ); /* Здесь можно регулировать яркость кнопки при активации */
+.custom_button:hover,
+.custom_button_short:hover,
+.custom_button_long:hover {
+  background-color: #2d2f30;
+  color: #ffffff;
+  transform: translateY(-2px);
 }
 
-button.custom_button:hover {
+.custom_button#auth:hover {
   background-color: #2d2f30;
   color: #ffffff;
 }
 
-button.custom_button#auth:hover {
-  background-color: #2d2f30;
-  color: #ffffff;
-}
-
-button.custom_button#submit:hover,
+.custom_button#submit:hover,
 .form-actions button#submit:hover {
   background-color: #458745;
   color: #ffffff;
 }
 
-button.custom_button#view:hover,
-button.custom_button_short#edit:hover {
+.custom_button#view:hover,
+.custom_button_short#edit:hover {
   background-color: #b99c46;
   color: #ffffff;
 }
 
-button.custom_button#admin-panel:hover {
+.custom_button#admin-panel:hover {
   background-color: #8e5248;
   color: #ffffff;
 }
 
-button.custom_button#newslist:hover {
+.custom_button#newslist:hover {
   background-color: #4d77a7;
   color: #ffffff;
 }
 
-button.custom_button#logout:hover {
+.custom_button#logout:hover {
   background-color: #2d2f30;
   color: #ffffff;
 }
 
-button.custom_button#delete:hover,
-button.custom_button_mid#delete-all:hover,
-button.custom_button_short#delete:hover {
+.custom_button#delete:hover,
+.custom_button_long#delete-all:hover,
+.custom_button_short#delete:hover {
   background-color: hsl(0, 50%, 35%);
   color: #ffffff;
 }
@@ -368,35 +373,74 @@ button.custom_button_short#delete:hover {
   border: 1px solid #b5b5b5 !important;
 }
 
-/* W3C standard */
+/* Современный минималистичный скроллбар */
+:root {
+  --scrollbar-width: 8px;
+  --scrollbar-thumb-color: rgba(100, 100, 100, 0.4);
+  --scrollbar-thumb-hover: rgba(100, 100, 100, 0.6);
+  --scrollbar-track-color: transparent;
+}
+
+/* Основные стили (работает в Chrome, Edge, Safari) */
+::-webkit-scrollbar {
+  width: var(--scrollbar-width);
+  height: var(--scrollbar-width);
+  background-color: var(--scrollbar-track-color);
+}
+
+::-webkit-scrollbar-track {
+  background-color: var(--scrollbar-track-color);
+  border-radius: var(--scrollbar-width);
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb-color);
+  border-radius: var(--scrollbar-width);
+  border: 2px solid transparent;
+  background-clip: content-box;
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover);
+}
+
+/* Для Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #707070 #c7c7c7; /* цвет ползунка и фона */
+  scrollbar-color: var(--scrollbar-thumb-color) var(--scrollbar-track-color);
 }
 
-/* для Chrome/Edge/Safari */
-*::-webkit-scrollbar {
-  width: 8px;
+/* Убираем стандартный скроллбар и предотвращаем смещение контента */
+html {
+  scrollbar-gutter: stable; /* Новое CSS свойство */
+  overflow-y: auto; /* Показываем только при необходимости */
 }
 
-*::-webkit-scrollbar-track {
-  background: #c7c7c7; /* цвет фона */
+/* Плавный скролл для всего сайта */
+html {
+  scroll-behavior: smooth;
 }
 
-*::-webkit-scrollbar-thumb {
-  background-color: #707070; /* цвет ползунка */
-  border-radius: 5px;
-  transition: background-color 0.3s ease; /* анимация при изменении цвета */
+/* Скрываем скроллбар когда не нужен, но оставляем место */
+body {
+  overflow-y: overlay; /* Прозрачный скроллбар поверх контента */
 }
 
-/* Эффект при наведении */
-*::-webkit-scrollbar-thumb:hover {
-  background-color: #8c8c8c; /* цвет при наведении */
-}
-
-/* Эффект при активации (нажатии) */
-*::-webkit-scrollbar-thumb:active {
-  background-color: #a1a1a1; /* цвет при активации */
+/* Альтернативный вариант - скроллбар только при наведении */
+@media (hover: hover) {
+  body {
+    scrollbar-width: none; /* Для Firefox */
+  }
+  body::-webkit-scrollbar {
+    display: none;
+  }
+  body:hover::-webkit-scrollbar {
+    display: block;
+  }
+  body:hover::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb-color);
+  }
 }
 
 .content input[type="text"] {
@@ -424,22 +468,18 @@ button.custom_button_short#delete:hover {
   gap: 20px;
 }
 
-.data-item {
-  background-color: #fff;
-  padding: 0 20px 20px;
-  border-radius: 10px;
-  box-shadow: 
-    0 2px 4px rgba(0, 0, 0, 0.1), /* Тень снизу и по бокам */
-    0 -1px 2px rgba(0, 0, 0, 0.05); /* Слабая тень сверху */
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+.data-item, .moderation-item {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border: 1px solid rgba(0,0,0,0.05);
 }
 
 .data-item:hover {
-  transform: translateY(-4px);
-  box-shadow: 
-    0 8px 16px rgba(0, 0, 0, 0.1), /* Усиленная тень снизу и по бокам */
-    0 -4px 8px rgba(0, 0, 0, 0.05); /* Слегка усиленная тень сверху */
-    
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 
 /* Заголовок новости */
@@ -489,7 +529,7 @@ button.custom_button_short#delete:hover {
   margin: 15px 0;
 }
 
-button.pagination_button {
+.pagination_button {
   font-size: 12px;
   line-height: 30px;
   width: 45px;
@@ -505,13 +545,13 @@ button.pagination_button {
   transition: font-weight 0.1s ease-in-out;
 }
 
-button.pagination_button:hover {
+.pagination_button:hover {
   background-color: #f1f1f1;
   font-weight: bolder;
   border: 1px solid #8c8e91;
 }
 
-button.pagination_button.active {
+.pagination_button.active {
   background-color: #252627;
   color: white;
   font-weight: bold;
@@ -519,6 +559,7 @@ button.pagination_button.active {
 
 /* Стили для контейнера фильтров */
 .user-info,
+.user-info-large,
 .filters-container {
   display: flex;
   flex-wrap: wrap; /* приоритет от первого */
@@ -532,12 +573,17 @@ button.pagination_button.active {
   gap: 80px;
 }
 
+.user-info-large {
+  gap: 60px;
+}
+
 .filters-container {
   gap: 10px;
 }
 
 /* Точное соответствие стилю фильтров */
-.user-info p {
+.user-info p,
+.user-info-large p {
   font-size: 10pt;
   color: #555;
   margin-bottom: 5px;
@@ -547,15 +593,15 @@ button.pagination_button.active {
   font-weight: normal;
 }
 
-.filters-container button.custom_button_mid,
-.custom_button_mid {
+.filters-container .custom_button_long,
+.custom_button_long {
   margin: 0;
   flex: 0 0 auto;
   height: 42px;
   align-self: flex-end;
 }
 
-.filters-container button.custom_button_mid:hover,
+.filters-container .custom_button_long:hover,
 .form-actions button#submit:hover,
 .form-actions button#delete:hover {
   background-color: #2d2f30;
@@ -613,6 +659,7 @@ button.pagination_button.active {
 /* Общие стили для input, select и flatpickr */
 .filter-group select,
 .filter-group .form-control,
+#search-news,
 .form-group input,
 .form-group select {
   font-family: "Lato", sans-serif;
@@ -634,9 +681,7 @@ button.pagination_button.active {
 .filter-group .form-control:hover,
 input:hover,
 input:focus,
-.form-group input:hover,
 .form-group select:hover,
-.form-group input:focus,
 .form-group select:focus,
 .jodit-container.jodit.jodit_theme_default.jodit-wysiwyg_mode:hover {
   border-color: #888 !important;
@@ -900,4 +945,107 @@ button#return {
   .custom_button_short.archive {
     width: 100%;
   }
+}
+
+
+
+.app-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+  margin-left: 200px; /* Ширина сайдбара */
+}
+
+/* Добавьте это в конец файла styles.css */
+.main-content.no-sidebar {
+  margin-left: 0 !important;
+}
+
+
+
+
+.sidebar {
+  width: 200px;
+  height: 100vh;
+  position: fixed;
+  left: 0;
+  top: 0;
+  background-color: #ffffff;
+  border-right: 1px solid #e0e0e0;
+  color: #2d2f30;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-family: 'Lato', sans-serif;
+}
+
+.sidebar-header {
+  margin-bottom: 24px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #2d2f30;
+}
+
+.sidebar-menu {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar-link {
+  display: block;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  color: #2d2f30;
+  text-decoration: none;
+  border-radius: 6px;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.sidebar-link:hover {
+  background-color: #f5f5f5;
+  color: #000;
+}
+
+.sidebar-link.active {
+  background-color: #2d2f30;
+  color: white;
+  font-weight: bold;
+}
+
+.logout-btn {
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: #2d2f30;
+  padding: 10px 14px;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+}
+
+.logout-btn:hover {
+  background-color: #f5f5f5;
+  color: #000;
+}
+
+.user-info-side {
+  margin-top: 24px;
+  font-size: 12px;
+  color: #888;
+  text-align: center;
+  border-top: 1px solid #e0e0e0;
+  padding-top: 16px;
+  line-height: 1.4;
 }

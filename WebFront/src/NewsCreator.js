@@ -52,6 +52,10 @@ function NewsCreator() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [editNewsId, setEditNewsId] = useState(null);
 
+  const [users, setUsers] = useState([]);
+  const [selectedAuthor, setSelectedAuthor] = useState('');
+
+
 
   // Конфигурация JoditEditor
   const configJoditEditor = useMemo(() => ({
@@ -274,6 +278,37 @@ function NewsCreator() {
     window.open("/admin-panel", "_blank");
   };
 
+  // Функция для загрузки списка пользователей
+  const loadUsers = useCallback(async () => {
+    try {
+      const usersList = await api.get('/api/admin/users');
+      setUsers(usersList);
+      
+      // Устанавливаем текущего автора как выбранного по умолчанию
+      if (isEditMode && nickname) {
+        setSelectedAuthor(nickname);
+      }
+    } catch (error) {
+      console.error('Error loading users:', error);
+      toast.error('Не удалось загрузить список пользователей', configToast);
+    }
+  }, [configToast, isEditMode, nickname]);
+
+  // Загружаем пользователей при монтировании компонента
+  useEffect(() => {
+    if (currentUser?.role === 'Administrator' || currentUser?.role === 'Moderator') {
+      loadUsers();
+    }
+  }, [currentUser?.role, loadUsers]);
+
+  // Обновляем выбранного автора при изменении nickname
+  useEffect(() => {
+    if (nickname) {
+      setSelectedAuthor(nickname);
+    }
+  }, [nickname]);
+
+
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -357,38 +392,55 @@ function NewsCreator() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-  
+
     // Проверка аутентификации
     if (!currentUser || !currentUser.nickname) {
       toast.error("Требуется авторизация!", configToast);
       return;
     }
-  
+
     // Валидация полей
-    if (!currentUser.nickname.trim()) {
-      toast.error("Ошибка идентификации пользователя! Пожалуйста, авторизуйтесь заново", configToast);
-      return;
-    }
-  
     if (!event_start || event_start.length === 0) {
       toast.error("Пожалуйста, укажите дату события", configToast);
       return;
     }
-  
+
     if (!title.trim()) {
       toast.error("Пожалуйста, введите заголовок новости", configToast);
       return;
     }
-  
+
     if (!description.trim()) {
       toast.error("Пожалуйста, введите текст новости", configToast);
       return;
     }
-  
+
+    // Определяем автора и его логин
+    let authorNickname = currentUser.nickname;
+    let authorLogin = currentUser.login;
+
+    // Для администраторов/модераторов в режиме редактирования
+    if ((currentUser?.role === 'Administrator' || currentUser?.role === 'Moderator') && isEditMode) {
+      if (!selectedAuthor) {
+        toast.error('Не выбран автор публикации!', configToast);
+        return;
+      }
+
+      // Находим выбранного пользователя
+      const selectedUser = users.find(user => user.nick === selectedAuthor);
+      if (!selectedUser) {
+        toast.error('Выбранный автор не существует!', configToast);
+        return;
+      }
+
+      authorNickname = selectedUser.nick;
+      authorLogin = selectedUser.login;
+    }
+
     // Подготовка FormData
     const formData = new FormData();
-    formData.append("login", currentUser.login);
-    formData.append("nickname", currentUser.nickname);
+    formData.append("login", authorLogin); // Используем определенный выше логин
+    formData.append("nickname", authorNickname); // Используем определенный выше никнейм
     formData.append("title", title);
     formData.append("description", description);
     formData.append("event_start", new Date(event_start).toISOString());
@@ -397,55 +449,54 @@ function NewsCreator() {
     if (!isEditMode) {
       formData.append("status", "Pending");
     }
-  
+
     // Фильтруем и разделяем файлы
     const existingFiles = newsImages
-      .filter(img => img.fileName) // Только существующие файлы из БД
-      .map(img => img.fileName);   // Получаем только GUID
-  
+      .filter(img => img.fileName)
+      .map(img => img.fileName);
+
     const newFiles = newsImages
-      .filter(img => img.file)     // Только новые файлы
+      .filter(img => img.file)
       .map(img => img.file);
-  
+
     // Добавляем существующие файлы как отдельные поля
     if (isEditMode) {
       if (existingFiles.length === 0 && newsImages.length === 0) {
-        formData.append("delete_all_files", "true"); // Специальный флаг
+        formData.append("delete_all_files", "true");
       } else {
         existingFiles.forEach(fileName => {
           formData.append("existing_files", fileName);
         });
       }
     }
-  
+
     // Добавляем новые файлы
     newFiles.forEach(file => {
       formData.append("files", file);
     });
-  
+
     try {
       const result = await (isEditMode
-        ? api.put(`/api/news/${editNewsId}`, formData, true)  // PUT для редактирования
-        : api.post("/api/news", formData, true)  // POST для создания
+        ? api.put(`/api/news/${editNewsId}`, formData, true)
+        : api.post("/api/news", formData, true)
       );
       console.log("Server response:", result);
-      
-      toast.success(
-        isEditMode 
-          ? "Новость успешно обновлена!" 
-          : "Новость отправлена на проверку!",
-        {
-          ...configToast,
-          onClose: isEditMode ? () => navigate('/news-list') : undefined
-        }
-      );
-    
+
+      if (isEditMode) {
+        navigate('/news-list')
+        setTimeout(() => {
+          toast.success("Новость успешно обновлена!", configToast);
+        }, 200);
+      } else {
+        toast.success("Новость отправлена на проверку!", configToast);
+      }
+        
     } catch (error) {
       console.error("Request error:", error);
       
       if (error.message.includes("401")) {
         navigate('/login', { 
-          state: { from: location }, // Теперь используем корректный location
+          state: { from: location },
           replace: true 
         });
         return;
@@ -457,7 +508,6 @@ function NewsCreator() {
       );
     }
   };
-
 
 
   const MemoizedJoditEditor = useMemo(() => {
@@ -517,16 +567,22 @@ function NewsCreator() {
           <form className="form" name="newsForm" onSubmit={handleSubmit}>
             {/* Полностью не рендерим поле, если Publisher */}
             {(currentUser?.role === 'Administrator' || currentUser?.role === 'Moderator') && isEditMode && (
-              <input
-                type="text"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                id="news-nickname"
-                name="nickname"
-                className="inpt"
-                placeholder="Введите имя пользователя"
-                disabled={!isEditMode}
-              />
+              <div className="form-group">
+                <label htmlFor="news-author">Автор публикации:</label>
+                <select
+                  id="news-author"
+                  name="author"
+                  className="inpt"
+                  value={selectedAuthor}
+                  onChange={(e) => setSelectedAuthor(e.target.value)}
+                >
+                  {users.map(user => (
+                    <option key={user.userID} value={user.nick}>
+                      {user.nick} ({user.login})
+                    </option>
+                  ))}
+                </select>
+              </div>
             )}
             {MemoizedFlatpickr}
 

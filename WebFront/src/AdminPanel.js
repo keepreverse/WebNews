@@ -6,11 +6,16 @@ import PageWrapper from "./PageWrapper";
 import Flatpickr from "react-flatpickr";
 import "flatpickr/dist/flatpickr.min.css";
 import HTMLReactParser from "html-react-parser";
-import Lightbox from "yet-another-react-lightbox";
-import "yet-another-react-lightbox/styles.css";
 import { Russian } from "flatpickr/dist/l10n/ru.js";
-import { api } from './apiClient';
 
+import Lightbox from "yet-another-react-lightbox";
+import Fullscreen from "yet-another-react-lightbox/plugins/fullscreen";
+import Thumbnails from "yet-another-react-lightbox/plugins/thumbnails";
+import Zoom from "yet-another-react-lightbox/plugins/zoom";
+import "yet-another-react-lightbox/plugins/thumbnails.css";
+import "yet-another-react-lightbox/styles.css";
+
+import { api } from './apiClient';
 import { initAuthToken } from './apiClient';
 
 function AdminPanel() {
@@ -59,7 +64,7 @@ function AdminPanel() {
       setCurrentUser(userData);
       
       // Проверяем, есть ли у пользователя права администратора
-      if (userData.role !== 'Administrator') {
+      if (userData.role !== 'Administrator' && userData.role !== 'Moderator' ) {
         toast.error('Недостаточно прав для доступа к панели администратора');
         // Перенаправляем на главную или страницу входа
         navigate('/');
@@ -153,7 +158,6 @@ function AdminPanel() {
       return data;
     } catch (error) {
       console.error("Ошибка загрузки новостей:", error);
-      toast.error("Не удалось загрузить новости на модерацию");
       return [];
     }
   }, []);
@@ -336,7 +340,7 @@ function AdminPanel() {
 
         <button
           onClick={clearFilters}
-          className="custom_button_mid"
+          className="custom_button_long"
           disabled={!roleFilter && !dateRange[0] && !showPasswords}
         >
           Сбросить фильтры
@@ -396,13 +400,29 @@ function AdminPanel() {
 
   // Компонент модерации новостей с фильтрами
   const NewsModerationTab = () => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [photoIndex, setPhotoIndex] = useState(0);
-    const [currentImages, setCurrentImages] = useState([]);
+    const [lightboxOpen, setLightboxOpen] = useState(false);
+    const [lightboxIndex, setLightboxIndex] = useState(0);
+    const [lightboxSlides, setLightboxSlides] = useState([]);
+
     const [authorFilter, setAuthorFilter] = useState("");
     const [dateRangeNews, setDateRangeNews] = useState([null, null]);
     const [uniqueAuthors, setUniqueAuthors] = useState([]);
   
+
+    const openLightbox = (newsItem, index) => {
+      if (!newsItem.files || newsItem.files.length === 0) return;
+
+      const slides = newsItem.files.map(file => ({
+        src: `http://127.0.0.1:5000/uploads/${file.fileName}`,
+        alt: `Изображение новости ${newsItem.newsID}`
+      }));
+
+      setLightboxSlides(slides);
+      setLightboxIndex(index);
+      setLightboxOpen(true);
+    };
+
+
     // Получаем уникальных авторов при загрузке новостей
     useEffect(() => {
       if (pendingNews.length > 0) {
@@ -471,26 +491,6 @@ function AdminPanel() {
   
     const newsTotalPages = Math.ceil(filteredNews.length / newsPerPage);
 
-    const openLightbox = (newsItem, images, index) => {
-      setCurrentImages(images);
-      setPhotoIndex(index);
-      setIsOpen(true);
-    };
-
-    useEffect(() => {
-      if (isOpen) {
-        document.body.style.overflow = "hidden";
-        document.body.removeAttribute("aria-hidden");
-      } else {
-        document.body.style.overflow = "auto";
-      }
-
-      return () => {
-        document.body.style.overflow = "auto";
-        document.body.removeAttribute("aria-hidden");
-      };
-    }, [isOpen]);
-
     return (
       <>
         {/* Блок фильтров для новостей */}
@@ -521,21 +521,21 @@ function AdminPanel() {
           
           <button 
             onClick={clearNewsFilters} 
-            className="custom_button_mid"
+            className="custom_button_long"
             disabled={!authorFilter && !dateRangeNews[0]}
           >
             Сбросить фильтры
           </button>
 
           {/* Кнопка "Удалить все" - только для администраторов */}
-          {currentUser?.userRole === 'Administrator' && (
+          {(currentUser?.user_role === 'Administrator' || currentUser?.user_role === 'Moderator') && (
             <button 
               onClick={() => {
                 if (window.confirm("Вы уверены, что хотите удалить ВСЕ новости на модерации?")) {
                   // Здесь можно добавить логику удаления всех новостей
                 }
               }} 
-              className="custom_button_mid" 
+              className="custom_button_long" 
               id="delete-all"
             >
               Удалить все
@@ -600,26 +600,20 @@ function AdminPanel() {
                   <>
                     <p><strong>Количество фотографий:</strong> {news.files.length}</p>
                     <div className="thumbnail-container">
-                      {news.files.map((file, index) => (
-                        <div key={index} className="thumbnail">
-                          <img
-                            src={`http://127.0.0.1:5000/uploads/${file.fileName}`}
-                            alt={`Фото ${index + 1}`}
-                            className="data-image"
-                            onClick={() =>
-                              openLightbox(
-                                news,
-                                news.files.map(f => `http://127.0.0.1:5000/uploads/${f.fileName}`),
-                                index
-                              )
-                            }
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = '/path/to/placeholder/image.jpg';
-                            }}
-                          />
-                        </div>
-                      ))}
+                    {news.files.map((file, index) => (
+                      <div key={index} className="thumbnail">
+                        <img
+                          src={`http://127.0.0.1:5000/uploads/${file.fileName}`}
+                          alt={`Фото ${index + 1}`}
+                          className="data-image"
+                          onClick={() => openLightbox(news, index)}
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = '/path/to/placeholder/image.jpg';
+                          }}
+                        />
+                      </div>
+                    ))}
                     </div>
                   </>
                 )}
@@ -657,21 +651,42 @@ function AdminPanel() {
           />
         )}
 
-        {isOpen && (
-          <Lightbox
-            mainSrc={currentImages[photoIndex]}
-            nextSrc={currentImages[(photoIndex + 1) % currentImages.length]}
-            prevSrc={currentImages[(photoIndex + currentImages.length - 1) % currentImages.length]}
-            onCloseRequest={() => setIsOpen(false)}
-            onMovePrevRequest={() => 
-              setPhotoIndex((photoIndex + currentImages.length - 1) % currentImages.length)
+        <Lightbox
+          open={lightboxOpen}
+          close={() => setLightboxOpen(false)}
+          index={lightboxIndex}
+          slides={lightboxSlides}
+          plugins={[Fullscreen, Thumbnails, Zoom]}
+          styles={{
+            container: { backgroundColor: "rgba(0, 0, 0, 0.8)" },
+            thumbnail: {
+              backgroundColor: "rgba(0, 0, 0, 0.5)",
+            },
+            thumbnailsContainer: {
+              backgroundColor: "rgba(0, 0, 0, 0.8)",
+            },
+            icon: {
+              color: "rgba(255, 255, 255, 0.7)",
+              filter: "drop-shadow(0 0 2px rgba(0, 0, 0, 0.5))",
+            },
+            iconDisabled: {
+              color: "rgba(255, 255, 255, 0.3)",
+            },
+            iconHover: {
+              color: "#fff",
+              backgroundColor: "rgba(0, 0, 0, 0.3)",
             }
-            onMoveNextRequest={() => 
-              setPhotoIndex((photoIndex + 1) % currentImages.length)
-            }
-            imageTitle={`Изображение ${photoIndex + 1} из ${currentImages.length}`}
-          />
-        )}
+          }}
+          thumbnails={{
+            vignette: false,
+          }}
+          zoom={{
+            maxZoomPixelRatio: 4, // Максимальный уровень увеличения
+            zoomInMultiplier: 1.2,  // Множитель увеличения
+            scrollToZoom: true    // Включить зум скроллом
+          }}
+        />
+
       </>
     );
   };

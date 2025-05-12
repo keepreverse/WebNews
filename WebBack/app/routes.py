@@ -40,7 +40,7 @@ def jwt_required(f):
             g.current_user = {
                 'userID': data['userID'],
                 'login': data['login'],
-                'userRole': data['userRole'],
+                'user_role': data['user_role'],
                 'nickname': data['nickname']
             }
         except jwt.ExpiredSignatureError:
@@ -77,9 +77,9 @@ def admin_required(f):
             return make_response(jsonify({"error": "Неверный токен"}), 401)
 
         # Проверяем роль
-        if g.current_user['userRole'] != 'Administrator':
+        if g.current_user['user_role'] != 'Administrator':
             return make_response(jsonify({
-                "error": f"Доступ запрещен. Требуются права администратора. Ваша роль: {g.current_user['userRole']}"
+                "error": f"Доступ запрещен. Требуются права администратора. Ваша роль: {g.current_user['user_role']}"
             }), 403)
             
         return f(*args, **kwargs)
@@ -109,9 +109,9 @@ def moderator_required(f):
             return make_response(jsonify({"error": "Неверный токен"}), 401)
 
         # Проверяем роль
-        if g.current_user['userRole'] not in ['Administrator', 'Moderator']:
+        if g.current_user['user_role'] not in ['Administrator', 'Moderator']:
             return make_response(jsonify({
-                "error": f"Доступ запрещен. Требуются права администратора/модератора. Ваша роль: {g.current_user['userRole']}"
+                "error": f"Доступ запрещен. Требуются права администратора/модератора. Ваша роль: {g.current_user['user_role']}"
             }), 403)
             
         return f(*args, **kwargs)
@@ -325,7 +325,7 @@ def login():
         token = jwt.encode({
             'userID': user[0],
             'login': user[4],  # login из user tuple
-            'userRole': user[2],
+            'user_role': user[2],
             'nickname': user[3],
             'exp': datetime.utcnow() + app.config['JWT_EXPIRATION_DELTA']
         }, app.config['JWT_SECRET_KEY'], algorithm=app.config['JWT_ALGORITHM'])
@@ -334,7 +334,7 @@ def login():
             "STATUS": 200,
             "token": token,
             "userID": user[0],
-            "userRole": user[2],
+            "user_role": user[2],
             "nickname": user[3],
             "login": user[4]
         }), 200)
@@ -435,12 +435,12 @@ def logout():
 
 
 @app.route("/api/admin/users", methods=["GET"])
-@admin_required
+@moderator_required
 def admin_users():
     """Admin endpoint to get all users (without sensitive data)"""
     if request.method == "OPTIONS":
         return make_response(jsonify({}), 200)
-    if g.current_user['userRole'] not in ['Administrator']:
+    if g.current_user['user_role'] not in ['Administrator', 'Moderator']:
         return make_response(jsonify({
             "error": "Только администраторы могут просматривать эту страницу"
         }), 403)
@@ -462,7 +462,7 @@ def admin_users_real_passwords():
     """Admin endpoint to get all users with real passwords (ONLY FOR DEMO/DEBUG)"""
     if request.method == "OPTIONS":
         return make_response(jsonify({}), 200)
-    if g.current_user['userRole'] not in ['Administrator']:
+    if g.current_user['user_role'] not in ['Administrator']:
         return make_response(jsonify({
             "error": "Только администраторы могут просматривать эту страницу"
         }), 403)
@@ -484,7 +484,7 @@ def admin_users_real_passwords():
 def admin_user_operations(user_id):
     if request.method == "OPTIONS":
         return make_response(jsonify({}), 200)
-    if g.current_user['userRole'] not in ['Administrator']:
+    if g.current_user['user_role'] not in ['Administrator']:
         return make_response(jsonify({
             "error": "Только администраторы могут просматривать эту страницу"
         }), 403)
@@ -545,7 +545,7 @@ def admin_pending_news():
     if request.method == "OPTIONS":
         return make_response(jsonify({}), 200)
     
-    if g.current_user['userRole'] not in ['Administrator', 'Moderator']:
+    if g.current_user['user_role'] not in ['Administrator', 'Moderator']:
         return make_response(jsonify({
             "error": "Только администраторы и модераторы могут просматривать эту страницу"
         }), 403)
@@ -603,7 +603,7 @@ def moderate_news(newsID):
     """Moderate news (approve/reject)"""
     if request.method == "OPTIONS":
         return make_response(jsonify({}), 200)
-    if g.current_user['userRole'] not in ['Administrator', 'Moderator']:
+    if g.current_user['user_role'] not in ['Administrator', 'Moderator']:
         return make_response(jsonify({
             "error": "Только администраторы и модераторы могут просматривать эту страницу"
         }), 403)
