@@ -521,41 +521,7 @@ body {
   gap: 10px;
 }
 
-/* Стили для пагинации */
-.pagination {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin: 15px 0;
-}
 
-.pagination_button {
-  font-size: 12px;
-  line-height: 30px;
-  width: 45px;
-  height: 35px;
-  cursor: pointer;
-  text-transform: uppercase;
-  text-align: center;
-  color: #252627;
-  border: 1px solid #b5b5b5;
-  background: transparent;
-  transition: background-color 0.2s ease;
-  transition: color 0.2s ease-in;
-  transition: font-weight 0.1s ease-in-out;
-}
-
-.pagination_button:hover {
-  background-color: #f1f1f1;
-  font-weight: bolder;
-  border: 1px solid #8c8e91;
-}
-
-.pagination_button.active {
-  background-color: #252627;
-  color: white;
-  font-weight: bold;
-}
 
 /* Стили для контейнера фильтров */
 .user-info,
@@ -1048,4 +1014,139 @@ button#return {
   border-top: 1px solid #e0e0e0;
   padding-top: 16px;
   line-height: 1.4;
+}
+
+
+/* Стили для пагинации */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin: 20px 0;
+  flex-wrap: wrap;
+}
+
+.pagination_button {
+  font-size: 14px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  cursor: pointer;
+  text-align: center;
+  color: #2d2f30;
+  border: 1px solid #b5b5b5;
+  background: transparent;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  /* Убрана глобальная анимация */
+  transition: none;
+}
+
+
+
+
+
+.pagination_button:hover:not(.active) {
+  background-color: #f5f5f5;
+  border-color: #8c8e91;
+  transform: translateY(-1px);
+  /* Анимация только при наведении */
+  transition: 
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.pagination_button.active {
+  background-color: #2d2f30;
+  color: white;
+  font-weight: 500;
+  border-color: #2d2f30;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  /* Мгновенное переключение для активного состояния */
+  transition: none;
+}
+
+/* Остальные стили остаются без изменений */
+.pagination-ellipsis {
+  color: #666;
+  padding: 0 8px;
+  user-select: none;
+  font-size: 14px;
+}
+
+.page-input-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 12px;
+}
+
+.page-input-form input {
+  width: 60px;
+  height: 36px;
+  padding: 0 8px;
+  border: 1px solid #b5b5b5;
+  border-radius: 6px;
+  text-align: center;
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+}
+
+.page-input-form input:focus {
+  outline: none;
+  border-color: #2d2f30;
+}
+
+.page-input-form button {
+  height: 36px;
+  padding: 0 12px;
+  background: #2d2f30;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  transition: all 0.2s ease;
+  font-size: 14px;
+}
+
+
+.page-input-form button:hover {
+  background: #3f4142;
+  transform: translateY(-1px);
+}
+
+@media (max-width: 768px) {
+  .pagination {
+    gap: 4px;
+  }
+  
+  .pagination_button {
+    min-width: 32px;
+    height: 32px;
+    font-size: 13px;
+  }
+  
+  .page-input-form {
+    margin-left: 8px;
+    gap: 6px;
+  }
+  
+  .page-input-form input {
+    width: 50px;
+    height: 32px;
+    font-size: 13px;
+  }
+  
+  .page-input-form button {
+    height: 32px;
+    padding: 0 10px;
+    font-size: 13px;
+  }
 }

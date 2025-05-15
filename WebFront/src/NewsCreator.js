@@ -66,7 +66,7 @@ function NewsCreator() {
     allowResizeX: false,
     autofocus: false,
     saveModeInStorage: true,
-    askBeforePasteHTML: false,
+    askBeforePasteHTML: true,
     askBeforePasteFromWord: true,
     toolbarButtonSize: "large",
     placeholder: "Введите текст новости",

@@ -9,13 +9,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 5MB
-
-def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
 # Добавим конфигурацию JWT
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'your-secret-key-here')
 app.config['JWT_ALGORITHM'] = 'HS256'

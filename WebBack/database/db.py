@@ -99,7 +99,7 @@ class Storage(object):
             
             # Создаем триггеры и индексы
             self._create_triggers()
-            self._create_indexes()  # <-- Добавляем вызов метода создания индексов
+            self._create_indexes()
             
             self.connection.commit()
 
