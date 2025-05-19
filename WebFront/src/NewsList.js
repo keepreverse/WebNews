@@ -1,4 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
+import { Helmet } from 'react-helmet-async';
+import { useNavigate } from 'react-router-dom';
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import PageWrapper from "./PageWrapper";
@@ -18,6 +20,8 @@ import { api } from './apiClient';
 
 function NewsList() {
 
+  const navigate = useNavigate();
+  
   const [currentUser, setCurrentUser] = useState(null);
 
   const [data, setData] = useState([]);
@@ -156,8 +160,7 @@ function NewsList() {
   }, [currentNews, currentPage]);
 
   const handleEditNews = (newsItem) => {
-    // Открываем в новом окне с параметром edit
-    window.open(`/news-creator?edit=${newsItem.newsID}`, "_blank");
+    navigate(`/news-creator?edit=${newsItem.newsID}`);
   };
 
   const deleteNews = useCallback(async (newsID) => {
@@ -208,7 +211,9 @@ function NewsList() {
 
   return (
     <PageWrapper>
+    <Helmet>
       <title>Список публикаций</title>
+    </Helmet>
       <div id="data-list-form" className="container">
         <h1>Список публикаций</h1>
         {currentUser && (

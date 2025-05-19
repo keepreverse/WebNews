@@ -205,31 +205,55 @@ class Storage(object):
         
         return news_items
 
-    def news_get_one(self, last_received_newsID) -> list:
-        """Get single news item"""
-        if last_received_newsID == InvalidValues.INVALID_ID.value:
-            query = '''
-                SELECT n.newsID, title, description, status,
-                       create_date, publish_date, event_start, event_end,
-                       up.nick AS publisher_nick, um.nick AS moderator_nick
-                FROM News n
-                JOIN Users up ON up.userID = n.publisherID
-                LEFT JOIN Users um ON um.userID = n.moderated_byID
-                ORDER BY create_date DESC LIMIT 1
-            '''
-        else:
-            query = f'''
-                SELECT n.newsID, title, description, status,
-                       create_date, publish_date, event_start, event_end,
-                       up.nick AS publisher_nick, um.nick AS moderator_nick
-                FROM News n
-                JOIN Users up ON up.userID = n.publisherID
-                LEFT JOIN Users um ON um.userID = n.moderated_byID
-                WHERE n.newsID < {last_received_newsID}
-                ORDER BY create_date DESC LIMIT 1
-            '''
+    # def news_get_one(self, last_received_newsID) -> list:
+    #     """Get single news item"""
+    #     if last_received_newsID == InvalidValues.INVALID_ID.value:
+    #         query = '''
+    #             SELECT n.newsID, title, description, status,
+    #                    create_date, publish_date, event_start, event_end,
+    #                    up.nick AS publisher_nick, um.nick AS moderator_nick
+    #             FROM News n
+    #             JOIN Users up ON up.userID = n.publisherID
+    #             LEFT JOIN Users um ON um.userID = n.moderated_byID
+    #             ORDER BY create_date DESC LIMIT 1
+    #         '''
+    #     else:
+    #         query = f'''
+    #             SELECT n.newsID, title, description, status,
+    #                    create_date, publish_date, event_start, event_end,
+    #                    up.nick AS publisher_nick, um.nick AS moderator_nick
+    #             FROM News n
+    #             JOIN Users up ON up.userID = n.publisherID
+    #             LEFT JOIN Users um ON um.userID = n.moderated_byID
+    #             WHERE n.newsID < {last_received_newsID}
+    #             ORDER BY create_date DESC LIMIT 1
+    #         '''
 
-        self.cursor.execute(query)
+    #     self.cursor.execute(query)
+
+    # database/db.py (частично)
+    def news_get_one(self, last_received_newsID) -> list:
+        query = '''
+            SELECT n.newsID, title, description, status,
+                create_date, publish_date, event_start, event_end,
+                up.nick AS publisher_nick, um.nick AS moderator_nick
+            FROM News n
+            JOIN Users up ON up.userID = n.publisherID
+            LEFT JOIN Users um ON um.userID = n.moderated_byID
+            WHERE n.newsID < ?
+            ORDER BY create_date DESC LIMIT 1
+        ''' if last_received_newsID != InvalidValues.INVALID_ID.value else '''
+            SELECT n.newsID, title, description, status,
+                create_date, publish_date, event_start, event_end,
+                up.nick AS publisher_nick, um.nick AS moderator_nick
+            FROM News n
+            JOIN Users up ON up.userID = n.publisherID
+            LEFT JOIN Users um ON um.userID = n.moderated_byID
+            ORDER BY create_date DESC LIMIT 1
+        '''
+
+        params = (last_received_newsID,) if last_received_newsID != InvalidValues.INVALID_ID.value else ()
+        self.cursor.execute(query, params)
         news_data = self.cursor.fetchone()
         
         if not news_data:

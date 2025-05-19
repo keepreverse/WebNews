@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import PageWrapper from './PageWrapper';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+
 import { api } from './apiClient';
 import { decodeJWT } from './utils/jwt';
 
@@ -117,7 +119,9 @@ function LoginPage() {
 
   return (
     <PageWrapper>
+    <Helmet>
       <title>{isLoginMode ? 'Авторизация' : 'Регистрация'}</title>
+    </Helmet>
       <div id="auth-form" className="container">
         <h1>{isLoginMode ? 'Авторизация' : 'Регистрация'}</h1>
         <div className="content">

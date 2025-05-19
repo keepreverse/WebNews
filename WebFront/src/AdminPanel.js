@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import PageWrapper from "./PageWrapper";
@@ -221,8 +222,8 @@ function AdminPanel() {
   };
 
   const handleModerate = async (newsID, action) => {
-    if (!currentUser?.id) {
-      toast.error("Требуется авторизация");
+    if (!currentUser?.id || !newsID) {
+      toast.error("Ошибка авторизации");
       return;
     }
   
@@ -692,7 +693,9 @@ function AdminPanel() {
 
   return (
     <PageWrapper>
+    <Helmet>
       <title>Панель администратора</title>
+    </Helmet>
       <div id="data-list-form" className="container">
         <h1>Панель администратора</h1>
         

@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { v4 as uuidv4 } from "uuid";
 import JoditEditor from "jodit-react";
 import PageWrapper from "./PageWrapper";
@@ -31,6 +32,8 @@ function NewsCreator() {
   const [nickname, setNickname] = useState("");
   
   const [event_start, setDate] = useState("");
+
+  const editorRef = useRef(null);
 
   const titleRef = useRef("");
 
@@ -155,6 +158,9 @@ function NewsCreator() {
   }, []);
 
   const handleFiles = (files) => {
+    const fileInput = document.getElementById("news-image");
+    if (!fileInput) return; // Защита от отсутствия элемента
+    
     const validImages = [];
     const invalidFiles = [];
   
@@ -224,22 +230,19 @@ function NewsCreator() {
   };
 
   const handleDeleteThumbnail = (thumbnailId) => {
-    // Удаляем изображение из состояния
-    setNewsImages((prevImages) => prevImages.filter((image) => image.id !== thumbnailId));
-  
-    // Обновляем файловый input
+    setNewsImages(prev => prev.filter(image => image.id !== thumbnailId));
+
+    // Добавляем проверку на существование элемента и его свойств
     const fileInput = document.getElementById("news-image");
-    if (fileInput) {
-      const dataTransfer = new DataTransfer(); // Создаем новый объект DataTransfer
-  
-      // Добавляем все файлы, кроме удаленного
-      Array.from(fileInput.files).forEach((file) => {
-        if (file.uniqueKey !== thumbnailId) { // Проверяем уникальный ключ
+    if (fileInput && fileInput.files) { // Двойная проверка
+      const dataTransfer = new DataTransfer();
+      
+      Array.from(fileInput.files).forEach(file => {
+        if (file.uniqueKey !== thumbnailId) {
           dataTransfer.items.add(file);
         }
       });
-  
-      // Обновляем файловый input
+
       fileInput.files = dataTransfer.files;
     }
   };
@@ -251,6 +254,53 @@ function NewsCreator() {
       fileInput.value = ""; // Сброс input
     }
   };
+
+  window.addEventListener('error', (event) => {
+    if (event.message.includes('Jodit')) {
+      window.location.reload(); // Перезагрузка при критических ошибках
+    }
+  });
+
+// 1. Добавим состояние для принудительного ререндера редактора
+const [editorKey, setEditorKey] = useState(Date.now());
+const isMountedRef = useRef(true);
+
+useEffect(() => {
+  const editor = editorRef.current;
+  isMountedRef.current = true;
+
+  const handleBlur = (newText) => {
+    if (isMountedRef.current) {
+      setDescription(newText);
+    }
+  };
+
+  const handleError = (error) => {
+    console.error('Jodit Error:', error);
+    if (isMountedRef.current) {
+      setEditorKey(Date.now());
+    }
+  };
+
+  if (editor) {
+    editor.events
+      .on('blur', handleBlur)
+      .on('error', handleError);
+  }
+
+  return () => {
+    isMountedRef.current = false;
+    if (editor) {
+      try {
+        editor.events.off('blur', handleBlur);
+        editor.events.off('error', handleError);
+        editor.destruct();
+      } catch (e) {
+        console.warn('Jodit cleanup error:', e);
+      }
+    }
+  };
+}, [editorKey]);
 
   // Функция для открытия лайтбокса
   const openLightbox = (index) => {
@@ -270,13 +320,14 @@ function NewsCreator() {
     setPreviewMode(false);
   };
 
-  const handleNewsList = () => {
-    window.open("/news-list", "_blank");
-  };
+// 4. Обработчик навигации с сбросом состояния
+const handleNavigation = (path) => {
+  setEditorKey(Date.now()); // Принудительный ререндер при навигации
+  navigate(path);
+};
 
-  const handleAdminPanel = () => {
-    window.open("/admin-panel", "_blank");
-  };
+  const handleNewsList = () => handleNavigation('/news-list');
+  const handleAdminPanel = () => handleNavigation('/admin-panel');
 
   // Функция для загрузки списка пользователей
   const loadUsers = useCallback(async () => {
@@ -509,18 +560,17 @@ function NewsCreator() {
     }
   };
 
+  useEffect(() => {
+    const editorInstance = editorRef.current;
 
-  const MemoizedJoditEditor = useMemo(() => {
-    return (
-      <JoditEditor
-        name="description"
-        value={description}
-        config={configJoditEditor}
-        tabIndex={1}
-        onBlur={(newText) => setDescription(newText)}
-      />
-    );
-  }, [description, configJoditEditor]);
+    return () => {
+      if (editorInstance) {
+        // Полная очистка редактора
+        editorInstance.events.off("blur").off("change");
+        editorInstance.destruct();
+      }
+    };
+  }, []);
 
   // Обработчик изменения даты (теперь работает с диапазоном)
   const handleDateChange = (selectedDate) => {
@@ -552,7 +602,9 @@ function NewsCreator() {
   
   return (
     <PageWrapper>
+    <Helmet>
       <title>Конфигуратор публикаций</title>
+    </Helmet>
       <div id="news-form" className="container">
         <h1>Конфигуратор публикаций</h1>
         {currentUser && (
@@ -596,8 +648,21 @@ function NewsCreator() {
               onChange={handleTitleChange}
             />
 
-            {MemoizedJoditEditor}
-
+            {/* <JoditEditor
+              key={`jodit-${editorKey}`}
+              ref={editorRef}
+              value={description}
+              config={configJoditEditor}
+            /> */}
+            <JoditEditor
+              name="description"
+              value={description}
+              config={configJoditEditor}
+              tabIndex={1}
+              key={`jodit-${editorKey}`}
+              ref={editorRef}
+              onBlur={(newText) => setDescription(newText)}
+            />
             <div 
               id="drop-zone" 
               className={`drop-zone ${dragActive ? 'drag-active' : ''}`}

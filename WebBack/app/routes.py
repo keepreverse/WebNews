@@ -1,124 +1,23 @@
-import os
+# WebBack/app/routes.py
+from flask import jsonify, request, make_response, g, send_from_directory
+from app import app, make_db_object
+from .decorators import admin_required, moderator_required
 import jwt
 import sqlite3
-from app import app
-from . import make_db_object
+import os
 from datetime import datetime, timedelta
-from flask import jsonify, request, make_response, g, send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
-from functools import wraps
 
-
-# Добавим конфигурацию JWT
+# Конфигурация JWT
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'your-secret-key-here')
 app.config['JWT_ALGORITHM'] = 'HS256'
 app.config['JWT_EXPIRATION_DELTA'] = timedelta(hours=24)
 
-def jwt_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = None
-        if 'Authorization' in request.headers:
-            token = request.headers['Authorization'].split()[1]
-        
-        if not token:
-            return jsonify({"error": "Token is missing"}), 401
-
-        try:
-            data = jwt.decode(
-                token, 
-                app.config['JWT_SECRET_KEY'], 
-                algorithms=[app.config['JWT_ALGORITHM']]
-            )
-            g.current_user = {
-                'userID': data['userID'],
-                'login': data['login'],
-                'user_role': data['user_role'],
-                'nickname': data['nickname']
-            }
-        except jwt.ExpiredSignatureError:
-            return jsonify({"error": "Token has expired"}), 401
-        except jwt.InvalidTokenError:
-            return jsonify({"error": "Invalid token"}), 401
-        except Exception as e:
-            return jsonify({"error": f"Token verification failed: {str(e)}"}), 401
-
-        return f(*args, **kwargs)
-    return decorated
-
-def admin_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        # Пропускаем OPTIONS запросы
-        if request.method == 'OPTIONS':
-            return make_response(jsonify({}), 200)
-            
-        # Проверяем токен
-        token = None
-        if 'Authorization' in request.headers:
-            token = request.headers['Authorization'].split()[1]
-        
-        if not token:
-            return make_response(jsonify({"error": "Требуется авторизация"}), 401)
-
-        try:
-            data = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
-            g.current_user = data
-        except jwt.ExpiredSignatureError:
-            return make_response(jsonify({"error": "Токен истёк"}), 401)
-        except jwt.InvalidTokenError:
-            return make_response(jsonify({"error": "Неверный токен"}), 401)
-
-        # Проверяем роль
-        if g.current_user['user_role'] != 'Administrator':
-            return make_response(jsonify({
-                "error": f"Доступ запрещен. Требуются права администратора. Ваша роль: {g.current_user['user_role']}"
-            }), 403)
-            
-        return f(*args, **kwargs)
-    return decorated
-
-def moderator_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        # Пропускаем OPTIONS запросы
-        if request.method == 'OPTIONS':
-            return make_response(jsonify({}), 200)
-            
-        # Проверяем токен
-        token = None
-        if 'Authorization' in request.headers:
-            token = request.headers['Authorization'].split()[1]
-        
-        if not token:
-            return make_response(jsonify({"error": "Требуется авторизация"}), 401)
-
-        try:
-            data = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
-            g.current_user = data
-        except jwt.ExpiredSignatureError:
-            return make_response(jsonify({"error": "Токен истёк"}), 401)
-        except jwt.InvalidTokenError:
-            return make_response(jsonify({"error": "Неверный токен"}), 401)
-
-        # Проверяем роль
-        if g.current_user['user_role'] not in ['Administrator', 'Moderator']:
-            return make_response(jsonify({
-                "error": f"Доступ запрещен. Требуются права администратора/модератора. Ваша роль: {g.current_user['user_role']}"
-            }), 403)
-            
-        return f(*args, **kwargs)
-    return decorated
-
 @app.errorhandler(403)
 def forbidden(error):
     return make_response(jsonify({
-        "error": "Доступ запрещен. Требуются права администратора/модератора."
+        "error": "Forbidden: insufficient permissions"
     }), 403)
-
-# Путь до папки с изображениями
-UPLOAD_FOLDER = os.path.join(os.path.abspath(os.path.dirname(__file__)), '../img')
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 @app.route('/uploads/<filename>')
 def upload_file(filename):
@@ -126,7 +25,6 @@ def upload_file(filename):
 
 @app.route("/api/news", methods=["GET", "POST", "DELETE", "OPTIONS"])
 def news_line():
-    """Handler for news list operations"""
     if request.method == "OPTIONS":
         return make_response(jsonify({}), 200)
     
@@ -138,77 +36,64 @@ def news_line():
             return make_response(jsonify(news_list), 200)
         except Exception as e:
             return make_response(jsonify({
-                "STATUS": 500,
-                "DESCRIPTION": f"Error fetching news: {str(e)}"
+                "error": "Internal server error",
+                "details": str(e)
             }), 500)
 
     elif request.method == "POST":
         try:
-            # Проверяем обязательные поля
             required_fields = ["login", "nickname", "title", "description", "event_start"]
             if not all(field in request.form for field in required_fields):
                 return make_response(jsonify({
-                    "STATUS": 400,
-                    "DESCRIPTION": "Missing required fields."
+                    "error": "Missing required fields: " + ", ".join(required_fields)
                 }), 400)
 
             primary_news_data = request.form
             login = primary_news_data.get("login")
             
-            # Получаем пользователя по login
             user = g.db.user_get_by_login(login)
-            
             if not user:
                 return make_response(jsonify({
-                    "STATUS": 401,
-                    "DESCRIPTION": "Invalid user credentials."
+                    "error": "Invalid user credentials"
                 }), 401)
 
-            # Обработка файлов
             files_received = 'files' in request.files
             files_list = request.files.getlist('files') if files_received else []
 
-            # Получаем статус из формы (по умолчанию "Pending")
-            status = "Pending"
+            # Валидация файлов
+            MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+            ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+            for file in files_list:
+                if file.content_length > MAX_FILE_SIZE:
+                    return make_response(jsonify({
+                        "error": f"File {file.filename} exceeds size limit"
+                    }), 400)
+                if not ('.' in file.filename and 
+                      file.filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS):
+                    return make_response(jsonify({
+                        "error": f"Invalid file type: {file.filename}"
+                    }), 400)
 
             g.db.news_add(
-                user[0],  # userID
-                {
-                    **primary_news_data,
-                    "status": status
-                },
+                user[0],
+                {**primary_news_data, "status": "Pending"},
                 files_received,
                 files_list,
                 app.config['UPLOAD_FOLDER']
             )
 
             return make_response(jsonify({
-                "STATUS": 200,
-                "DESCRIPTION": "News successfully added to database!"
-            }), 200)
+                "message": "News successfully added"
+            }), 201)
 
         except Exception as e:
             return make_response(jsonify({
-                "STATUS": 500,
-                "DESCRIPTION": f"Server error: {str(e)}"
+                "error": "Internal server error",
+                "details": str(e)
             }), 500)
         
-    elif request.method == "DELETE":
-        try:
-            g.db.news_clear()
-            return make_response(jsonify({
-                "STATUS": 200,
-                "DESCRIPTION": "All news deleted successfully!"
-            }), 200)
-        except Exception as e:
-            return make_response(jsonify({
-                "STATUS": 500,
-                "DESCRIPTION": f"Error deleting news: {str(e)}"
-            }), 500)
-
 @app.route("/api/news/<int:newsID>", methods=["GET", "PUT", "DELETE", "OPTIONS"])
 def single_news(newsID):
-    """Handler for single news operations"""
     if request.method == "OPTIONS":
         return make_response(jsonify({}), 200)
     
@@ -219,40 +104,45 @@ def single_news(newsID):
         if news_data[0]:
             return make_response(jsonify(news_data[0]), 200)
         return make_response(jsonify({
-            "STATUS": 404,
-            "DESCRIPTION": f"News with ID {newsID} not found."
+            "error": f"News with ID {newsID} not found"
         }), 404)
 
     elif request.method == "PUT":
         try:
-            # Проверяем обязательные поля
             required_fields = ["login", "nickname", "title", "description", "event_start"]
             if not all(field in request.form for field in required_fields):
                 return make_response(jsonify({
-                    "STATUS": 400,
-                    "DESCRIPTION": "Недостаточно данных"
+                    "error": "Missing required fields"
                 }), 400)
                 
             primary_news_data = request.form
-            
-            # Получаем пользователя
             user = g.db.user_get_by_login(primary_news_data.get("login"))
             if not user:
                 return make_response(jsonify({
-                    "STATUS": 401,
-                    "DESCRIPTION": "Неверные данные пользователя"
+                    "error": "Invalid user credentials"
                 }), 401)
             
-            # Обработка файлов
             files_received = 'files' in request.files
             files_list = request.files.getlist('files') if files_received else []
-            
-            # Существующие файлы
             existing_files = request.form.getlist('existing_files')
             
+            # Валидация новых файлов
+            MAX_FILE_SIZE = 5 * 1024 * 1024
+            ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+            for file in files_list:
+                if file.content_length > MAX_FILE_SIZE:
+                    return make_response(jsonify({
+                        "error": f"File {file.filename} exceeds size limit"
+                    }), 400)
+                if not ('.' in file.filename and 
+                      file.filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS):
+                    return make_response(jsonify({
+                        "error": f"Invalid file type: {file.filename}"
+                    }), 400)
+
             g.db.news_update(
                 newsID,
-                user[0],  # userID
+                user[0],
                 primary_news_data,
                 files_received,
                 files_list,
@@ -261,70 +151,64 @@ def single_news(newsID):
             )
             
             return make_response(jsonify({
-                "STATUS": 200,
-                "DESCRIPTION": "News updated successfully!"
+                "message": "News updated successfully"
             }), 200)
             
         except Exception as e:
             return make_response(jsonify({
-                "STATUS": 500,
-                "DESCRIPTION": f"Error updating news: {str(e)}"
+                "error": "Internal server error",
+                "details": str(e)
             }), 500)
 
     elif request.method == "DELETE":
         try:
             g.db.news_delete(newsID)
             return make_response(jsonify({
-                "STATUS": 200,
-                "DESCRIPTION": f"News with ID {newsID} deleted successfully!"
+                "message": f"News with ID {newsID} deleted"
             }), 200)
         except Exception as e:
             return make_response(jsonify({
-                "STATUS": 500,
-                "DESCRIPTION": f"Error deleting news: {str(e)}"
+                "error": "Internal server error",
+                "details": str(e)
             }), 500)
 
-    return make_response(jsonify({
-        "STATUS": 405,
-        "DESCRIPTION": "Method not allowed"
-    }), 405)
-
-@app.route("/api/auth/login", methods=["POST", "OPTIONS"])
+@app.route("/api/auth/login", methods=["POST"])
 def login():
-    """User authentication endpoint"""
     if request.method == "OPTIONS":
         return make_response(jsonify({}), 200)
 
     make_db_object()
     try:
-        data = request.get_json(silent=True) or {}
-        login = data.get("login")
-        password = data.get("password")
+        data = request.get_json()
+        login = data.get("login", "").strip()
+        password = data.get("password", "").strip()
 
         if not login or not password:
             return make_response(jsonify({
-                "STATUS": 400,
-                "DESCRIPTION": "Необходимо ввести логин и пароль"
+                "error": "Login and password required"
             }), 400)
 
         user = g.db.user_get_by_login(login)
         if not user or not check_password_hash(user[1], password):
             return make_response(jsonify({
-                "STATUS": 401,
-                "DESCRIPTION": "Неверный логин или пароль"
+                "error": "Invalid credentials"
             }), 401)
 
-        # Создаем JWT токен с правильной структурой
-        token = jwt.encode({
+        token_payload = {
             'userID': user[0],
-            'login': user[4],  # login из user tuple
+            'login': user[4],
             'user_role': user[2],
             'nickname': user[3],
             'exp': datetime.utcnow() + app.config['JWT_EXPIRATION_DELTA']
-        }, app.config['JWT_SECRET_KEY'], algorithm=app.config['JWT_ALGORITHM'])
+        }
+        
+        token = jwt.encode(
+            token_payload,
+            app.config['JWT_SECRET_KEY'],
+            algorithm=app.config['JWT_ALGORITHM']
+        )
 
         return make_response(jsonify({
-            "STATUS": 200,
             "token": token,
             "userID": user[0],
             "user_role": user[2],
@@ -334,51 +218,35 @@ def login():
 
     except Exception as e:
         return make_response(jsonify({
-            "STATUS": 500,
-            "DESCRIPTION": f"Server error: {str(e)}"
+            "error": "Internal server error",
+            "details": str(e)
         }), 500)
-    
-@app.route("/api/auth/register", methods=["POST", "OPTIONS"])
+
+@app.route("/api/auth/register", methods=["POST"])
 def register():
     if request.method == "OPTIONS":
         return make_response(jsonify({}), 200)
 
     try:
         data = request.get_json()
-        if not data:
-            return make_response(jsonify({
-                "STATUS": 400,
-                "DESCRIPTION": "Invalid request data"
-            }), 400)
-
         login = data.get("login", "").strip()
         password = data.get("password", "").strip()
         nickname = data.get("nickname", "").strip()
 
         if not all([login, password, nickname]):
             return make_response(jsonify({
-                "STATUS": 400,
-                "DESCRIPTION": "All fields are required"
+                "error": "All fields are required: login, password, nickname"
             }), 400)
 
-        # Открываем соединение с повторными попытками
         make_db_object()
-
-        # Проверяем существование пользователя
-        g.db.cursor.execute("BEGIN IMMEDIATE")
+        
         try:
-            g.db.cursor.execute(
-                "SELECT 1 FROM Users WHERE login = ? OR nick = ?",
-                (login, nickname)
-            )
-            if g.db.cursor.fetchone():
-                g.db.connection.rollback()
+            g.db.cursor.execute("BEGIN IMMEDIATE")
+            if g.db.user_get_by_login(login) or g.db.user_get_by_nick(nickname):
                 return make_response(jsonify({
-                    "STATUS": 409,
-                    "DESCRIPTION": "User already exists"
+                    "error": "User with this login or nickname already exists"
                 }), 409)
 
-            # Создаем пользователя (сохраняем и хеш, и реальный пароль)
             hashed_pw = generate_password_hash(password)
             g.db.cursor.execute(
                 """INSERT INTO Users 
@@ -389,27 +257,21 @@ def register():
             g.db.connection.commit()
 
             return make_response(jsonify({
-                "STATUS": 201,
-                "DESCRIPTION": "Registration successful",
+                "message": "User registered successfully",
                 "userID": g.db.cursor.lastrowid
             }), 201)
 
         except sqlite3.OperationalError:
-            g.db.connection.rollback()
             return make_response(jsonify({
-                "STATUS": 503,
-                "DESCRIPTION": "Database busy, please try again"
+                "error": "Database operation failed"
             }), 503)
-        except Exception as e:
-            g.db.connection.rollback()
-            raise
-
+            
     except Exception as e:
         return make_response(jsonify({
-            "STATUS": 500,
-            "DESCRIPTION": "Internal server error"
+            "error": "Internal server error",
+            "details": str(e)
         }), 500)
-    
+
 @app.route("/api/auth/logout", methods=["POST", "OPTIONS"])
 def logout():
     """User logout endpoint"""
@@ -421,26 +283,15 @@ def logout():
         "DESCRIPTION": "Logged out successfully"
     }), 200)
     
-    # Очищаем куки, если они используются
     response.set_cookie('session', '', expires=0)
     
     return response
 
-
 @app.route("/api/admin/users", methods=["GET"])
 @moderator_required
 def admin_users():
-    """Admin endpoint to get all users (without sensitive data)"""
-    if request.method == "OPTIONS":
-        return make_response(jsonify({}), 200)
-    if g.current_user['user_role'] not in ['Administrator', 'Moderator']:
-        return make_response(jsonify({
-            "error": "Только администраторы могут просматривать эту страницу"
-        }), 403)
-    
-    make_db_object()
-    
     try:
+        make_db_object()
         users = g.db.user_get_all()
         return make_response(jsonify(users), 200)
     except Exception as e:
@@ -448,105 +299,25 @@ def admin_users():
             "error": "Internal server error",
             "details": str(e)
         }), 500)
-    
-@app.route("/api/admin/users/real_passwords", methods=["GET", "OPTIONS"])
+
+@app.route("/api/admin/users/real_passwords", methods=["GET"])
 @admin_required
 def admin_users_real_passwords():
-    """Admin endpoint to get all users with real passwords (ONLY FOR DEMO/DEBUG)"""
-    if request.method == "OPTIONS":
-        return make_response(jsonify({}), 200)
-    if g.current_user['user_role'] not in ['Administrator']:
-        return make_response(jsonify({
-            "error": "Только администраторы могут просматривать эту страницу"
-        }), 403)
-    
-    make_db_object()
-    
     try:
+        make_db_object()
         users = g.db.user_get_all_with_real_passwords()
         return make_response(jsonify(users), 200)
     except Exception as e:
-        app.logger.error(f"Error fetching users with real passwords: {str(e)}")
         return make_response(jsonify({
-            "STATUS": 500,
-            "DESCRIPTION": "Internal server error"
+            "error": "Internal server error",
+            "details": str(e)
         }), 500)
 
-@app.route("/api/admin/users/<int:user_id>", methods=["PUT", "DELETE", "OPTIONS"])
-@admin_required
-def admin_user_operations(user_id):
-    if request.method == "OPTIONS":
-        return make_response(jsonify({}), 200)
-    if g.current_user['user_role'] not in ['Administrator']:
-        return make_response(jsonify({
-            "error": "Только администраторы могут просматривать эту страницу"
-        }), 403)
-    
-    make_db_object()
-
-    try:
-        if request.method == "PUT":
-            update_data = request.get_json()
-            if not update_data:
-                return make_response(jsonify({
-                    "STATUS": 400,
-                    "DESCRIPTION": "Необходимо указать данные для обновления"
-                }), 400)
-
-            g.db.user_update(user_id, update_data)
-            
-            return make_response(jsonify({
-                "STATUS": 200,
-                "DESCRIPTION": "Данные пользователя обновлены"
-            }), 200)
-
-        elif request.method == "DELETE":
-            if g.current_user['userID'] == user_id:
-                return make_response(jsonify({
-                    "STATUS": 403,
-                    "DESCRIPTION": "Нельзя удалить самого себя"
-                }), 403)
-
-            g.db.user_delete(user_id)
-            
-            return make_response(jsonify({
-                "STATUS": 200,
-                "DESCRIPTION": "Пользователь удален"
-            }), 200)
-
-    except ValueError as e:
-        return make_response(jsonify({
-            "STATUS": 400,
-            "DESCRIPTION": str(e)
-        }), 400)
-    except Exception as e:
-        return make_response(jsonify({
-            "STATUS": 500,
-            "DESCRIPTION": f"Ошибка сервера: {str(e)}"
-        }), 500)
-
-    return make_response(jsonify({
-        "STATUS": 405,
-        "DESCRIPTION": "Method not allowed"
-    }), 405)
-
-
-@app.route("/api/admin/pending-news", methods=["GET", "OPTIONS"])
+@app.route("/api/admin/pending-news", methods=["GET"])
 @moderator_required
 def admin_pending_news():
-    """Get all pending news for moderation"""
-    if request.method == "OPTIONS":
-        return make_response(jsonify({}), 200)
-    
-    if g.current_user['user_role'] not in ['Administrator', 'Moderator']:
-        return make_response(jsonify({
-            "error": "Только администраторы и модераторы могут просматривать эту страницу"
-        }), 403)
-    
-    make_db_object()
-    
     try:
-        # Получаем новости со статусом "Pending" и связанные файлы
+        make_db_object()
         g.db.cursor.execute('''
             SELECT n.newsID, title, description, status, create_date,
                    event_start, event_end, up.nick AS publisher_nick,
@@ -586,8 +357,8 @@ def admin_pending_news():
         return make_response(jsonify(list(pending_news.values())), 200)
     except Exception as e:
         return make_response(jsonify({
-            "STATUS": 500,
-            "DESCRIPTION": f"Error fetching pending news: {str(e)}"
+            "error": "Failed to fetch pending news",
+            "details": str(e)
         }), 500)
 
 @app.route("/api/admin/moderate-news/<int:newsID>", methods=["POST", "OPTIONS"])
@@ -663,7 +434,7 @@ def moderate_news(newsID):
             "STATUS": 500,
             "DESCRIPTION": f"Error moderating news: {str(e)}"
         }), 500)
-    
+
 @app.route("/api/news/<int:newsID>/archive", methods=["POST", "OPTIONS"])
 def archive_news(newsID):
     if request.method == "OPTIONS":
@@ -689,4 +460,51 @@ def archive_news(newsID):
         return make_response(jsonify({
             "STATUS": 500,
             "DESCRIPTION": f"Error archiving news: {str(e)}"
+        }), 500)
+
+@app.route("/api/admin/users/<int:user_id>", methods=["PUT", "DELETE"])
+@admin_required
+def admin_user_operations(user_id):
+    try:
+        make_db_object()
+        
+        if request.method == "PUT":
+            update_data = request.get_json()
+            if not update_data:
+                return make_response(jsonify({
+                    "error": "No update data provided"
+                }), 400)
+
+            allowed_fields = ["nick", "login", "user_role"]
+            filtered_data = {k: v for k, v in update_data.items() if k in allowed_fields}
+            
+            if not filtered_data:
+                return make_response(jsonify({
+                    "error": "No valid fields to update"
+                }), 400)
+
+            g.db.user_update(user_id, filtered_data)
+            return make_response(jsonify({
+                "message": "User updated successfully"
+            }), 200)
+
+        elif request.method == "DELETE":
+            if g.current_user['userID'] == user_id:
+                return make_response(jsonify({
+                    "error": "Cannot delete yourself"
+                }), 403)
+
+            g.db.user_delete(user_id)
+            return make_response(jsonify({
+                "message": "User deleted successfully"
+            }), 200)
+
+    except ValueError as e:
+        return make_response(jsonify({
+            "error": str(e)
+        }), 400)
+    except Exception as e:
+        return make_response(jsonify({
+            "error": "Operation failed",
+            "details": str(e)
         }), 500)
