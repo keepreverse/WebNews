@@ -1,66 +1,55 @@
 # WebBack/app/decorators.py
 from functools import wraps
-from flask import request, make_response, jsonify, g
+from flask import request, g, jsonify, current_app  # Добавлен current_app
 import jwt
-from app import app
+from werkzeug.exceptions import Unauthorized, Forbidden
+
+def get_current_user(token):
+    try:
+        payload = jwt.decode(
+            token,
+            current_app.config['JWT_SECRET_KEY'],  # Исправлено
+            algorithms=[current_app.config['JWT_ALGORITHM']]  # Исправлено
+        )
+        return {
+            'userID': payload['userID'],
+            'login': payload['login'],
+            'user_role': payload['user_role'],
+            'nickname': payload['nickname']
+        }
+    except jwt.ExpiredSignatureError:
+        raise Unauthorized("Token has expired")
+    except jwt.InvalidTokenError:
+        raise Unauthorized("Invalid token")
+    except Exception as e:
+        raise Unauthorized(f"Token verification failed: {str(e)}")
+
+# Остальной код остается без изменений
 
 def role_required(roles):
-    """Декоратор для проверки ролей пользователя"""
     def decorator(f):
         @wraps(f)
         def wrapper(*args, **kwargs):
-            # Пропускаем OPTIONS запросы для CORS
             if request.method == 'OPTIONS':
-                return make_response(jsonify({}), 200)
+                return jsonify({}), 200
 
-            # Извлекаем токен из заголовка
-            token = None
-            auth_header = request.headers.get('Authorization')
-            if auth_header and auth_header.startswith('Bearer '):
-                token = auth_header.split()[1]
-
+            auth_header = request.headers.get('Authorization', '')
+            token = auth_header.replace('Bearer ', '') if auth_header.startswith('Bearer ') else None
+            
             if not token:
-                return make_response(jsonify({
-                    "error": "Authorization token is required"
-                }), 401)
+                raise Unauthorized("Authorization token is required")
 
             try:
-                # Декодируем токен
-                payload = jwt.decode(
-                    token,
-                    app.config['JWT_SECRET_KEY'],
-                    algorithms=[app.config['JWT_ALGORITHM']]
-                )
-                g.current_user = {
-                    'userID': payload['userID'],
-                    'login': payload['login'],
-                    'user_role': payload['user_role'],
-                    'nickname': payload['nickname']
-                }
+                g.current_user = get_current_user(token)
+            except Unauthorized as e:
+                return jsonify({"error": e.description}), e.code
 
-            except jwt.ExpiredSignatureError:
-                return make_response(jsonify({
-                    "error": "Token has expired"
-                }), 401)
-            except jwt.InvalidTokenError:
-                return make_response(jsonify({
-                    "error": "Invalid token"
-                }), 401)
-            except Exception as e:
-                return make_response(jsonify({
-                    "error": f"Token verification failed: {str(e)}"
-                }), 401)
-
-            # Проверяем наличие требуемой роли
-            if payload['user_role'] not in roles:
-                return make_response(jsonify({
-                    "error": f"Access denied. Required roles: {', '.join(roles)}"
-                }), 403)
+            if g.current_user['user_role'] not in roles:
+                raise Forbidden(f"Required roles: {', '.join(roles)}")
 
             return f(*args, **kwargs)
         return wrapper
     return decorator
 
-# Создаем конкретные декораторы
 admin_required = role_required(['Administrator'])
 moderator_required = role_required(['Administrator', 'Moderator'])

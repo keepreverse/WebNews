@@ -74,8 +74,8 @@ def generate_fake_news(count: int = 50):
     db.close_connection()
 
 if __name__ == "__main__":
-    generate_fake_users(3)  # Создаст 5 пользователей
-    generate_fake_news(500)   # Создаст 150 новостей
+    generate_fake_users(50)  # Создаст 5 пользователей
+    generate_fake_news(20)   # Создаст 150 новостей
     print("Тестовые данные успешно созданы!")
 
 

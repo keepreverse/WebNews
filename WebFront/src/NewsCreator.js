@@ -59,7 +59,6 @@ function NewsCreator() {
   const [selectedAuthor, setSelectedAuthor] = useState('');
 
 
-
   // Конфигурация JoditEditor
   const configJoditEditor = useMemo(() => ({
     toolbarAdaptive: false,
@@ -69,7 +68,7 @@ function NewsCreator() {
     allowResizeX: false,
     autofocus: false,
     saveModeInStorage: true,
-    askBeforePasteHTML: true,
+    askBeforePasteHTML: false,
     askBeforePasteFromWord: true,
     toolbarButtonSize: "large",
     placeholder: "Введите текст новости",

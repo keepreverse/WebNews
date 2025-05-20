@@ -123,12 +123,13 @@ class Storage(object):
         if files_received:
             for file in files_list:
                 file_guid = str(uuid.uuid4().hex)
+                file_format = file.filename.rsplit('.', 1)[1].lower()
                 file.save(os.path.join(files_folder, file_guid))
                 
                 self.cursor.execute('''
                     INSERT INTO Files (guid, format)
                     VALUES (?, ?)
-                ''', (file_guid, file.mimetype.split('/')[1]))  
+                ''', (file_guid, file_format))  
 
         # Add news entry
         self.cursor.execute('''
@@ -418,12 +419,13 @@ class Storage(object):
                 for file in files:
                     if file.filename:
                         file_guid = str(uuid.uuid4().hex)
+                        file_format = file.filename.rsplit('.', 1)[1].lower()
                         file.save(os.path.join(upload_folder, file_guid))
                         
                         self.cursor.execute('''
                             INSERT INTO Files (guid, format)
                             VALUES (?, ?)
-                        ''', (file_guid, file.mimetype.split('/')[1]))
+                        ''', (file_guid, file_format))
                         
                         self.cursor.execute('''
                             INSERT INTO File_Link (fileID, newsID)

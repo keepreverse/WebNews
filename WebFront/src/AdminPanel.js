@@ -579,7 +579,7 @@ function AdminPanel() {
                     })}
                   </p>
                 )}
-                
+
                 {news.event_end && (
                   <p>
                     <strong>Дата окончания:</strong>{" "}
@@ -595,7 +595,7 @@ function AdminPanel() {
                     })}
                   </p>
                 )}
-                
+
                 {news.files?.length > 0 && (
                   <>
                     <p><strong>Количество фотографий:</strong> {news.files.length}</p>
@@ -618,7 +618,7 @@ function AdminPanel() {
                   </>
                 )}
               </div>
-              
+
               <div className="moderation-actions">
                 <button 
                   onClick={() => handleModerate(news.newsID, 'approve')}

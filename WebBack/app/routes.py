@@ -1,6 +1,4 @@
-# WebBack/app/routes.py
-from flask import jsonify, request, make_response, g, send_from_directory
-from app import app, make_db_object
+from flask import Blueprint, jsonify, request, make_response, g, send_from_directory, current_app
 from .decorators import admin_required, moderator_required
 import jwt
 import sqlite3
@@ -8,27 +6,22 @@ import os
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 
-# Конфигурация JWT
-app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'your-secret-key-here')
-app.config['JWT_ALGORITHM'] = 'HS256'
-app.config['JWT_EXPIRATION_DELTA'] = timedelta(hours=24)
+bp = Blueprint('main', __name__)
 
-@app.errorhandler(403)
+@bp.errorhandler(403)
 def forbidden(error):
     return make_response(jsonify({
         "error": "Forbidden: insufficient permissions"
     }), 403)
 
-@app.route('/uploads/<filename>')
+@bp.route('/uploads/<filename>')
 def upload_file(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+    return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)
 
-@app.route("/api/news", methods=["GET", "POST", "DELETE", "OPTIONS"])
+@bp.route("/api/news", methods=["GET", "POST", "DELETE", "OPTIONS"])
 def news_line():
     if request.method == "OPTIONS":
         return make_response(jsonify({}), 200)
-    
-    make_db_object()
 
     if request.method == "GET":
         try:
@@ -79,7 +72,7 @@ def news_line():
                 {**primary_news_data, "status": "Pending"},
                 files_received,
                 files_list,
-                app.config['UPLOAD_FOLDER']
+                current_app.config['UPLOAD_FOLDER']
             )
 
             return make_response(jsonify({
@@ -92,12 +85,12 @@ def news_line():
                 "details": str(e)
             }), 500)
         
-@app.route("/api/news/<int:newsID>", methods=["GET", "PUT", "DELETE", "OPTIONS"])
+@bp.route("/api/news/<int:newsID>", methods=["GET", "PUT", "DELETE", "OPTIONS"])
 def single_news(newsID):
     if request.method == "OPTIONS":
         return make_response(jsonify({}), 200)
     
-    make_db_object()
+    
 
     if request.method == "GET":
         news_data = g.db.news_get_single(newsID)
@@ -146,7 +139,7 @@ def single_news(newsID):
                 primary_news_data,
                 files_received,
                 files_list,
-                app.config['UPLOAD_FOLDER'],
+                current_app.config['UPLOAD_FOLDER'],
                 existing_files
             )
             
@@ -172,12 +165,12 @@ def single_news(newsID):
                 "details": str(e)
             }), 500)
 
-@app.route("/api/auth/login", methods=["POST"])
+@bp.route("/api/auth/login", methods=["POST"])
 def login():
     if request.method == "OPTIONS":
         return make_response(jsonify({}), 200)
 
-    make_db_object()
+    
     try:
         data = request.get_json()
         login = data.get("login", "").strip()
@@ -199,13 +192,13 @@ def login():
             'login': user[4],
             'user_role': user[2],
             'nickname': user[3],
-            'exp': datetime.utcnow() + app.config['JWT_EXPIRATION_DELTA']
+            'exp': datetime.utcnow() + current_app.config['JWT_EXPIRATION_DELTA']
         }
         
         token = jwt.encode(
             token_payload,
-            app.config['JWT_SECRET_KEY'],
-            algorithm=app.config['JWT_ALGORITHM']
+            current_app.config['JWT_SECRET_KEY'],
+            algorithm=current_app.config['JWT_ALGORITHM']
         )
 
         return make_response(jsonify({
@@ -222,7 +215,7 @@ def login():
             "details": str(e)
         }), 500)
 
-@app.route("/api/auth/register", methods=["POST"])
+@bp.route("/api/auth/register", methods=["POST"])
 def register():
     if request.method == "OPTIONS":
         return make_response(jsonify({}), 200)
@@ -238,7 +231,7 @@ def register():
                 "error": "All fields are required: login, password, nickname"
             }), 400)
 
-        make_db_object()
+        
         
         try:
             g.db.cursor.execute("BEGIN IMMEDIATE")
@@ -272,7 +265,7 @@ def register():
             "details": str(e)
         }), 500)
 
-@app.route("/api/auth/logout", methods=["POST", "OPTIONS"])
+@bp.route("/api/auth/logout", methods=["POST", "OPTIONS"])
 def logout():
     """User logout endpoint"""
     if request.method == "OPTIONS":
@@ -287,11 +280,11 @@ def logout():
     
     return response
 
-@app.route("/api/admin/users", methods=["GET"])
+@bp.route("/api/admin/users", methods=["GET"])
 @moderator_required
 def admin_users():
     try:
-        make_db_object()
+        
         users = g.db.user_get_all()
         return make_response(jsonify(users), 200)
     except Exception as e:
@@ -300,11 +293,11 @@ def admin_users():
             "details": str(e)
         }), 500)
 
-@app.route("/api/admin/users/real_passwords", methods=["GET"])
+@bp.route("/api/admin/users/real_passwords", methods=["GET"])
 @admin_required
 def admin_users_real_passwords():
     try:
-        make_db_object()
+        
         users = g.db.user_get_all_with_real_passwords()
         return make_response(jsonify(users), 200)
     except Exception as e:
@@ -313,11 +306,11 @@ def admin_users_real_passwords():
             "details": str(e)
         }), 500)
 
-@app.route("/api/admin/pending-news", methods=["GET"])
+@bp.route("/api/admin/pending-news", methods=["GET"])
 @moderator_required
 def admin_pending_news():
     try:
-        make_db_object()
+        
         g.db.cursor.execute('''
             SELECT n.newsID, title, description, status, create_date,
                    event_start, event_end, up.nick AS publisher_nick,
@@ -361,7 +354,7 @@ def admin_pending_news():
             "details": str(e)
         }), 500)
 
-@app.route("/api/admin/moderate-news/<int:newsID>", methods=["POST", "OPTIONS"])
+@bp.route("/api/admin/moderate-news/<int:newsID>", methods=["POST", "OPTIONS"])
 @moderator_required
 def moderate_news(newsID):
     """Moderate news (approve/reject)"""
@@ -372,7 +365,7 @@ def moderate_news(newsID):
             "error": "Только администраторы и модераторы могут просматривать эту страницу"
         }), 403)
     
-    make_db_object()
+    
     
     try:
         data = request.get_json()
@@ -435,12 +428,12 @@ def moderate_news(newsID):
             "DESCRIPTION": f"Error moderating news: {str(e)}"
         }), 500)
 
-@app.route("/api/news/<int:newsID>/archive", methods=["POST", "OPTIONS"])
+@bp.route("/api/news/<int:newsID>/archive", methods=["POST", "OPTIONS"])
 def archive_news(newsID):
     if request.method == "OPTIONS":
         return make_response(jsonify({}), 200)
     
-    make_db_object()
+    
     
     try:
         g.db.cursor.execute('''
@@ -462,11 +455,11 @@ def archive_news(newsID):
             "DESCRIPTION": f"Error archiving news: {str(e)}"
         }), 500)
 
-@app.route("/api/admin/users/<int:user_id>", methods=["PUT", "DELETE"])
+@bp.route("/api/admin/users/<int:user_id>", methods=["PUT", "DELETE"])
 @admin_required
 def admin_user_operations(user_id):
     try:
-        make_db_object()
+        
         
         if request.method == "PUT":
             update_data = request.get_json()
