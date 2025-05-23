@@ -38,7 +38,6 @@ const UserEditForm = ({ user, onSave, onCancel }) => {
           value={formData.login}
           onChange={(e) => setFormData({ ...formData, login: e.target.value })}
           required
-          minLength={3}
         />
       </div>
 
@@ -70,14 +69,15 @@ const UserEditForm = ({ user, onSave, onCancel }) => {
       <div className="form-actions">
         <button
           type="submit"
-          className="custom_button_short primary"
+          id="submit"
+          className="custom_button_short"
           disabled={!formData.login.trim()}
         >
           Сохранить изменения
         </button>
         <button
           type="button"
-          className="custom_button_short secondary"
+          className="custom_button_short"
           onClick={onCancel}
         >
           Отменить редактирование

@@ -7,8 +7,7 @@ import 'flatpickr/dist/flatpickr.min.css';
 const NewsFilters = ({
   uniqueAuthors,
   filters,
-  onAuthorChange,
-  onDateChange,
+  onFilterChange,
   onClear
 }) => {
   const datePickerConfig = {
@@ -17,7 +16,7 @@ const NewsFilters = ({
     altFormat: "F j, Y",
     dateFormat: "Y-m-d",
     locale: Russian,
-    onChange: (dates) => onDateChange(dates)
+    onChange: (dates) => onFilterChange('dateRange', dates)
   };
 
   return (
@@ -27,7 +26,9 @@ const NewsFilters = ({
         <select
           id="news-author-filter"
           value={filters.author || ''}
-          onChange={onAuthorChange}
+          onChange={(e) => {
+            onFilterChange('author', e.target.value);
+          }}
           className="author-select"
         >
           <option value="">Все авторы</option>
@@ -67,8 +68,7 @@ NewsFilters.propTypes = {
     author: PropTypes.string,
     dateRange: PropTypes.arrayOf(PropTypes.instanceOf(Date))
   }).isRequired,
-  onAuthorChange: PropTypes.func.isRequired,
-  onDateChange: PropTypes.func.isRequired,
+  onFilterChange: PropTypes.func.isRequired, // Изменено
   onClear: PropTypes.func.isRequired
 };
 

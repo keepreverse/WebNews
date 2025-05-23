@@ -1,7 +1,9 @@
 import os
 from datetime import timedelta
 
-UPLOAD_FOLDER = os.path.abspath('img')
+# Путь относительно корня проекта
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 
 # Конфигурация CORS
 CORS_OPTIONS = {

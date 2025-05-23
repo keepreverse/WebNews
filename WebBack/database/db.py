@@ -5,6 +5,8 @@ import string
 import sqlite3
 import datetime
 
+from flask import current_app
+
 from enums import InvalidValues
 
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -405,9 +407,9 @@ class Storage(object):
                     ''', (news_id, guid))
 
             # 3. Физическое удаление файлов
-            img_folder = os.path.abspath('img')
+            upload_folder = current_app.config['UPLOAD_FOLDER']
             for img_name in files_to_delete:
-                img_path = os.path.join(img_folder, img_name)
+                img_path = os.path.join(upload_folder, img_name)
                 if os.path.exists(img_path):
                     try:
                         os.remove(img_path)
@@ -456,9 +458,9 @@ class Storage(object):
             self.cursor.execute('DELETE FROM News WHERE newsID = ?', (newsID,))
 
             # Удаляем файлы из файловой системы
-            img_folder = os.path.abspath('img')
+            upload_folder = current_app.config['UPLOAD_FOLDER']
             for img_name in files_to_delete:
-                img_path = os.path.join(img_folder, img_name)
+                img_path = os.path.join(upload_folder, img_name)
                 if os.path.isfile(img_path) or os.path.islink(img_path):
                     os.unlink(img_path)
 
@@ -485,9 +487,9 @@ class Storage(object):
             self.cursor.execute('DELETE FROM Files WHERE fileID IN (SELECT fileID FROM File_Link WHERE newsID = ?)', (newsID,))
 
             # Удаляем файлы из файловой системы
-            img_folder = os.path.abspath('img')
+            upload_folder = current_app.config['UPLOAD_FOLDER']
             for img_name in files_to_delete:
-                img_path = os.path.join(img_folder, img_name)
+                img_path = os.path.join(upload_folder, img_name)
                 if os.path.isfile(img_path) or os.path.islink(img_path):
                     os.unlink(img_path)
 
@@ -501,19 +503,22 @@ class Storage(object):
         self.cursor.execute('BEGIN TRANSACTION;')
         
         try:
-            # Получаем все файлы для удаления
+            # Получаем GUID всех файлов
             self.cursor.execute('SELECT guid FROM Files')
             files_to_delete = [row[0] for row in self.cursor.fetchall()]
 
             # Удаляем все новости (триггеры очистят File_Link и Files)
             self.cursor.execute('DELETE FROM News')
 
-            # Удаляем файлы из папки
-            img_folder = os.path.abspath('img')
-            for img_name in files_to_delete:
-                img_path = os.path.join(img_folder, img_name)
-                if os.path.isfile(img_path) or os.path.islink(img_path):
-                    os.unlink(img_path)
+            # Удаляем файлы из правильной папки
+            upload_folder = os.path.abspath(current_app.config['UPLOAD_FOLDER'])
+            for guid in files_to_delete:
+                file_path = os.path.join(upload_folder, guid)
+                if os.path.exists(file_path):
+                    try:
+                        os.remove(file_path)
+                    except Exception as e:
+                        print(f"Ошибка удаления файла {file_path}: {str(e)}")
 
             self.connection.commit()
         except Exception as e:

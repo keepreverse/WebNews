@@ -84,14 +84,30 @@ def news_line():
                 "error": "Internal server error",
                 "details": str(e)
             }), 500)
-        
+    elif request.method == "DELETE":
+        try:
+            if not current_app.config.get('UPLOAD_FOLDER'):
+                return make_response(jsonify({
+                    "error": "Server configuration error"
+                }), 500)
+                
+            g.db.news_clear()
+            return make_response(jsonify({
+                "message": "All news deleted successfully"
+            }), 200)
+        except Exception as e:
+            print(f"ERROR: {str(e)}")
+            return make_response(jsonify({
+                "error": "Internal server error",
+                "details": str(e)
+            }), 500)
+
+
 @bp.route("/api/news/<int:newsID>", methods=["GET", "PUT", "DELETE", "OPTIONS"])
 def single_news(newsID):
     if request.method == "OPTIONS":
         return make_response(jsonify({}), 200)
     
-    
-
     if request.method == "GET":
         news_data = g.db.news_get_single(newsID)
         if news_data[0]:

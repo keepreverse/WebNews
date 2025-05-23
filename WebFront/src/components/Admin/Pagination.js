@@ -1,14 +1,19 @@
 // components/Admin/Pagination.js
 import React, { useState } from "react";
 
-const Pagination = React.memo(({ totalPages, currentPage, paginate }) => {
+const Pagination = React.memo(({ 
+  totalPages, 
+  currentPage, 
+  paginate,
+  totalItems
+}) => {
   const [inputPage, setInputPage] = useState('');
 
   const handlePageInput = (e) => {
     e.preventDefault();
     const page = parseInt(inputPage);
     if (page >= 1 && page <= totalPages) {
-      paginate(page);
+      paginate(page, totalItems);
     }
     setInputPage('');
   };
@@ -40,14 +45,14 @@ const Pagination = React.memo(({ totalPages, currentPage, paginate }) => {
           <span key={`ellipsis-${index}`} className="pagination-ellipsis">...</span> :
           <button
             key={page}
-            onClick={() => paginate(page)}
+          onClick={() => paginate(page, totalItems)} // добавим totalItems
             className={`pagination_button ${currentPage === page ? "active" : ""}`}
           >
             {page}
           </button>
       ))}
 
-      {totalPages > 10 && (
+      {totalPages > 5 && (
         <form onSubmit={handlePageInput} className="page-input-form">
           <input
             type="number"
@@ -63,5 +68,6 @@ const Pagination = React.memo(({ totalPages, currentPage, paginate }) => {
     </div>
   );
 });
+
 
 export default Pagination;

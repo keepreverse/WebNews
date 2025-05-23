@@ -9,12 +9,10 @@ const UsersManagement = ({
   users,
   uniqueRoles,
   editingUser,
-  currentPage,
-  usersPerPage,
-  usersTotalPages,
-  setCurrentPage,
-  setEditingUser,
+  pagination,
+  onPageChange,
   handleDeleteUser,
+  setEditingUser,
   updateUser,
   filters,
   onFilterChange,
@@ -24,14 +22,20 @@ const UsersManagement = ({
   usersWithRealPasswords
 }) => {
   const currentUsers = useMemo(() => {
-    const indexOfLastUser = currentPage * usersPerPage;
-    return users.slice(indexOfLastUser - usersPerPage, indexOfLastUser);
-  }, [users, currentPage, usersPerPage]);
+    const start = (pagination.currentPage - 1) * pagination.perPage;
+    return users.slice(start, start + pagination.perPage);
+  }, [users, pagination]);
 
   const getPasswordDisplay = (user) => {
     if (!showPasswords) return '********';
-    const userWithPassword = usersWithRealPasswords.find(u => u.userID === user.userID);
-    return userWithPassword?.real_password || userWithPassword?.password || '********';
+    
+    const userWithPassword = (usersWithRealPasswords || []).find(u => 
+      u.userID === user.userID
+    );
+    
+    return userWithPassword?.real_password 
+      || userWithPassword?.password 
+      || '********';
   };
 
   return (
@@ -47,13 +51,12 @@ const UsersManagement = ({
         onClear={onClearFilters}
       />
 
-      {usersTotalPages > 1 && (
-        <Pagination
-          totalPages={usersTotalPages}
-          currentPage={currentPage}
-          paginate={setCurrentPage}
-        />
-      )}
+      <Pagination
+        totalPages={pagination.totalPages}
+        currentPage={pagination.currentPage}
+        paginate={onPageChange}
+        totalItems={pagination.totalItems}
+      />
 
       <div className="data-list">
         {currentUsers.length === 0 ? (
@@ -99,13 +102,12 @@ const UsersManagement = ({
         ))}
       </div>
 
-      {usersTotalPages > 1 && (
-        <Pagination
-          totalPages={usersTotalPages}
-          currentPage={currentPage}
-          paginate={setCurrentPage}
-        />
-      )}
+      <Pagination
+        totalPages={pagination.totalPages}
+        currentPage={pagination.currentPage}
+        paginate={onPageChange}
+        totalItems={pagination.totalItems}
+      />
     </>
   );
 };
@@ -114,10 +116,13 @@ UsersManagement.propTypes = {
   users: PropTypes.array.isRequired,
   uniqueRoles: PropTypes.array.isRequired,
   editingUser: PropTypes.number,
-  currentPage: PropTypes.number.isRequired,
-  usersPerPage: PropTypes.number.isRequired,
-  usersTotalPages: PropTypes.number.isRequired,
-  setCurrentPage: PropTypes.func.isRequired,
+  pagination: PropTypes.shape({
+    currentPage: PropTypes.number.isRequired,
+    perPage: PropTypes.number.isRequired,
+    totalPages: PropTypes.number.isRequired,
+    totalItems: PropTypes.number.isRequired
+  }).isRequired,
+  onPageChange: PropTypes.func.isRequired, // было handlePageChange
   setEditingUser: PropTypes.func.isRequired,
   handleDeleteUser: PropTypes.func.isRequired,
   updateUser: PropTypes.func.isRequired,

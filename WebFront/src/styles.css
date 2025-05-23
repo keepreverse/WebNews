@@ -257,11 +257,26 @@ body {
   transition: all 0.2s ease;
 }
 
-.custom_button:active,
-.custom_button_short:active,
-.custom_button_long:active {
-  transform: translateY(0);
-  filter: brightness(110%);
+.page-input-form button {
+  height: 42px;
+  padding: 0 12px;
+  background: #2d2f30;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  transition: all 0.2s ease;
+  font-size: 14px;
+}
+
+
+.custom_button:hover:active,
+.custom_button_short:hover:active,
+.custom_button_long:hover:active,
+.page-input-form button:hover:active {
+  transform: translateY(0px);
 }
 
 .custom_button_short {
@@ -271,7 +286,8 @@ body {
 
 .custom_button:hover,
 .custom_button_short:hover,
-.custom_button_long:hover {
+.custom_button_long:hover,
+.page-input-form button:hover {
   background-color: #2d2f30;
   color: #ffffff;
   transform: translateY(-2px);
@@ -1029,8 +1045,8 @@ button#return {
 
 .pagination_button {
   font-size: 14px;
-  min-width: 36px;
-  height: 36px;
+  min-width: 42px;
+  height: 42px;
   padding: 0 8px;
   cursor: pointer;
   text-align: center;
@@ -1045,9 +1061,6 @@ button#return {
   /* Убрана глобальная анимация */
   transition: none;
 }
-
-
-
 
 
 .pagination_button:hover:not(.active) {
@@ -1087,39 +1100,21 @@ button#return {
 }
 
 .page-input-form input {
-  width: 60px;
-  height: 36px;
-  padding: 0 8px;
+  box-sizing: border-box;
+  height: 42px;
+  padding-right: 8px;
   border: 1px solid #b5b5b5;
-  border-radius: 6px;
+  border-radius: 8px;
   text-align: center;
   font-size: 14px;
+  line-height: 1;
   transition: border-color 0.2s ease;
 }
+
 
 .page-input-form input:focus {
   outline: none;
   border-color: #2d2f30;
-}
-
-.page-input-form button {
-  height: 36px;
-  padding: 0 12px;
-  background: #2d2f30;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  transition: all 0.2s ease;
-  font-size: 14px;
-}
-
-
-.page-input-form button:hover {
-  background: #3f4142;
-  transform: translateY(-1px);
 }
 
 @media (max-width: 768px) {

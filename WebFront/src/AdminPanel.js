@@ -18,12 +18,9 @@ function AdminPanel() {
   const {
     users,
     uniqueRoles,
-    currentPage,
-    usersPerPage,
-    usersTotalPages,
+    pagination,
     showPasswords,
     editingUser,
-    setCurrentPage,
     setEditingUser,
     handleDeleteUser,
     updateUser,
@@ -32,24 +29,28 @@ function AdminPanel() {
     filters: usersFilters,
     handleFilterChange: handleUsersFilterChange,
     clearFilters: clearUsersFilters,
-    fetchUsers  // Добавлен fetchUsers из хука
+    fetchUsers,
+    onPageChange: handleUsersPageChange
   } = useUsersManagement();
 
   const {
+    allNews,
     pendingNews,
-    newsCurrentPage,
-    newsPerPage,
-    newsTotalPages,
-    setNewsCurrentPage,
+    pagination: newsPagination,
     handleModerate,
     handleArchive,
     filters: newsFilters,
-    handleFilterChange: handleNewsFilterChange,
-    clearFilters: clearNewsFilters,
-    fetchPendingNews  // Добавлен fetchPendingNews из хука
+    onFilterChange: handleNewsFilterChange,
+    onClearFilters: clearNewsFilters,
+    fetchPendingNews,
+    onPageChange: handleNewsPageChange
   } = useNewsModeration();
 
-  // Загрузка данных при смене вкладки
+  useEffect(() => {
+    fetchUsers();
+    fetchPendingNews();
+  }, [fetchUsers, fetchPendingNews]);
+
   useEffect(() => {
     if (activeTab === 'users') {
       fetchUsers();
@@ -58,7 +59,6 @@ function AdminPanel() {
     }
   }, [activeTab, fetchUsers, fetchPendingNews]);
 
-  // Проверка авторизации
   useEffect(() => {
     initAuthToken();
     const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
@@ -75,7 +75,6 @@ function AdminPanel() {
     }
   }, [navigate]);
 
-
   const enhancedHandleModerate = async (newsID, action) => {
     if (!currentUser?.id) {
       toast.error("Ошибка авторизации");
@@ -84,19 +83,11 @@ function AdminPanel() {
 
     try {
       await handleModerate(newsID, action, currentUser.id);
-      const updatedNews = await fetchPendingNews();
-      
-      if (updatedNews.length > 0) {
-        const maxPage = Math.ceil(updatedNews.length / newsPerPage);
-        setNewsCurrentPage(prev => Math.min(prev, maxPage));
-      } else {
-        setNewsCurrentPage(1);
-      }
     } catch (error) {
       toast.error(error.message || "Ошибка модерации");
     }
   };
-
+  
   return (
     <PageWrapper>
       <Helmet>
@@ -125,10 +116,7 @@ function AdminPanel() {
           <UsersManagement
             users={users}
             uniqueRoles={uniqueRoles}
-            currentPage={currentPage}
-            usersPerPage={usersPerPage}
-            usersTotalPages={usersTotalPages}
-            setCurrentPage={setCurrentPage}
+            pagination={pagination}
             editingUser={editingUser}
             setEditingUser={setEditingUser}
             handleDeleteUser={handleDeleteUser}
@@ -139,19 +127,19 @@ function AdminPanel() {
             filters={usersFilters}
             onFilterChange={handleUsersFilterChange}
             onClearFilters={clearUsersFilters}
+            onPageChange={handleUsersPageChange}
           />
         ) : (
           <NewsModeration
+            allNews={allNews}
             pendingNews={pendingNews}
-            currentPage={newsCurrentPage}
-            newsPerPage={newsPerPage}
-            newsTotalPages={newsTotalPages}
-            setCurrentPage={setNewsCurrentPage}
+            pagination={newsPagination}
             handleModerate={enhancedHandleModerate}
             handleArchive={handleArchive}
             filters={newsFilters}
             onFilterChange={handleNewsFilterChange}
             onClearFilters={clearNewsFilters}
+            onPageChange={handleNewsPageChange}
           />
         )}
       </div>
