@@ -538,7 +538,7 @@ function AdminPanel() {
               className="custom_button_long" 
               id="delete-all"
             >
-              Удалить все
+              Удалить все новости
             </button>
           )}
         </div>

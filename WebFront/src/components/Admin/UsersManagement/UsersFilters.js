@@ -12,7 +12,9 @@ const UsersFilters = ({
   onRoleChange,
   onDateChange,
   onTogglePasswords,
-  onClear
+  onClear,
+  onDeleteAll,       // Добавляем новый проп
+  deleteDisabled     // И этот
 }) => {
   const configFlatpickr = {
     mode: "range",
@@ -78,6 +80,16 @@ const UsersFilters = ({
       >
         Сбросить все фильтры
       </button>
+
+      <button
+        onClick={onDeleteAll}
+        className="custom_button_long"
+        id="delete-all"
+        disabled={deleteDisabled}
+      >
+        Удалить всех пользователей
+      </button>
+
     </div>
   );
 };
@@ -90,7 +102,9 @@ UsersFilters.propTypes = {
   onRoleChange: PropTypes.func.isRequired,
   onDateChange: PropTypes.func.isRequired,
   onTogglePasswords: PropTypes.func.isRequired,
-  onClear: PropTypes.func.isRequired
+  onClear: PropTypes.func.isRequired,
+  onDeleteAll: PropTypes.func.isRequired,
+  deleteDisabled: PropTypes.bool.isRequired  
 };
 
 export default React.memo(UsersFilters);

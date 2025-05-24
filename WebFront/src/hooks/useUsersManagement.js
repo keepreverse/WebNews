@@ -123,6 +123,18 @@ const useUsersManagement = () => {
     }
   }, [users, handleDeleteAdjustment]);
 
+  const handleDeleteAllUsers = useCallback(async () => {
+      if (!window.confirm("Вы уверены, что хотите удалить ВСЕХ пользователей, кроме текущего и первого администратора?")) return;
+      
+      try {
+          await api.delete("/api/admin/users/all");
+          await fetchUsers();
+          toast.success("Пользователи удалены успешно");
+      } catch (error) {
+          toast.error(error.message || "Ошибка удаления пользователей");
+      }
+  }, [fetchUsers]);
+
   // Остальные методы без изменений
   const fetchRealPasswords = useCallback(async () => {
     try {
@@ -152,6 +164,7 @@ const useUsersManagement = () => {
     }
   }, [fetchUsers]);
 
+  
   return {
     users: filteredUsers,
     uniqueRoles: [...new Set(users.map(u => u.user_role))],
@@ -163,6 +176,7 @@ const useUsersManagement = () => {
     onPageChange: handlePageChange,
     setEditingUser,
     handleDeleteUser,
+    handleDeleteAllUsers,
     updateUser,
     toggleAllPasswords,
     handleFilterChange,

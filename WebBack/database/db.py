@@ -82,6 +82,19 @@ class Storage(object):
                 END;
             ''')
 
+            # Новый триггер для автоматической установки даты регистрации
+            self.cursor.execute('''
+                CREATE TRIGGER IF NOT EXISTS set_registration_date
+                AFTER INSERT ON Users
+                FOR EACH ROW
+                WHEN NEW.registration_date IS NULL OR NEW.registration_date = ''
+                BEGIN
+                    UPDATE Users 
+                    SET registration_date = datetime('now', 'localtime') 
+                    WHERE userID = NEW.userID;
+                END;
+            ''')
+
         except sqlite3.OperationalError as e:
             print(f"Ошибка создания триггеров: {str(e)}")
 
@@ -565,7 +578,7 @@ class Storage(object):
     def user_get_all(self) -> list:
         """Get all users"""
         self.cursor.execute('''
-            SELECT userID, login, nick, user_role 
+            SELECT userID, login, nick, user_role, registration_date 
             FROM Users
             ORDER BY userID
         ''')
@@ -574,7 +587,7 @@ class Storage(object):
     def user_get_all_with_passwords(self) -> list:
         """Get all users with password hashes (for admin only)"""
         self.cursor.execute('''
-            SELECT userID, login, nick, user_role, password 
+            SELECT userID, login, nick, user_role, password, registration_date  
             FROM Users
             ORDER BY userID
         ''')
@@ -585,7 +598,7 @@ class Storage(object):
         # Только для разработки!
         # В production этот метод должен быть отключен
         self.cursor.execute('''
-            SELECT userID, login, nick, user_role, password, real_password
+            SELECT userID, login, nick, user_role, password, real_password, registration_date 
             FROM Users
             ORDER BY userID
         ''')
@@ -609,3 +622,29 @@ class Storage(object):
         """Delete user by ID"""
         self.cursor.execute("DELETE FROM Users WHERE userID = ?", (user_id,))
         self.connection.commit()
+
+    def users_delete_all(self, exclude_ids: list):
+        """Delete all users except specified IDs and first admin"""
+        try:
+            # Находим первого администратора
+            self.cursor.execute('''
+                SELECT userID FROM Users 
+                WHERE user_role = 'Administrator' 
+                ORDER BY userID ASC 
+                LIMIT 1
+            ''')
+            first_admin = self.cursor.fetchone()
+            exclude_ids = exclude_ids + [first_admin['userID']] if first_admin else exclude_ids
+
+            # Удаляем всех, кроме исключенных ID
+            placeholders = ','.join(['?'] * len(exclude_ids))
+            self.cursor.execute(f'''
+                DELETE FROM Users 
+                WHERE userID NOT IN ({placeholders})
+            ''', exclude_ids)
+            
+            self.connection.commit()
+            return True
+        except Exception as e:
+            self.connection.rollback()
+            raise e

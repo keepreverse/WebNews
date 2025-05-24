@@ -270,10 +270,10 @@ function NewsList() {
             Сбросить фильтры
           </button>
 
-          {/* Кнопка "Удалить все" — только для администраторов */}
+          {/* Кнопка "Удалить все новости" — только для администраторов */}
           {(currentUser?.role === 'Administrator' || currentUser?.role === 'Moderator')  && filteredData.length > 0 && (
             <button onClick={deleteAllNews} className="custom_button_long" id="delete-all">
-              Удалить все
+              Удалить все новости
             </button>
           )}
 

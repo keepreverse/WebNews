@@ -12,6 +12,7 @@ const UsersManagement = ({
   pagination,
   onPageChange,
   handleDeleteUser,
+  handleDeleteAllUsers,
   setEditingUser,
   updateUser,
   filters,
@@ -49,8 +50,10 @@ const UsersManagement = ({
         onDateChange={(dates) => onFilterChange('dateRange', dates)}
         onTogglePasswords={toggleAllPasswords}
         onClear={onClearFilters}
+        onDeleteAll={handleDeleteAllUsers}
+        deleteDisabled={users.length === 0}
       />
-
+      
       <Pagination
         totalPages={pagination.totalPages}
         currentPage={pagination.currentPage}
@@ -122,9 +125,10 @@ UsersManagement.propTypes = {
     totalPages: PropTypes.number.isRequired,
     totalItems: PropTypes.number.isRequired
   }).isRequired,
-  onPageChange: PropTypes.func.isRequired, // было handlePageChange
+  onPageChange: PropTypes.func.isRequired,
   setEditingUser: PropTypes.func.isRequired,
   handleDeleteUser: PropTypes.func.isRequired,
+  handleDeleteAllUsers: PropTypes.func.isRequired,
   updateUser: PropTypes.func.isRequired,
   filters: PropTypes.shape({
     role: PropTypes.string,

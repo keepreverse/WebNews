@@ -475,8 +475,6 @@ def archive_news(newsID):
 @admin_required
 def admin_user_operations(user_id):
     try:
-        
-        
         if request.method == "PUT":
             update_data = request.get_json()
             if not update_data:
@@ -515,5 +513,21 @@ def admin_user_operations(user_id):
     except Exception as e:
         return make_response(jsonify({
             "error": "Operation failed",
+            "details": str(e)
+        }), 500)
+    
+
+@bp.route("/api/admin/users/all", methods=["DELETE"])
+@admin_required
+def delete_all_users():
+    try:
+        current_user_id = g.current_user['userID']
+        g.db.users_delete_all(exclude_ids=[current_user_id])
+        return make_response(jsonify({
+            "message": "All users deleted successfully except current user and first admin"
+        }), 200)
+    except Exception as e:
+        return make_response(jsonify({
+            "error": "Failed to delete users",
             "details": str(e)
         }), 500)

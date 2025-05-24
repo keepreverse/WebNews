@@ -23,6 +23,7 @@ function AdminPanel() {
     editingUser,
     setEditingUser,
     handleDeleteUser,
+    handleDeleteAllUsers,
     updateUser,
     toggleAllPasswords,
     usersWithRealPasswords,
@@ -120,6 +121,7 @@ function AdminPanel() {
             editingUser={editingUser}
             setEditingUser={setEditingUser}
             handleDeleteUser={handleDeleteUser}
+            handleDeleteAllUsers={handleDeleteAllUsers} // Добавьте эту строку
             updateUser={updateUser}
             showPasswords={showPasswords}
             toggleAllPasswords={toggleAllPasswords}
