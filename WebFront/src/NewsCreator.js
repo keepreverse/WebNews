@@ -44,6 +44,22 @@ function NewsCreator() {
 
   const [dragActive, setDragActive] = useState(false);
 
+  const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('');
+
+  // Загрузка категорий и тегов
+  useEffect(() => {
+    const loadCategoriess = async () => {
+      try {
+        const cats = await api.get('/api/categories');
+        setCategories(cats);
+      } catch (error) {
+        toast.error('Ошибка загрузки категорий и тегов');
+      }
+    };
+    loadCategoriess();
+  }, []);
+
 
   // Lightbox State
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -406,6 +422,7 @@ const handleNavigation = (path) => {
       const formData = await api.get(`/api/news/${newsId}`);
       
       setNickname(formData.publisher_nick || "");
+      setSelectedCategory(formData.categoryID || "");
       setTitle(formData.title || "");
       setDescription(formData.description || "");
       
@@ -490,6 +507,7 @@ const handleNavigation = (path) => {
     // Подготовка FormData
     const formData = new FormData();
     formData.append("login", authorLogin); // Используем определенный выше логин
+    formData.append("categoryID", selectedCategory);
     formData.append("nickname", authorNickname); // Используем определенный выше никнейм
     formData.append("title", title);
     formData.append("description", description);
@@ -635,6 +653,22 @@ const handleNavigation = (path) => {
                 </select>
               </div>
             )}
+
+            <div className="form-group">
+              <label>Категория:</label>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+              >
+                <option value="">Без категории</option>
+                {categories.map(cat => (
+                  <option key={cat.categoryID} value={cat.categoryID}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {MemoizedFlatpickr}
 
             <input
@@ -647,12 +681,6 @@ const handleNavigation = (path) => {
               onChange={handleTitleChange}
             />
 
-            {/* <JoditEditor
-              key={`jodit-${editorKey}`}
-              ref={editorRef}
-              value={description}
-              config={configJoditEditor}
-            /> */}
             <JoditEditor
               name="description"
               value={description}
@@ -755,10 +783,6 @@ const handleNavigation = (path) => {
 
             {previewMode ? (
               <div className="view">
-                {title && <h3>{HTMLReactParser(debouncedTitle)}</h3>}
-                {description && (
-                  <div id="view">{HTMLReactParser(description)}</div>
-                )}
                 <button
                   className="custom_button"
                   id="view"
@@ -766,6 +790,10 @@ const handleNavigation = (path) => {
                 >
                   Закрыть предварительный просмотр
                 </button>
+                {title && <h3>{HTMLReactParser(debouncedTitle)}</h3>}
+                {description && (
+                  <div id="view">{HTMLReactParser(description)}</div>
+                )}
               </div>
             ) : (
               <button

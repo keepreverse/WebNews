@@ -35,7 +35,7 @@ def news_line():
 
     elif request.method == "POST":
         try:
-            required_fields = ["login", "nickname", "title", "description", "event_start"]
+            required_fields = ["login", "nickname", "title", "description", "event_start", "categoryID"]
             if not all(field in request.form for field in required_fields):
                 return make_response(jsonify({
                     "error": "Missing required fields: " + ", ".join(required_fields)
@@ -118,7 +118,7 @@ def single_news(newsID):
 
     elif request.method == "PUT":
         try:
-            required_fields = ["login", "nickname", "title", "description", "event_start"]
+            required_fields = ["login", "nickname", "title", "description", "event_start", "categoryID"]
             if not all(field in request.form for field in required_fields):
                 return make_response(jsonify({
                     "error": "Missing required fields"
@@ -381,8 +381,6 @@ def moderate_news(newsID):
             "error": "Только администраторы и модераторы могут просматривать эту страницу"
         }), 403)
     
-    
-    
     try:
         data = request.get_json()
         if not data:
@@ -447,9 +445,7 @@ def moderate_news(newsID):
 @bp.route("/api/news/<int:newsID>/archive", methods=["POST", "OPTIONS"])
 def archive_news(newsID):
     if request.method == "OPTIONS":
-        return make_response(jsonify({}), 200)
-    
-    
+        return make_response(jsonify({}), 200)    
     
     try:
         g.db.cursor.execute('''
@@ -531,3 +527,44 @@ def delete_all_users():
             "error": "Failed to delete users",
             "details": str(e)
         }), 500)
+
+
+# routes.py
+
+# Категории
+@bp.route("/api/categories", methods=["GET", "POST", "DELETE"])
+@moderator_required
+def categories():
+    if request.method == "GET":
+        try:
+            categories = g.db.category_get_all()
+            return make_response(jsonify(categories), 200)
+        except Exception as e:
+            return make_response(jsonify({"error": str(e)}), 500)
+
+    elif request.method == "POST":
+        data = request.get_json()
+        if not data or not data.get("name"):
+            return make_response(jsonify({"error": "Name is required"}), 200)
+            
+        try:
+            category_id = g.db.category_create(
+                name=data["name"],
+                description=data.get("description")
+            )
+            return make_response(jsonify({"message": "Category created", "categoryID": category_id}), 201)
+        except ValueError as e:
+            return make_response(jsonify({"error": str(e)}), 409)
+        except Exception as e:
+            return make_response(jsonify({"error": str(e)}), 500)
+
+    elif request.method == "DELETE":
+        category_id = request.args.get("id")
+        if not category_id:
+            return make_response(jsonify({"error": "Category ID is required"}), 200)
+            
+        try:
+            g.db.category_delete(category_id)
+            return make_response(jsonify({"message": "Category deleted"}), 200)
+        except Exception as e:
+            return make_response(jsonify({"error": str(e)}), 500)

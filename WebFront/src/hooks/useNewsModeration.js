@@ -144,7 +144,7 @@ const useNewsModeration = () => {
       isFilterChange.current = true;
     },
     fetchPendingNews,
-    onPageChange: handlePageChange
+    handlePageChange
   };
 };
 

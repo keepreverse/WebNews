@@ -375,7 +375,7 @@ function AdminPanel() {
                   </div>
                   <div className="list-actions">
                     <button className="custom_button_short" id="edit" onClick={() => setEditingUser(user.userID)}>
-                      Изменить
+                      Редактировать
                     </button>
                     <button className="custom_button_short" id="delete" onClick={() => handleDeleteUser(user.userID)}>
                       Удалить

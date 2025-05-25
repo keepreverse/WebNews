@@ -25,64 +25,109 @@ class Storage(object):
     def user_set_token(self, user_id, token):
         self.cursor.execute('''UPDATE Users SET auth_token = ? WHERE userID = ?''', (token, user_id))
         self.connection.commit()
-        
+ 
+
+    def _create_tables(self):
+        """Создать все таблицы при подключении к БД"""
+        try:
+            # 1. Таблица Users
+            self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS Users (
+                    userID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    nick TEXT NOT NULL,
+                    login TEXT NOT NULL,
+                    password TEXT NOT NULL,
+                    user_role TEXT NOT NULL CHECK(
+                        user_role IN ('Administrator', 'Moderator', 'Publisher')
+                    ),
+                    real_password TEXT,
+                    registration_date TEXT NOT NULL DEFAULT ''
+                )
+            ''')
+
+            # 2. Таблица News (с учетом categoryID)
+            self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS News (
+                    newsID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    publisherID INTEGER NOT NULL,
+                    moderated_byID INTEGER,
+                    title TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'Pending' CHECK(
+                        status IN ('Pending', 'Approved', 'Rejected', 'Archived')
+                    ),
+                    event_start TEXT NOT NULL,
+                    event_end TEXT,
+                    publish_date TEXT,
+                    create_date TEXT NOT NULL,
+                    categoryID INTEGER,
+                    FOREIGN KEY (publisherID) REFERENCES Users(userID) ON DELETE CASCADE,
+                    FOREIGN KEY (moderated_byID) REFERENCES Users(userID) ON DELETE SET NULL,
+                    FOREIGN KEY (categoryID) REFERENCES Categories(categoryID) ON DELETE SET NULL
+                )
+            ''')
+
+            # 3. Таблица Files
+            self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS Files (
+                    fileID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    guid TEXT NOT NULL,
+                    format TEXT NOT NULL
+                )
+            ''')
+
+            # 4. Таблица File_Link
+            self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS File_Link (
+                    file_linkID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    fileID INTEGER NOT NULL,
+                    newsID INTEGER NOT NULL,
+                    FOREIGN KEY (fileID) REFERENCES Files(fileID) ON DELETE CASCADE,
+                    FOREIGN KEY (newsID) REFERENCES News(newsID) ON DELETE CASCADE
+                )
+            ''')
+
+            # 5. Таблица Categories
+            self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS Categories (
+                    categoryID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL UNIQUE,
+                    description TEXT
+                )
+            ''')
+
+
+            self.connection.commit()
+        except sqlite3.OperationalError as e:
+            print(f"Ошибка создания таблиц: {str(e)}")
+            
+
     def _create_indexes(self):
         """Создать индексы при подключении к БД"""
         try:
-            # Users
+            # Для Users
             self.cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_login ON Users(login)')
             self.cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_nick ON Users(nick)')
             
-            # News
+            # Для News
             self.cursor.execute('CREATE INDEX IF NOT EXISTS idx_news_publisher ON News(publisherID)')
             self.cursor.execute('CREATE INDEX IF NOT EXISTS idx_news_status ON News(status)')
             self.cursor.execute('CREATE INDEX IF NOT EXISTS idx_news_create_date ON News(create_date)')
             
-            # Files
+            # Для Files
             self.cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_files_guid ON Files(guid)')
+            
+            # Для Categories
+            self.cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_name ON Categories(name)')
             
             self.connection.commit()
         except sqlite3.OperationalError as e:
             print(f"Ошибка создания индексов: {str(e)}")
 
-
     def _create_triggers(self):
         """Создать триггеры при подключении к БД"""
         try:
-            # Триггер для каскадного удаления файлов при удалении новости
-            self.cursor.execute('''
-                CREATE TRIGGER IF NOT EXISTS delete_news_files
-                AFTER DELETE ON News
-                FOR EACH ROW
-                BEGIN
-                    DELETE FROM File_Link WHERE newsID = OLD.newsID;
-                    DELETE FROM Files WHERE fileID NOT IN (SELECT fileID FROM File_Link);
-                END;
-            ''')
-
-            # Триггер для проверки дат событий
-            self.cursor.execute('''
-                CREATE TRIGGER IF NOT EXISTS validate_event_dates
-                BEFORE INSERT ON News
-                FOR EACH ROW
-                WHEN NEW.event_end IS NOT NULL AND NEW.event_start > NEW.event_end
-                BEGIN
-                    SELECT RAISE(ABORT, 'event_start must be <= event_end');
-                END;
-            ''')
-
-            # Триггер для обновления publish_date
-            self.cursor.execute('''
-                CREATE TRIGGER IF NOT EXISTS update_publish_date
-                AFTER UPDATE OF status ON News
-                FOR EACH ROW
-                WHEN NEW.status = 'Approved' AND OLD.status != 'Approved'
-                BEGIN
-                    UPDATE News SET publish_date = datetime('now') WHERE newsID = NEW.newsID;
-                END;
-            ''')
-
-            # Новый триггер для автоматической установки даты регистрации
+            # Для Users
             self.cursor.execute('''
                 CREATE TRIGGER IF NOT EXISTS set_registration_date
                 AFTER INSERT ON Users
@@ -95,6 +140,49 @@ class Storage(object):
                 END;
             ''')
 
+            # Для News
+            self.cursor.execute('''
+                CREATE TRIGGER IF NOT EXISTS validate_event_dates
+                BEFORE INSERT ON News
+                FOR EACH ROW
+                WHEN NEW.event_end IS NOT NULL AND NEW.event_start > NEW.event_end
+                BEGIN
+                    SELECT RAISE(ABORT, 'event_start must be <= event_end');
+                END;
+            ''')
+
+            self.cursor.execute('''
+                CREATE TRIGGER IF NOT EXISTS update_publish_date
+                AFTER UPDATE OF status ON News
+                FOR EACH ROW
+                WHEN NEW.status = 'Approved' AND OLD.status != 'Approved'
+                BEGIN
+                    UPDATE News SET publish_date = datetime('now') WHERE newsID = NEW.newsID;
+                END;
+            ''')
+
+            self.cursor.execute('''
+                CREATE TRIGGER IF NOT EXISTS delete_news_files
+                AFTER DELETE ON News
+                FOR EACH ROW
+                BEGIN
+                    DELETE FROM Files 
+                    WHERE fileID IN (
+                        SELECT fileID FROM File_Link WHERE newsID = OLD.newsID
+                    );
+                END;
+            ''')
+
+            self.cursor.execute('''
+                CREATE TRIGGER IF NOT EXISTS reset_category_on_delete
+                AFTER DELETE ON Categories
+                FOR EACH ROW
+                BEGIN
+                    UPDATE News SET categoryID = NULL WHERE categoryID = OLD.categoryID;
+                END;
+            ''')
+
+            self.connection.commit()
         except sqlite3.OperationalError as e:
             print(f"Ошибка создания триггеров: {str(e)}")
 
@@ -109,12 +197,12 @@ class Storage(object):
             self.connection.row_factory = sqlite3.Row
             self.cursor = self.connection.cursor()
             
-            # Включаем WAL режим
             self.cursor.execute('PRAGMA journal_mode=WAL')
             
-            # Создаем триггеры и индексы
-            self._create_triggers()
-            self._create_indexes()
+            # Правильный порядок инициализации
+            self._create_tables()     # 1. Таблицы
+            self._create_indexes()    # 2. Индексы
+            self._create_triggers()   # 3. Триггеры
             
             self.connection.commit()
 
@@ -149,8 +237,8 @@ class Storage(object):
         # Add news entry
         self.cursor.execute('''
             INSERT INTO News (publisherID, title, description, status, 
-                            event_start, event_end, create_date)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+                            event_start, event_end, create_date, categoryID)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             user_id,
             news_input_data.get("title"),
@@ -158,7 +246,8 @@ class Storage(object):
             news_input_data.get("status", "Pending"),  # Статус по умолчанию
             news_input_data.get("event_start"),
             news_input_data.get("event_end", None),
-            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            news_input_data.get("categoryID")
         ))
 
         # Link files to news
@@ -178,19 +267,31 @@ class Storage(object):
     def news_getlist(self) -> list:
         """Get all news items with single query"""
         self.cursor.execute('''
-            SELECT n.newsID, title, description, status,
-                create_date, publish_date, event_start, event_end,
-                up.nick AS publisher_nick, um.nick AS moderator_nick
+            SELECT 
+                n.newsID, 
+                n.title, 
+                n.description, 
+                n.status,
+                n.create_date, 
+                n.publish_date, 
+                n.event_start, 
+                n.event_end,
+                up.nick AS publisher_nick, 
+                um.nick AS moderator_nick,
+                c.name AS category_name
             FROM News n
             JOIN Users up ON up.userID = n.publisherID
             LEFT JOIN Users um ON um.userID = n.moderated_byID
+            LEFT JOIN Categories c ON c.categoryID = n.categoryID
+            GROUP BY n.newsID
             ORDER BY n.create_date DESC
         ''')
         
         news_items = []
         for row in self.cursor.fetchall():
-            news_id = row[0]
-            # Получаем файлы для каждой новости с сортировкой по fileID
+            news_id = row['newsID']
+            
+            # Get files
             self.cursor.execute('''
                 SELECT f.fileID, guid, format 
                 FROM Files f
@@ -200,22 +301,24 @@ class Storage(object):
             ''', (news_id,))
             
             files = [{
-                'fileID': r[0],
-                'fileName': r[1],
-                'fileFormat': r[2]
+                'fileID': r['fileID'],
+                'fileName': r['guid'],
+                'fileFormat': r['format']
             } for r in self.cursor.fetchall()]
+            
             
             news_items.append({
                 'newsID': news_id,
-                'title': row[1],
-                'description': row[2],
-                'status': row[3],
-                'create_date': row[4],
-                'publish_date': row[5],
-                'event_start': row[6],
-                'event_end': row[7],
-                'publisher_nick': row[8],
-                'moderator_nick': row[9],
+                'title': row['title'],
+                'description': row['description'],
+                'status': row['status'],
+                'create_date': row['create_date'],
+                'publish_date': row['publish_date'],
+                'event_start': row['event_start'],
+                'event_end': row['event_end'],
+                'publisher_nick': row['publisher_nick'],
+                'moderator_nick': row['moderator_nick'],
+                'category_name': row['category_name'],
                 'files': files
             })
         
@@ -249,69 +352,88 @@ class Storage(object):
 
     # database/db.py (частично)
     def news_get_one(self, last_received_newsID) -> list:
-        query = '''
-            SELECT n.newsID, title, description, status,
-                create_date, publish_date, event_start, event_end,
-                up.nick AS publisher_nick, um.nick AS moderator_nick
+        base_query = '''
+            SELECT 
+                n.newsID, 
+                n.title, 
+                n.description, 
+                n.status,
+                n.create_date, 
+                n.publish_date, 
+                n.event_start, 
+                n.event_end,
+                up.nick AS publisher_nick, 
+                um.nick AS moderator_nick,
+                c.name AS category_name
             FROM News n
             JOIN Users up ON up.userID = n.publisherID
             LEFT JOIN Users um ON um.userID = n.moderated_byID
-            WHERE n.newsID < ?
-            ORDER BY create_date DESC LIMIT 1
-        ''' if last_received_newsID != InvalidValues.INVALID_ID.value else '''
-            SELECT n.newsID, title, description, status,
-                create_date, publish_date, event_start, event_end,
-                up.nick AS publisher_nick, um.nick AS moderator_nick
-            FROM News n
-            JOIN Users up ON up.userID = n.publisherID
-            LEFT JOIN Users um ON um.userID = n.moderated_byID
-            ORDER BY create_date DESC LIMIT 1
+            LEFT JOIN Categories c ON c.categoryID = n.categoryID
+            GROUP BY n.newsID
+            ORDER BY n.create_date DESC 
+            LIMIT 1
         '''
 
+        condition = "WHERE n.newsID < ?" if last_received_newsID != InvalidValues.INVALID_ID.value else ""
         params = (last_received_newsID,) if last_received_newsID != InvalidValues.INVALID_ID.value else ()
-        self.cursor.execute(query, params)
+
+        self.cursor.execute(base_query.format(condition=condition), params)
         news_data = self.cursor.fetchone()
         
         if not news_data:
             return [{}, InvalidValues.INVALID_ID.value]
 
-        # Get files for news
+        # Get files
         self.cursor.execute('''
             SELECT f.fileID, guid, format 
             FROM Files f
             JOIN File_Link fl ON fl.fileID = f.fileID
             WHERE fl.newsID = ?
-        ''', (news_data[0],))
+            ORDER BY f.fileID ASC
+        ''', (news_data['newsID'],))
         
         files = [{
-            'fileID': row[0],
-            'fileName': row[1],
-            'fileFormat': row[2]
+            'fileID': row['fileID'],
+            'fileName': row['guid'],
+            'fileFormat': row['format']
         } for row in self.cursor.fetchall()]
 
         return [{
-            'newsID': news_data[0],
-            'title': news_data[1],
-            'description': news_data[2],
-            'status': news_data[3],
-            'create_date': news_data[4],
-            'publish_date': news_data[5],
-            'event_start': news_data[6],
-            'event_end': news_data[7],
-            'publisher_nick': news_data[8],
-            'moderator_nick': news_data[9],
+            'newsID': news_data['newsID'],
+            'title': news_data['title'],
+            'description': news_data['description'],
+            'status': news_data['status'],
+            'create_date': news_data['create_date'],
+            'publish_date': news_data['publish_date'],
+            'event_start': news_data['event_start'],
+            'event_end': news_data['event_end'],
+            'publisher_nick': news_data['publisher_nick'],
+            'moderator_nick': news_data['moderator_nick'],
+            'category_name': news_data['category_name'],
             'files': files
-        }, news_data[0]]
+        }, news_data['newsID']]
 
     def news_get_single(self, newsID: int) -> list:
         """Get specific news item by ID"""
+        # Get main news data
         self.cursor.execute('''
-            SELECT n.newsID, title, description, status,
-                create_date, publish_date, event_start, event_end,
-                up.nick AS publisher_nick, um.nick AS moderator_nick
+            SELECT 
+                n.newsID, 
+                n.title, 
+                n.description, 
+                n.status,
+                n.create_date, 
+                n.publish_date, 
+                n.event_start, 
+                n.event_end,
+                up.nick AS publisher_nick, 
+                um.nick AS moderator_nick,
+                c.name AS category_name,
+                n.categoryID
             FROM News n
             JOIN Users up ON up.userID = n.publisherID
             LEFT JOIN Users um ON um.userID = n.moderated_byID
+            LEFT JOIN Categories c ON c.categoryID = n.categoryID
             WHERE n.newsID = ?
         ''', (newsID,))
         
@@ -319,7 +441,7 @@ class Storage(object):
         if not news_data:
             return [{}, InvalidValues.INVALID_ID.value]
 
-        # Get files for news with sorting
+        # Get files
         self.cursor.execute('''
             SELECT f.fileID, guid, format 
             FROM Files f
@@ -329,24 +451,26 @@ class Storage(object):
         ''', (newsID,))
         
         files = [{
-            'fileID': row[0],
-            'fileName': row[1],
-            'fileFormat': row[2]
+            'fileID': row['fileID'],
+            'fileName': row['guid'],
+            'fileFormat': row['format']
         } for row in self.cursor.fetchall()]
 
         return [{
-            'newsID': news_data[0],
-            'title': news_data[1],
-            'description': news_data[2],
-            'status': news_data[3],
-            'create_date': news_data[4],
-            'publish_date': news_data[5],
-            'event_start': news_data[6],
-            'event_end': news_data[7],
-            'publisher_nick': news_data[8],
-            'moderator_nick': news_data[9],
+            'newsID': news_data['newsID'],
+            'title': news_data['title'],
+            'description': news_data['description'],
+            'status': news_data['status'],
+            'create_date': news_data['create_date'],
+            'publish_date': news_data['publish_date'],
+            'event_start': news_data['event_start'],
+            'event_end': news_data['event_end'],
+            'publisher_nick': news_data['publisher_nick'],
+            'moderator_nick': news_data['moderator_nick'],
+            'categoryID': news_data['categoryID'],
+            'category_name': news_data['category_name'],
             'files': files
-        }, news_data[0]]
+        }, news_data['newsID']]
 
     def news_update(self, news_id, user_id, news_data, files_received, files, upload_folder, existing_files=None):
         """Update existing news item"""
@@ -356,13 +480,14 @@ class Storage(object):
             # 1. Обновление основной информации о новости
             self.cursor.execute('''
                 UPDATE News
-                SET title = ?, description = ?, event_start = ?, publisherID = ?
+                SET title = ?, description = ?, event_start = ?, publisherID = ?, categoryID = ?
                 WHERE newsID = ?
             ''', (
                 news_data.get('title'),
                 news_data.get('description'),
                 news_data.get('event_start'),
                 user_id,
+                news_data.get('categoryID'),
                 news_id
             ))
 
@@ -648,3 +773,42 @@ class Storage(object):
         except Exception as e:
             self.connection.rollback()
             raise e
+        
+
+
+    # Categories methods
+    def category_create(self, name: str, description: str = None) -> int:
+        """Создать категорию"""
+        if not name.strip():
+            raise ValueError("Category name cannot be empty")
+        try:
+            self.cursor.execute('''
+                INSERT INTO Categories (name, description)
+                VALUES (?, ?)
+            ''', (name, description))
+            self.connection.commit()
+            return self.cursor.lastrowid
+        except sqlite3.IntegrityError:
+            raise ValueError(f"Категория '{name}' уже существует")
+
+    def category_update(self, category_id: int, name: str, description: str = None):
+        """Обновить категорию"""
+        try:
+            self.cursor.execute('''
+                UPDATE Categories 
+                SET name = ?, description = ?
+                WHERE categoryID = ?
+            ''', (name, description, category_id))
+            self.connection.commit()
+        except sqlite3.IntegrityError:
+            raise ValueError(f"Категория '{name}' уже существует")
+
+    def category_delete(self, category_id: int):
+        """Удалить категорию"""
+        self.cursor.execute('DELETE FROM Categories WHERE categoryID = ?', (category_id,))
+        self.connection.commit()
+
+    def category_get_all(self) -> list:
+        """Получить все категории"""
+        self.cursor.execute('SELECT * FROM Categories ORDER BY name')
+        return [dict(row) for row in self.cursor.fetchall()]

@@ -5,8 +5,10 @@ import { ToastContainer, toast } from "react-toastify";
 import PageWrapper from "./PageWrapper";
 import UsersManagement from "./components/Admin/UsersManagement/UsersManagement";
 import NewsModeration from "./components/Admin/NewsModeration/NewsModeration";
+import CategoriesManagement from "./components/Admin/CategoriesManagement/CategoriesManagement";
 import useUsersManagement from "./hooks/useUsersManagement";
 import useNewsModeration from "./hooks/useNewsModeration";
+import useCategoriesManagement from "./hooks/useCategoriesManagement";
 import { initAuthToken } from './apiClient';
 import "react-toastify/dist/ReactToastify.css";
 
@@ -15,6 +17,7 @@ function AdminPanel() {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(null);
   
+  // Инициализация хуков с деструктуризацией
   const {
     users,
     uniqueRoles,
@@ -31,7 +34,7 @@ function AdminPanel() {
     handleFilterChange: handleUsersFilterChange,
     clearFilters: clearUsersFilters,
     fetchUsers,
-    onPageChange: handleUsersPageChange
+    handlePageChange: handleUsersPageChange
   } = useUsersManagement();
 
   const {
@@ -44,25 +47,41 @@ function AdminPanel() {
     onFilterChange: handleNewsFilterChange,
     onClearFilters: clearNewsFilters,
     fetchPendingNews,
-    onPageChange: handleNewsPageChange
+    handlePageChange: handleNewsPageChange
   } = useNewsModeration();
 
-  useEffect(() => {
-    fetchUsers();
-    fetchPendingNews();
-  }, [fetchUsers, fetchPendingNews]);
+  const {
+    categories,
+    pagination: categoriesPagination,
+    filters: categoriesFilters,
+    fetchCategories,
+    handlePageChange: handleCategoriesPageChange,
+    handleFilterChange: handleCategoriesFilterChange,
+    createCategory,
+    deleteCategory
+  } = useCategoriesManagement();
 
+  // Унифицированный эффект загрузки данных
   useEffect(() => {
-    if (activeTab === 'users') {
-      fetchUsers();
-    } else {
-      fetchPendingNews();
+    const loadData = {
+      'users': fetchUsers,
+      'news': fetchPendingNews,
+      'categories': fetchCategories,
+    };
+
+    if (loadData[activeTab]) {
+      loadData[activeTab]();
     }
-  }, [activeTab, fetchUsers, fetchPendingNews]);
+  }, [activeTab, fetchUsers, fetchPendingNews, fetchCategories]);
 
+  // Проверка авторизации
   useEffect(() => {
     initAuthToken();
-    const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
+    const userData = JSON.parse(
+      localStorage.getItem('user') || 
+      sessionStorage.getItem('user') || 
+      'null'
+    );
     
     if (userData) {
       setCurrentUser(userData);
@@ -76,6 +95,7 @@ function AdminPanel() {
     }
   }, [navigate]);
 
+  // Обработчик модерации
   const enhancedHandleModerate = async (newsID, action) => {
     if (!currentUser?.id) {
       toast.error("Ошибка авторизации");
@@ -88,7 +108,7 @@ function AdminPanel() {
       toast.error(error.message || "Ошибка модерации");
     }
   };
-  
+
   return (
     <PageWrapper>
       <Helmet>
@@ -109,11 +129,17 @@ function AdminPanel() {
             className={`tab-button ${activeTab === 'users' ? 'active' : ''}`}
             onClick={() => setActiveTab('users')}
           >
-            Управление пользователями
+            Пользователи
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'categories' ? 'active' : ''}`}
+            onClick={() => setActiveTab('categories')}
+          >
+            Категории
           </button>
         </div>
         
-        {activeTab === 'users' ? (
+        {activeTab === 'users' && (
           <UsersManagement
             users={users}
             uniqueRoles={uniqueRoles}
@@ -121,7 +147,7 @@ function AdminPanel() {
             editingUser={editingUser}
             setEditingUser={setEditingUser}
             handleDeleteUser={handleDeleteUser}
-            handleDeleteAllUsers={handleDeleteAllUsers} // Добавьте эту строку
+            handleDeleteAllUsers={handleDeleteAllUsers}
             updateUser={updateUser}
             showPasswords={showPasswords}
             toggleAllPasswords={toggleAllPasswords}
@@ -131,7 +157,9 @@ function AdminPanel() {
             onClearFilters={clearUsersFilters}
             onPageChange={handleUsersPageChange}
           />
-        ) : (
+        )}
+
+        {activeTab === 'news' && (
           <NewsModeration
             allNews={allNews}
             pendingNews={pendingNews}
@@ -142,6 +170,18 @@ function AdminPanel() {
             onFilterChange={handleNewsFilterChange}
             onClearFilters={clearNewsFilters}
             onPageChange={handleNewsPageChange}
+          />
+        )}
+
+        {activeTab === 'categories' && (
+          <CategoriesManagement
+            categories={categories}
+            pagination={categoriesPagination}
+            filters={categoriesFilters}
+            handlePageChange={handleCategoriesPageChange}
+            handleFilterChange={handleCategoriesFilterChange}
+            createCategory={createCategory}
+            deleteCategory={deleteCategory}
           />
         )}
       </div>

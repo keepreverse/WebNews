@@ -173,7 +173,7 @@ const useUsersManagement = () => {
     editingUser,
     usersWithRealPasswords,
     filters: { role: roleFilter, dateRange },
-    onPageChange: handlePageChange,
+    handlePageChange,
     setEditingUser,
     handleDeleteUser,
     handleDeleteAllUsers,

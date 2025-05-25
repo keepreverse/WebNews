@@ -339,13 +339,13 @@ function NewsList() {
                 {/* Весь блок действий будет скрыт для Publisher */}
                 {(currentUser?.role === 'Administrator' || currentUser?.role === 'Moderator') && (
                   <div className="list-actions">
-                    {/* Кнопка "Изменить" — для администраторов и модераторов */}
+                    {/* Кнопка "Редактировать" — для администраторов и модераторов */}
                     <button 
                       onClick={() => handleEditNews(item)} 
                       className="custom_button_short" 
                       id="edit"
                     >
-                      Изменить
+                      Редактировать
                     </button>
 
                     {/* Кнопка "Удалить" — только для администраторов */}

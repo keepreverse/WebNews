@@ -3,17 +3,14 @@ import os
 # Структура для создания
 structure = {
     "src/components/Admin": [
-        ("UsersManagement", [
-            "UsersManagement.js",
-            "UsersFilters.js",
-            "UserEditForm.js"
+        ("CategoriesManagement", [
+            "CategoriesFilters.js",
+            "CategoriesManagement.js"
         ]),
-        ("NewsModeration", [
-            "NewsModeration.js",
-            "NewsFilters.js",
-            "NewsGallery.js"
-        ]),
-        "Pagination.js"
+        ("TagsManagement", [
+            "TagsFilters.js",
+            "TagsManagement.js"
+        ])
     ]
 }
 

@@ -89,7 +89,7 @@ const UsersManagement = ({
                     id="edit" 
                     onClick={() => setEditingUser(user.userID)}
                   >
-                    Изменить
+                    Редактировать
                   </button>
                   <button 
                     className="custom_button_short" 
