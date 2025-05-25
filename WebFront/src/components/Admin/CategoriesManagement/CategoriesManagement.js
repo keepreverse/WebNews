@@ -13,7 +13,7 @@ const CategoriesManagement = () => {
     handleFilterChange,
     createCategory,
     deleteCategory,
-    handleDeleteAllCategories,
+    deleteAllCategories,
     updateCategory
   } = useCategoriesManagement();
 
@@ -36,7 +36,7 @@ const CategoriesManagement = () => {
           handleFilterChange('search', '');
           handleFilterChange('dateRange', [null, null]);
         }}
-        onDeleteAll={handleDeleteAllCategories}
+        onDeleteAll={deleteAllCategories}
         deleteDisabled={categories.length === 0}
       />
 
@@ -77,6 +77,7 @@ const CategoriesManagement = () => {
                 <div className="user-details">
                   <h2>{category.name}</h2>
                   <p><strong>ID:</strong> {category.categoryID}</p>
+                  {category.name && <p><strong>Название:</strong> {category.name}</p>}
                   {category.description && <p><strong>Описание:</strong> {category.description}</p>}
                   <p><strong>Дата создания:</strong> {new Date(category.createdAt).toLocaleDateString()}</p>
                 </div>

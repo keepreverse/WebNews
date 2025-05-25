@@ -655,7 +655,6 @@ const handleNavigation = (path) => {
             )}
 
             <div className="form-group">
-              <label>Категория:</label>
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}

@@ -67,14 +67,21 @@ const useCategoriesManagement = () => {
     }));
   }, [categories, filters, setPagination]);
 
-  // Обновим функцию создания категории
   const createCategory = useCallback(async (name, description) => {
     try {
       await api.post('/api/categories', { name, description });
       await fetchCategories();
       toast.success('Категория создана');
     } catch (error) {
-      toast.error(error.message || 'Ошибка создания категории');
+      const serverError = error.response?.data?.error || error.message;
+      
+      if (serverError.includes("already exists")) {
+        // Извлекаем название категории из сообщения
+        const categoryName = serverError.match(/Категория '([^']+)'/)?.[1] || name;
+        toast.error(`Категория "${categoryName}" уже существует`);
+      } else {
+        toast.error(serverError || 'Ошибка создания категории');
+      }
     }
   }, [fetchCategories]);
 
@@ -93,13 +100,31 @@ const useCategoriesManagement = () => {
     }
   }, [filteredCategories.length, handleDeleteAdjustment]);
 
+  const deleteAllCategories = useCallback(async () => {
+    try {
+      await api.delete('/api/categories/all');
+      setCategories([]);
+      setFilteredCategories([]);
+      toast.success('Все категории удалены');
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Ошибка удаления категорий');
+    }
+  }, []);
+
   const updateCategory = useCallback(async (categoryId, newData) => {
     try {
       await api.put(`/api/categories/${categoryId}`, newData);
       await fetchCategories();
       toast.success("Изменения сохранены");
     } catch (error) {
-      toast.error(error.message || "Ошибка обновления");
+      const serverError = error.response?.data?.error || error.message;
+      
+      if (serverError.includes("already exists")) {
+        const categoryName = serverError.match(/Категория '([^']+)'/)?.[1] || newData.name;
+        toast.error(`Категория "${categoryName}" уже существует`);
+      } else {
+        toast.error(serverError || 'Ошибка редактирования категории');
+      }
     }
   }, [fetchCategories]);
 
@@ -112,7 +137,7 @@ const useCategoriesManagement = () => {
     handleFilterChange,
     createCategory,
     deleteCategory,
-    handleDeleteAllCategories: deleteCategory,
+    deleteAllCategories,
     updateCategory
   };
 };

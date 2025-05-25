@@ -529,12 +529,12 @@ def delete_all_users():
         }), 500)
 
 
-# routes.py
-
 # Категории
-@bp.route("/api/categories", methods=["GET", "POST", "DELETE"])
-@moderator_required
+@bp.route("/api/categories", methods=["GET", "POST", "DELETE", "OPTIONS"])
 def categories():
+    if request.method == "OPTIONS":
+        return make_response(jsonify({}), 200)
+    
     if request.method == "GET":
         try:
             categories = g.db.category_get_all()
@@ -566,5 +566,45 @@ def categories():
         try:
             g.db.category_delete(category_id)
             return make_response(jsonify({"message": "Category deleted"}), 200)
+        except ValueError as e:
+            return make_response(jsonify({"error": str(e)}), 409)
         except Exception as e:
             return make_response(jsonify({"error": str(e)}), 500)
+            
+# routes.py
+@bp.route("/api/categories/all", methods=["DELETE", "OPTIONS"])
+@admin_required
+def delete_all_categories():
+    if request.method == "OPTIONS":
+        return make_response(jsonify({}), 200)
+    
+    try:
+        g.db.cursor.execute("DELETE FROM Categories")
+        g.db.connection.commit()
+        return make_response(jsonify({
+            "message": "Все категории успешно удалены"
+        }), 200)
+    except Exception as e:
+        return make_response(jsonify({
+            "error": "Ошибка удаления категорий",
+            "details": str(e)
+        }), 500)
+
+@bp.route("/api/categories/<int:category_id>", methods=["PUT", "OPTIONS"])
+@admin_required  # Если требуется авторизация
+def update_category(category_id):
+    if request.method == "OPTIONS":
+        return make_response(jsonify({}), 200)
+    
+    data = request.get_json()
+    try:
+        g.db.category_update(
+            category_id, 
+            name=data["name"], 
+            description=data.get("description")
+        )
+        return make_response(jsonify({"message": "Category updated"}), 200)
+    except ValueError as e:
+        return make_response(jsonify({"error": str(e)}), 409)
+    except Exception as e:
+        return make_response(jsonify({"error": str(e)}), 500)

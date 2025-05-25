@@ -29,7 +29,7 @@ const CategoryEditForm = ({ category, onSave, onCancel, isCreating }) => {
   return (
     <form className="edit-form" onSubmit={handleSubmit}>
       <div className="form-group">
-        <label>Название категории:</label>
+        <label>Название:</label>
         <input
           type="text"
           value={formData.name}

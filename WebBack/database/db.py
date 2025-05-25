@@ -789,7 +789,7 @@ class Storage(object):
             self.connection.commit()
             return self.cursor.lastrowid
         except sqlite3.IntegrityError:
-            raise ValueError(f"Категория '{name}' уже существует")
+            raise ValueError(f"Category '{name}' already exists")
 
     def category_update(self, category_id: int, name: str, description: str = None):
         """Обновить категорию"""
@@ -801,11 +801,16 @@ class Storage(object):
             ''', (name, description, category_id))
             self.connection.commit()
         except sqlite3.IntegrityError:
-            raise ValueError(f"Категория '{name}' уже существует")
+            raise ValueError(f"Category '{name}' already exists")
 
     def category_delete(self, category_id: int):
         """Удалить категорию"""
         self.cursor.execute('DELETE FROM Categories WHERE categoryID = ?', (category_id,))
+        self.connection.commit()
+
+    def category_delete_all(self):
+        """Удалить все категории"""
+        self.cursor.execute('DELETE FROM Categories')
         self.connection.commit()
 
     def category_get_all(self) -> list:

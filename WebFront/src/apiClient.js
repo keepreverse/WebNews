@@ -24,7 +24,6 @@ export const clearAuthData = () => {
   sessionStorage.removeItem('user');
 };
 
-// Обработчик ответов сервера
 const handleResponse = async (response) => {
   if (!response.ok) {
     let errorData = {};
@@ -36,15 +35,17 @@ const handleResponse = async (response) => {
 
     switch (response.status) {
       case 401:
-        throw new Error(errorData.message || 'Неверный логин или пароль');
+        throw new Error(errorData.error || 'Неверный логин или пароль');
       case 403:
-        throw new Error(errorData.message || 'Доступ запрещен. Недостаточно прав.');
+        throw new Error(errorData.error || 'Доступ запрещен. Недостаточно прав.');
       case 404:
-        throw new Error(errorData.message || 'Ресурс не найден.');
+        throw new Error(errorData.error || 'Ресурс не найден.');
+      case 409:
+        throw new Error(errorData.error || 'Конфликт данных');
       case 500:
-        throw new Error(errorData.message || 'Внутренняя ошибка сервера.');
+        throw new Error(errorData.error || 'Внутренняя ошибка сервера.');
       default:
-        throw new Error(errorData.message || errorData.DESCRIPTION || 'Произошла ошибка при выполнении запроса.');
+        throw new Error(errorData.error || errorData.DESCRIPTION || 'Произошла ошибка при выполнении запроса.');
     }
   }
 
