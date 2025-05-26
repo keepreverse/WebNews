@@ -23,7 +23,7 @@ const CategoriesFilters = ({
   };
 
   return (
-    <div className="filters-container">
+    <div className="filters-container" style={{ padding: '12px 0 0 0' }}>
       <div className="filter-group">
         <label htmlFor="search-categories">Поиск по названию</label>
         <input

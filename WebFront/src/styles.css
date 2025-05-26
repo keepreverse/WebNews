@@ -305,6 +305,7 @@ body {
 }
 
 .custom_button#view:hover,
+.custom_button#category:hover,
 .custom_button_short#edit:hover {
   background-color: #b99c46;
   color: #ffffff;

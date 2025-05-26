@@ -10,13 +10,13 @@ const UsersManagement = ({
   uniqueRoles,
   editingUser,
   pagination,
-  onPageChange,
-  handleDeleteUser,
-  handleDeleteAllUsers,
+  handlePageChange,
+  handleFilterChange,
+  deleteUser,
+  deleteAllUsers,
   setEditingUser,
   updateUser,
   filters,
-  onFilterChange,
   onClearFilters,
   showPasswords,
   toggleAllPasswords,
@@ -35,7 +35,7 @@ const UsersManagement = ({
     );
     
     return userWithPassword?.real_password 
-      || userWithPassword?.password 
+      ||   userWithPassword?.password 
       || '********';
   };
 
@@ -46,18 +46,18 @@ const UsersManagement = ({
         roleFilter={filters.role}
         dateRange={filters.dateRange}
         showPasswords={showPasswords}
-        onRoleChange={(e) => onFilterChange('role', e.target.value)}
-        onDateChange={(dates) => onFilterChange('dateRange', dates)}
+        onRoleChange={(e) => handleFilterChange('role', e.target.value)}
+        onDateChange={(dates) => handleFilterChange('dateRange', dates)}
         onTogglePasswords={toggleAllPasswords}
         onClear={onClearFilters}
-        onDeleteAll={handleDeleteAllUsers}
+        onDeleteAll={deleteAllUsers}
         deleteDisabled={users.length === 0}
       />
       
       <Pagination
         totalPages={pagination.totalPages}
         currentPage={pagination.currentPage}
-        paginate={onPageChange}
+        paginate={handlePageChange}
         totalItems={pagination.totalItems}
       />
 
@@ -66,7 +66,7 @@ const UsersManagement = ({
           <p>Пользователи не найдены</p>
         ) : currentUsers.map(user => (
           <div key={user.userID} className="data-item">
-            <h2>{user.nick || user.login}</h2>
+            <h2>{user.nick}</h2>
 
             {editingUser === user.userID ? (
               <UserEditForm
@@ -77,11 +77,26 @@ const UsersManagement = ({
             ) : (
               <>
                 <div className="user-details">
-                  <p><strong>ID:</strong> {user.userID}</p>
-                  <p><strong>Роль:</strong> {translateRole(user.user_role)}</p>
-                  <p><strong>Никнейм:</strong> {user.nick || "Не указан"}</p>
-                  <p><strong>Логин:</strong> {user.login}</p>
-                  <p><strong>Пароль:</strong> {getPasswordDisplay(user)}</p>
+                  {user?.userID && <p><strong>ID:</strong> {user.userID}</p>}
+                  {user?.user_role && <p><strong>Роль:</strong> {translateRole(user.user_role)}</p>}
+                  {user?.nick && <p><strong>Никнейм:</strong> {user.nick}</p>}
+                  {user?.login && <p><strong>Логин:</strong> {user.login}</p>}
+                  {user && <p><strong>Пароль:</strong> {getPasswordDisplay(user)}</p>}
+                  {user.registration_date && (
+                    <p>
+                      <strong>Дата регистрации:</strong>{" "}
+                      {new Date(user.registration_date).toLocaleDateString("ru-RU", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                      {", "}
+                      {new Date(user.registration_date).toLocaleTimeString("ru-RU", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  )}
                 </div>
                 <div className="list-actions">
                   <button 
@@ -94,7 +109,7 @@ const UsersManagement = ({
                   <button 
                     className="custom_button_short" 
                     id="delete" 
-                    onClick={() => handleDeleteUser(user.userID)}
+                    onClick={() => deleteUser(user.userID)}
                   >
                     Удалить
                   </button>
@@ -108,7 +123,7 @@ const UsersManagement = ({
       <Pagination
         totalPages={pagination.totalPages}
         currentPage={pagination.currentPage}
-        paginate={onPageChange}
+        paginate={handlePageChange}
         totalItems={pagination.totalItems}
       />
     </>
@@ -125,16 +140,16 @@ UsersManagement.propTypes = {
     totalPages: PropTypes.number.isRequired,
     totalItems: PropTypes.number.isRequired
   }).isRequired,
-  onPageChange: PropTypes.func.isRequired,
+  handlePageChange: PropTypes.func.isRequired,
   setEditingUser: PropTypes.func.isRequired,
-  handleDeleteUser: PropTypes.func.isRequired,
-  handleDeleteAllUsers: PropTypes.func.isRequired,
+  deleteUser: PropTypes.func.isRequired,
+  deleteAllUsers: PropTypes.func.isRequired,
   updateUser: PropTypes.func.isRequired,
   filters: PropTypes.shape({
     role: PropTypes.string,
     dateRange: PropTypes.array
   }).isRequired,
-  onFilterChange: PropTypes.func.isRequired,
+  handleFilterChange: PropTypes.func.isRequired,
   onClearFilters: PropTypes.func.isRequired,
   showPasswords: PropTypes.bool.isRequired,
   toggleAllPasswords: PropTypes.func.isRequired,

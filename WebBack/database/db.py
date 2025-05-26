@@ -92,7 +92,8 @@ class Storage(object):
                 CREATE TABLE IF NOT EXISTS Categories (
                     categoryID INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL UNIQUE,
-                    description TEXT
+                    description TEXT,
+                    create_date TEXT NOT NULL
                 )
             ''')
 
@@ -157,7 +158,7 @@ class Storage(object):
                 FOR EACH ROW
                 WHEN NEW.status = 'Approved' AND OLD.status != 'Approved'
                 BEGIN
-                    UPDATE News SET publish_date = datetime('now') WHERE newsID = NEW.newsID;
+                    UPDATE News SET publish_date = datetime('now', 'localtime') WHERE newsID = NEW.newsID;
                 END;
             ''')
 
@@ -238,7 +239,7 @@ class Storage(object):
         self.cursor.execute('''
             INSERT INTO News (publisherID, title, description, status, 
                             event_start, event_end, create_date, categoryID)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, datetime('now', 'localtime'), ?)
         ''', (
             user_id,
             news_input_data.get("title"),
@@ -246,7 +247,6 @@ class Storage(object):
             news_input_data.get("status", "Pending"),  # Статус по умолчанию
             news_input_data.get("event_start"),
             news_input_data.get("event_end", None),
-            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             news_input_data.get("categoryID")
         ))
 
@@ -749,7 +749,6 @@ class Storage(object):
         self.connection.commit()
 
     def users_delete_all(self, exclude_ids: list):
-        """Delete all users except specified IDs and first admin"""
         try:
             # Находим первого администратора
             self.cursor.execute('''
@@ -759,22 +758,30 @@ class Storage(object):
                 LIMIT 1
             ''')
             first_admin = self.cursor.fetchone()
-            exclude_ids = exclude_ids + [first_admin['userID']] if first_admin else exclude_ids
-
+            
+            # Формируем окончательный список исключений
+            final_exclude = exclude_ids.copy()
+            if first_admin:
+                final_exclude.append(first_admin['userID'])
+            
+            # Удаляем дубликаты
+            final_exclude = list(set(final_exclude))
+            
+            # Если список исключений пуст, добавляем несуществующий ID
+            placeholders = ','.join(['?'] * len(final_exclude)) if final_exclude else 'NULL'
+            
             # Удаляем всех, кроме исключенных ID
-            placeholders = ','.join(['?'] * len(exclude_ids))
-            self.cursor.execute(f'''
+            query = f'''
                 DELETE FROM Users 
                 WHERE userID NOT IN ({placeholders})
-            ''', exclude_ids)
+            '''
+            self.cursor.execute(query, final_exclude)
             
             self.connection.commit()
             return True
         except Exception as e:
             self.connection.rollback()
             raise e
-        
-
 
     # Categories methods
     def category_create(self, name: str, description: str = None) -> int:
@@ -783,8 +790,8 @@ class Storage(object):
             raise ValueError("Category name cannot be empty")
         try:
             self.cursor.execute('''
-                INSERT INTO Categories (name, description)
-                VALUES (?, ?)
+                INSERT INTO Categories (name, description, create_date)
+                VALUES (?, ?, datetime('now', 'localtime'))
             ''', (name, description))
             self.connection.commit()
             return self.cursor.lastrowid
@@ -815,5 +822,5 @@ class Storage(object):
 
     def category_get_all(self) -> list:
         """Получить все категории"""
-        self.cursor.execute('SELECT * FROM Categories ORDER BY name')
+        self.cursor.execute('SELECT * FROM Categories ORDER BY create_date DESC')
         return [dict(row) for row in self.cursor.fetchall()]

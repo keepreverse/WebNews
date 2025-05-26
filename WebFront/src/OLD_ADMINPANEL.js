@@ -196,7 +196,7 @@ function AdminPanel() {
   };
 
   // Действия с пользователями
-  const handleDeleteUser = async (userId) => {
+  const deleteUser = async (userId) => {
     if (!window.confirm("Вы уверены, что хотите удалить этого пользователя?")) return;
     
     try {
@@ -377,7 +377,7 @@ function AdminPanel() {
                     <button className="custom_button_short" id="edit" onClick={() => setEditingUser(user.userID)}>
                       Редактировать
                     </button>
-                    <button className="custom_button_short" id="delete" onClick={() => handleDeleteUser(user.userID)}>
+                    <button className="custom_button_short" id="delete" onClick={() => deleteUser(user.userID)}>
                       Удалить
                     </button>
                   </div>

@@ -20,7 +20,7 @@ const NewsModeration = ({
   filters,
   onFilterChange,
   onClearFilters,
-  onPageChange
+  handlePageChange
 }) => {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -60,7 +60,7 @@ const NewsModeration = ({
       <Pagination
         totalPages={pagination.totalPages}
         currentPage={pagination.currentPage}
-        paginate={onPageChange}
+        paginate={handlePageChange}
         totalItems={pagination.totalItems}
       />
 
@@ -117,7 +117,7 @@ const NewsModeration = ({
       <Pagination
         totalPages={pagination.totalPages}
         currentPage={pagination.currentPage}
-        paginate={onPageChange}
+        paginate={handlePageChange}
         totalItems={pagination.totalItems}
       />
 
@@ -143,7 +143,7 @@ NewsModeration.propTypes = {
   filters: PropTypes.object.isRequired,
   onFilterChange: PropTypes.func.isRequired,
   onClearFilters: PropTypes.func.isRequired,
-  onPageChange: PropTypes.func.isRequired
+  handlePageChange: PropTypes.func.isRequired
 };
 
 export default React.memo(NewsModeration);

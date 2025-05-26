@@ -25,8 +25,8 @@ function AdminPanel() {
     showPasswords,
     editingUser,
     setEditingUser,
-    handleDeleteUser,
-    handleDeleteAllUsers,
+    deleteUser,
+    deleteAllUsers,
     updateUser,
     toggleAllPasswords,
     usersWithRealPasswords,
@@ -58,7 +58,9 @@ function AdminPanel() {
     handlePageChange: handleCategoriesPageChange,
     handleFilterChange: handleCategoriesFilterChange,
     createCategory,
-    deleteCategory
+    deleteCategory,
+    deleteAllCategories,
+    updateCategory
   } = useCategoriesManagement();
 
   // Унифицированный эффект загрузки данных
@@ -146,16 +148,16 @@ function AdminPanel() {
             pagination={pagination}
             editingUser={editingUser}
             setEditingUser={setEditingUser}
-            handleDeleteUser={handleDeleteUser}
-            handleDeleteAllUsers={handleDeleteAllUsers}
+            deleteUser={deleteUser}
+            deleteAllUsers={deleteAllUsers}
             updateUser={updateUser}
             showPasswords={showPasswords}
             toggleAllPasswords={toggleAllPasswords}
             usersWithRealPasswords={usersWithRealPasswords}
             filters={usersFilters}
-            onFilterChange={handleUsersFilterChange}
+            handleFilterChange={handleUsersFilterChange}
             onClearFilters={clearUsersFilters}
-            onPageChange={handleUsersPageChange}
+            handlePageChange={handleUsersPageChange}
           />
         )}
 
@@ -169,7 +171,7 @@ function AdminPanel() {
             filters={newsFilters}
             onFilterChange={handleNewsFilterChange}
             onClearFilters={clearNewsFilters}
-            onPageChange={handleNewsPageChange}
+            handlePageChange={handleNewsPageChange}
           />
         )}
 
@@ -182,6 +184,8 @@ function AdminPanel() {
             handleFilterChange={handleCategoriesFilterChange}
             createCategory={createCategory}
             deleteCategory={deleteCategory}
+            deleteAllCategories={deleteAllCategories}
+            updateCategory={updateCategory}
           />
         )}
       </div>

@@ -20,16 +20,14 @@ const NewsFilters = ({
   };
 
   return (
-    <div className="filters-container news-filters">
+    <div className="filters-container">
       <div className="filter-group">
-        <label htmlFor="news-author-filter">Фильтр по автору:</label>
+        <label>Фильтр по автору:</label>
         <select
-          id="news-author-filter"
           value={filters.author || ''}
           onChange={(e) => {
             onFilterChange('author', e.target.value);
           }}
-          className="author-select"
         >
           <option value="">Все авторы</option>
           {uniqueAuthors.map(author => (
@@ -41,11 +39,11 @@ const NewsFilters = ({
       </div>
 
       <div className="filter-group">
-        <label htmlFor="news-date-filter">Диапазон дат события:</label>
+        <label>Диапазон дат события:</label>
         <Flatpickr
           options={datePickerConfig}
           value={filters.dateRange}
-          placeholder="Выберите период"
+          placeholder="Выберите даты"
           className="date-picker"
         />
       </div>

@@ -519,15 +519,18 @@ def delete_all_users():
     try:
         current_user_id = g.current_user['userID']
         g.db.users_delete_all(exclude_ids=[current_user_id])
+        
+        # Возвращаем обновленный список
+        remaining_users = g.db.user_get_all()
         return make_response(jsonify({
-            "message": "All users deleted successfully except current user and first admin"
+            "message": "Пользователи успешно удалены",
+            "remainingUsers": remaining_users
         }), 200)
     except Exception as e:
         return make_response(jsonify({
             "error": "Failed to delete users",
             "details": str(e)
-        }), 500)
-
+        }), 500) 
 
 # Категории
 @bp.route("/api/categories", methods=["GET", "POST", "DELETE", "OPTIONS"])
