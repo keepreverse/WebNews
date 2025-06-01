@@ -7,11 +7,16 @@ UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 
 # Конфигурация CORS
 CORS_OPTIONS = {
-    "origins": ["http://localhost:3000", "http://localhost:3001"],
+    "origins": [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "https://keepreverse.github.io"
+    ],
     "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     "allow_headers": ["Content-Type", "Authorization"],
     "max_age": 86400
 }
+
 
 # Добавляем JWT конфигурацию
 JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'your-secret-key-here')
