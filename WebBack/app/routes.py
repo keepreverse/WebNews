@@ -213,8 +213,11 @@ def single_news(newsID):
         except sqlite3.OperationalError as e:
             raise DatabaseError("Ошибка удаления новости") from e
 
-@bp.route("/api/auth/login", methods=["POST"])
+@bp.route("/api/auth/login", methods=["POST", "OPTIONS"])  # Добавьте OPTIONS
 def login():
+    if request.method == "OPTIONS":
+        return jsonify({}), 200
+    
     import unicodedata
 
     data = request.get_json()

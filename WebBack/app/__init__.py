@@ -20,6 +20,8 @@ def create_app(config_object='config'):
     return app
 
 def configure_cors(app):
+    # Добавьте лог для проверки
+    app.logger.info(f"CORS origins: {app.config['CORS_OPTIONS']['origins']}")
     CORS(
         app,
         resources={r"/api/*": {"origins": app.config['CORS_OPTIONS']['origins']}},
