@@ -22,9 +22,10 @@ def create_app(config_object='config'):
 def configure_cors(app):
     CORS(
         app,
-        resources={r"/api/*": app.config['CORS_OPTIONS']},
+        resources={r"/api/*": {"origins": app.config['CORS_OPTIONS']['origins']}},
         supports_credentials=True
     )
+
 
 def configure_uploads(app):
     # Создаем папку из конфига
