@@ -1,16 +1,26 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ToastContainer, toast } from "react-toastify";
+
 import PageWrapper from "./PageWrapper";
-import UsersManagement from "./components/Admin/UsersManagement/UsersManagement";
-import NewsModeration from "./components/Admin/NewsModeration/NewsModeration";
-import CategoriesManagement from "./components/Admin/CategoriesManagement/CategoriesManagement";
-import useUsersManagement from "./hooks/useUsersManagement";
-import useNewsModeration from "./hooks/useNewsModeration";
-import useCategoriesManagement from "./hooks/useCategoriesManagement";
-import { initAuthToken } from './apiClient';
+
+import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+
+import UsersManagement from "./components/Admin/UsersManagement/UsersManagement";
+import useUsersManagement from "./hooks/useUsersManagement";
+
+import NewsModeration from "./components/Admin/NewsModeration/NewsModeration";
+import useNewsModeration from "./hooks/useNewsModeration";
+
+import CategoriesManagement from "./components/Admin/CategoriesManagement/CategoriesManagement";
+import useCategoriesManagement from "./hooks/useCategoriesManagement";
+
+import TrashManagement from "./components/Admin/TrashManagement/TrashManagement";
+import useTrashManagement from "./hooks/useTrashManagement";
+
+import { initAuthToken } from './apiClient';
+
 
 function AdminPanel() {
   const [activeTab, setActiveTab] = useState('news');
@@ -63,18 +73,29 @@ function AdminPanel() {
     updateCategory
   } = useCategoriesManagement();
 
+  const {
+    deletedNews,
+    pagination: trashPagination,
+    restoreNews,
+    purgeSingleNews,
+    purgeTrash,
+    fetchDeletedNews,
+    handlePageChange: handleTrashPageChange
+  } = useTrashManagement();
+
   // Унифицированный эффект загрузки данных
   useEffect(() => {
     const loadData = {
       'users': fetchUsers,
       'news': fetchPendingNews,
       'categories': fetchCategories,
+      'trash': fetchDeletedNews,
     };
 
     if (loadData[activeTab]) {
       loadData[activeTab]();
     }
-  }, [activeTab, fetchUsers, fetchPendingNews, fetchCategories]);
+  }, [activeTab, fetchUsers, fetchPendingNews, fetchCategories, fetchDeletedNews]);
 
   // Проверка авторизации
   useEffect(() => {
@@ -139,6 +160,12 @@ function AdminPanel() {
           >
             Категории
           </button>
+          <button 
+            className={`tab-button ${activeTab === 'trash' ? 'active' : ''}`}
+            onClick={() => setActiveTab('trash')}
+          >
+            Корзина ({deletedNews.length})
+          </button>
         </div>
         
         {activeTab === 'users' && (
@@ -186,6 +213,17 @@ function AdminPanel() {
             deleteCategory={deleteCategory}
             deleteAllCategories={deleteAllCategories}
             updateCategory={updateCategory}
+          />
+        )}
+
+        {activeTab === 'trash' && (
+          <TrashManagement
+            deletedNews={deletedNews}
+            pagination={trashPagination}
+            restoreNews={restoreNews}
+            purgeNews={purgeSingleNews}
+            purgeAllNews={purgeTrash}
+            handlePageChange={handleTrashPageChange}
           />
         )}
       </div>

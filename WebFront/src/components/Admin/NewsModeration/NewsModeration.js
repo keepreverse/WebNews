@@ -121,15 +121,41 @@ const NewsModeration = ({
         totalItems={pagination.totalItems}
       />
 
-      <Lightbox
-        open={lightboxOpen}
-        close={() => setLightboxOpen(false)}
-        index={lightboxIndex}
-        slides={lightboxSlides}
-        plugins={[Fullscreen, Thumbnails, Zoom]}
-        animation={{ fade: 300 }}
-        controller={{ closeOnBackdropClick: true }}
-      />
+            <Lightbox
+              open={lightboxOpen}
+              close={() => setLightboxOpen(false)}
+              index={lightboxIndex}
+              slides={lightboxSlides}
+              plugins={[Fullscreen, Thumbnails, Zoom]}
+              styles={{
+                container: { backgroundColor: "rgba(0, 0, 0, 0.8)" },
+                thumbnail: {
+                  backgroundColor: "rgba(0, 0, 0, 0.5)",
+                },
+                thumbnailsContainer: {
+                  backgroundColor: "rgba(0, 0, 0, 0.8)",
+                },
+                icon: {
+                  color: "rgba(255, 255, 255, 0.7)",
+                  filter: "drop-shadow(0 0 2px rgba(0, 0, 0, 0.5))",
+                },
+                iconDisabled: {
+                  color: "rgba(255, 255, 255, 0.3)",
+                },
+                iconHover: {
+                  color: "#fff",
+                  backgroundColor: "rgba(0, 0, 0, 0.3)",
+                }
+              }}
+              thumbnails={{
+                vignette: false,
+              }}
+              zoom={{
+                maxZoomPixelRatio: 4, // Максимальный уровень увеличения
+                zoomInMultiplier: 1.2,  // Множитель увеличения
+                scrollToZoom: true    // Включить зум скроллом
+              }}
+            />
     </>
   );
 };

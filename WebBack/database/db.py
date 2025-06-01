@@ -6,13 +6,10 @@ import sqlite3
 import datetime
 
 from flask import current_app
-
 from enums import InvalidValues
-
-from werkzeug.security import generate_password_hash, check_password_hash
-
-
+from werkzeug.security import generate_password_hash
 class Storage(object):
+
     def __init__(self):
         self.connection = None
         self.cursor = None
@@ -26,7 +23,6 @@ class Storage(object):
         self.cursor.execute('''UPDATE Users SET auth_token = ? WHERE userID = ?''', (token, user_id))
         self.connection.commit()
  
-
     def _create_tables(self):
         """Создать все таблицы при подключении к БД"""
         try:
@@ -34,8 +30,8 @@ class Storage(object):
             self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS Users (
                     userID INTEGER PRIMARY KEY AUTOINCREMENT,
-                    nick TEXT NOT NULL,
-                    login TEXT NOT NULL,
+                    nick TEXT NOT NULL COLLATE NOCASE,
+                    login TEXT NOT NULL COLLATE NOCASE,
                     password TEXT NOT NULL,
                     user_role TEXT NOT NULL CHECK(
                         user_role IN ('Administrator', 'Moderator', 'Publisher')
@@ -60,6 +56,7 @@ class Storage(object):
                     event_end TEXT,
                     publish_date TEXT,
                     create_date TEXT NOT NULL,
+                    delete_date TEXT,
                     categoryID INTEGER,
                     FOREIGN KEY (publisherID) REFERENCES Users(userID) ON DELETE CASCADE,
                     FOREIGN KEY (moderated_byID) REFERENCES Users(userID) ON DELETE SET NULL,
@@ -87,29 +84,27 @@ class Storage(object):
                 )
             ''')
 
-            # 5. Таблица Categories
+            # 5. Таблица Categories (главное исправление здесь)
             self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS Categories (
                     categoryID INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL UNIQUE,
+                    name TEXT NOT NULL COLLATE NOCASE UNIQUE,
                     description TEXT,
                     create_date TEXT NOT NULL
                 )
             ''')
 
-
             self.connection.commit()
         except sqlite3.OperationalError as e:
             print(f"Ошибка создания таблиц: {str(e)}")
-            
-
+ 
     def _create_indexes(self):
         """Создать индексы при подключении к БД"""
         try:
             # Для Users
-            self.cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_login ON Users(login)')
-            self.cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_nick ON Users(nick)')
-            
+            self.cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_nick_nocase ON Users(nick COLLATE NOCASE)')
+            self.cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_login_nocase ON Users(login COLLATE NOCASE)')
+
             # Для News
             self.cursor.execute('CREATE INDEX IF NOT EXISTS idx_news_publisher ON News(publisherID)')
             self.cursor.execute('CREATE INDEX IF NOT EXISTS idx_news_status ON News(status)')
@@ -118,9 +113,9 @@ class Storage(object):
             # Для Files
             self.cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_files_guid ON Files(guid)')
             
-            # Для Categories
-            self.cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_name ON Categories(name)')
-            
+            # Categories
+            self.cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_name_nocase ON Categories(name COLLATE NOCASE)')
+
             self.connection.commit()
         except sqlite3.OperationalError as e:
             print(f"Ошибка создания индексов: {str(e)}")
@@ -266,152 +261,69 @@ class Storage(object):
 
     def news_getlist(self) -> list:
         """Get all news items with single query"""
-        self.cursor.execute('''
-            SELECT 
-                n.newsID, 
-                n.title, 
-                n.description, 
-                n.status,
-                n.create_date, 
-                n.publish_date, 
-                n.event_start, 
-                n.event_end,
-                up.nick AS publisher_nick, 
-                um.nick AS moderator_nick,
-                c.name AS category_name
-            FROM News n
-            JOIN Users up ON up.userID = n.publisherID
-            LEFT JOIN Users um ON um.userID = n.moderated_byID
-            LEFT JOIN Categories c ON c.categoryID = n.categoryID
-            GROUP BY n.newsID
-            ORDER BY n.create_date DESC
-        ''')
-        
-        news_items = []
-        for row in self.cursor.fetchall():
-            news_id = row['newsID']
-            
-            # Get files
+        try:
             self.cursor.execute('''
-                SELECT f.fileID, guid, format 
-                FROM Files f
-                JOIN File_Link fl ON fl.fileID = f.fileID
-                WHERE fl.newsID = ?
-                ORDER BY f.fileID ASC
-            ''', (news_id,))
+                SELECT 
+                    n.newsID, 
+                    n.title, 
+                    n.description, 
+                    n.status,
+                    n.create_date, 
+                    n.publish_date, 
+                    n.event_start, 
+                    n.event_end,
+                    up.nick AS publisher_nick, 
+                    um.nick AS moderator_nick,
+                    c.name AS category_name
+                FROM News n
+                JOIN Users up ON up.userID = n.publisherID
+                LEFT JOIN Users um ON um.userID = n.moderated_byID
+                LEFT JOIN Categories c ON c.categoryID = n.categoryID
+                WHERE n.delete_date IS NULL
+                GROUP BY n.newsID
+                ORDER BY n.create_date DESC
+            ''')
             
-            files = [{
-                'fileID': r['fileID'],
-                'fileName': r['guid'],
-                'fileFormat': r['format']
-            } for r in self.cursor.fetchall()]
-            
-            
-            news_items.append({
-                'newsID': news_id,
-                'title': row['title'],
-                'description': row['description'],
-                'status': row['status'],
-                'create_date': row['create_date'],
-                'publish_date': row['publish_date'],
-                'event_start': row['event_start'],
-                'event_end': row['event_end'],
-                'publisher_nick': row['publisher_nick'],
-                'moderator_nick': row['moderator_nick'],
-                'category_name': row['category_name'],
-                'files': files
-            })
+            news_items = []
+            for row in self.cursor.fetchall():
+                news_id = row['newsID']
+                
+                # Get files
+                self.cursor.execute('''
+                    SELECT f.fileID, guid, format 
+                    FROM Files f
+                    JOIN File_Link fl ON fl.fileID = f.fileID
+                    WHERE fl.newsID = ?
+                    ORDER BY f.fileID ASC
+                ''', (news_id,))
+                
+                files = [{
+                    'fileID': r['fileID'],
+                    'fileName': r['guid'],
+                    'fileFormat': r['format']
+                } for r in self.cursor.fetchall()]
+                
+                news_items.append({
+                    'newsID': news_id,
+                    'title': row['title'],
+                    'description': row['description'],
+                    'status': row['status'],
+                    'create_date': row['create_date'],
+                    'publish_date': row['publish_date'],
+                    'event_start': row['event_start'],
+                    'event_end': row['event_end'],
+                    'publisher_nick': row['publisher_nick'],
+                    'moderator_nick': row['moderator_nick'],
+                    'category_name': row['category_name'],
+                    'files': files
+                })
+            return news_items
         
-        return news_items
-
-    # def news_get_one(self, last_received_newsID) -> list:
-    #     """Get single news item"""
-    #     if last_received_newsID == InvalidValues.INVALID_ID.value:
-    #         query = '''
-    #             SELECT n.newsID, title, description, status,
-    #                    create_date, publish_date, event_start, event_end,
-    #                    up.nick AS publisher_nick, um.nick AS moderator_nick
-    #             FROM News n
-    #             JOIN Users up ON up.userID = n.publisherID
-    #             LEFT JOIN Users um ON um.userID = n.moderated_byID
-    #             ORDER BY create_date DESC LIMIT 1
-    #         '''
-    #     else:
-    #         query = f'''
-    #             SELECT n.newsID, title, description, status,
-    #                    create_date, publish_date, event_start, event_end,
-    #                    up.nick AS publisher_nick, um.nick AS moderator_nick
-    #             FROM News n
-    #             JOIN Users up ON up.userID = n.publisherID
-    #             LEFT JOIN Users um ON um.userID = n.moderated_byID
-    #             WHERE n.newsID < {last_received_newsID}
-    #             ORDER BY create_date DESC LIMIT 1
-    #         '''
-
-    #     self.cursor.execute(query)
-
-    # database/db.py (частично)
-    def news_get_one(self, last_received_newsID) -> list:
-        base_query = '''
-            SELECT 
-                n.newsID, 
-                n.title, 
-                n.description, 
-                n.status,
-                n.create_date, 
-                n.publish_date, 
-                n.event_start, 
-                n.event_end,
-                up.nick AS publisher_nick, 
-                um.nick AS moderator_nick,
-                c.name AS category_name
-            FROM News n
-            JOIN Users up ON up.userID = n.publisherID
-            LEFT JOIN Users um ON um.userID = n.moderated_byID
-            LEFT JOIN Categories c ON c.categoryID = n.categoryID
-            GROUP BY n.newsID
-            ORDER BY n.create_date DESC 
-            LIMIT 1
-        '''
-
-        condition = "WHERE n.newsID < ?" if last_received_newsID != InvalidValues.INVALID_ID.value else ""
-        params = (last_received_newsID,) if last_received_newsID != InvalidValues.INVALID_ID.value else ()
-
-        self.cursor.execute(base_query.format(condition=condition), params)
-        news_data = self.cursor.fetchone()
-        
-        if not news_data:
-            return [{}, InvalidValues.INVALID_ID.value]
-
-        # Get files
-        self.cursor.execute('''
-            SELECT f.fileID, guid, format 
-            FROM Files f
-            JOIN File_Link fl ON fl.fileID = f.fileID
-            WHERE fl.newsID = ?
-            ORDER BY f.fileID ASC
-        ''', (news_data['newsID'],))
-        
-        files = [{
-            'fileID': row['fileID'],
-            'fileName': row['guid'],
-            'fileFormat': row['format']
-        } for row in self.cursor.fetchall()]
-
-        return [{
-            'newsID': news_data['newsID'],
-            'title': news_data['title'],
-            'description': news_data['description'],
-            'status': news_data['status'],
-            'create_date': news_data['create_date'],
-            'publish_date': news_data['publish_date'],
-            'event_start': news_data['event_start'],
-            'event_end': news_data['event_end'],
-            'publisher_nick': news_data['publisher_nick'],
-            'moderator_nick': news_data['moderator_nick'],
-            'category_name': news_data['category_name'],
-            'files': files
-        }, news_data['newsID']]
+        except sqlite3.OperationalError as e:
+            raise Exception("Ошибка базы данных. Попробуйте позже") from e
+        except Exception as e:
+            if "UNIQUE constraint failed" in str(e):
+                raise Exception("Такая запись уже существует")
 
     def news_get_single(self, newsID: int) -> list:
         """Get specific news item by ID"""
@@ -434,14 +346,14 @@ class Storage(object):
             JOIN Users up ON up.userID = n.publisherID
             LEFT JOIN Users um ON um.userID = n.moderated_byID
             LEFT JOIN Categories c ON c.categoryID = n.categoryID
-            WHERE n.newsID = ?
+            WHERE n.newsID = ? 
+            AND n.delete_date IS NULL
         ''', (newsID,))
         
         news_data = self.cursor.fetchone()
         if not news_data:
             return [{}, InvalidValues.INVALID_ID.value]
 
-        # Get files
         self.cursor.execute('''
             SELECT f.fileID, guid, format 
             FROM Files f
@@ -578,35 +490,6 @@ class Storage(object):
             self.connection.rollback()
             raise e
     
-    def news_delete(self, newsID: int):
-        """Delete single news item"""
-        self.cursor.execute('BEGIN TRANSACTION;')
-        
-        try:
-            # Получаем GUID файлов для физического удаления
-            self.cursor.execute('''
-                SELECT guid FROM Files
-                WHERE fileID IN (
-                    SELECT fileID FROM File_Link WHERE newsID = ?
-                )
-            ''', (newsID,))
-            files_to_delete = [row[0] for row in self.cursor.fetchall()]
-
-            # Удаляем новость (триггер delete_news_files сделает остальное)
-            self.cursor.execute('DELETE FROM News WHERE newsID = ?', (newsID,))
-
-            # Удаляем файлы из файловой системы
-            upload_folder = current_app.config['UPLOAD_FOLDER']
-            for img_name in files_to_delete:
-                img_path = os.path.join(upload_folder, img_name)
-                if os.path.isfile(img_path) or os.path.islink(img_path):
-                    os.unlink(img_path)
-
-            self.connection.commit()
-        except Exception as e:
-            self.connection.rollback()
-            raise e
-
     def news_delete_files(self, newsID: int):
         """Удалить файлы новости (без удаления самой новости)"""
         self.cursor.execute('BEGIN TRANSACTION;')
@@ -636,33 +519,15 @@ class Storage(object):
             self.connection.rollback()
             raise e
 
-    def news_clear(self):
-        """Delete all news"""
-        self.cursor.execute('BEGIN TRANSACTION;')
-        
-        try:
-            # Получаем GUID всех файлов
-            self.cursor.execute('SELECT guid FROM Files')
-            files_to_delete = [row[0] for row in self.cursor.fetchall()]
+    def user_get_by_id(self, user_id: int):
+        """Get user by ID with basic information"""
+        self.cursor.execute('''
+            SELECT userID, password, user_role, nick, login
+            FROM Users 
+            WHERE userID = ?
+        ''', (user_id,))
+        return self.cursor.fetchone()
 
-            # Удаляем все новости (триггеры очистят File_Link и Files)
-            self.cursor.execute('DELETE FROM News')
-
-            # Удаляем файлы из правильной папки
-            upload_folder = os.path.abspath(current_app.config['UPLOAD_FOLDER'])
-            for guid in files_to_delete:
-                file_path = os.path.join(upload_folder, guid)
-                if os.path.exists(file_path):
-                    try:
-                        os.remove(file_path)
-                    except Exception as e:
-                        print(f"Ошибка удаления файла {file_path}: {str(e)}")
-
-            self.connection.commit()
-        except Exception as e:
-            self.connection.rollback()
-            raise e
-            
     def user_get_by_nick(self, nick: str):
         """Get user by nickname with password hash"""
         self.cursor.execute('''
@@ -686,10 +551,9 @@ class Storage(object):
             role = "Publisher"
         
         # Проверка уникальности
-        self.cursor.execute('SELECT 1 FROM Users WHERE login = ? OR nick = ?', (login, nickname))
         if self.cursor.fetchone():
-            raise ValueError("User with this login or nickname already exists")
-        
+            raise ValueError("Пользователь с таким логином или ником уже существует")
+
         hashed_password = generate_password_hash(password)
         
         # Добавляем реальный пароль (ТОЛЬКО ДЛЯ ТЕСТИРОВАНИЯ)
@@ -730,16 +594,37 @@ class Storage(object):
         return [dict(row) for row in self.cursor.fetchall()]
             
     def user_update(self, user_id, update_data):
-        """Update user data"""
+        """Обновить данные пользователя"""
+        # Проверка существования пользователя
+        self.cursor.execute("SELECT 1 FROM Users WHERE userID = ?", (user_id,))
+        if not self.cursor.fetchone():
+            raise ValueError(f"Пользователь с ID={user_id} не найден")
+
         allowed_fields = ["nick", "login", "user_role"]
         updates = {k: v for k, v in update_data.items() if k in allowed_fields}
-        
+
         if not updates:
-            raise ValueError("No valid fields to update")
-        
+            raise ValueError("Нет допустимых полей для обновления")
+
+        # Проверка уникальности логина (без учёта регистра)
+        if "login" in updates:
+            self.cursor.execute('''
+                SELECT 1 FROM Users 
+            ''', (updates["login"], user_id))
+            if self.cursor.fetchone():
+                raise ValueError(f"Логин '{updates['login']}' уже используется")
+
+        # Проверка уникальности ника (без учёта регистра)
+        if "nick" in updates:
+            self.cursor.execute('''
+                SELECT 1 FROM Users 
+            ''', (updates["nick"], user_id))
+            if self.cursor.fetchone():
+                raise ValueError(f"Никнейм '{updates['nick']}' уже используется")
+
         set_clause = ", ".join([f"{field} = ?" for field in updates.keys()])
         query = f"UPDATE Users SET {set_clause} WHERE userID = ?"
-        
+
         self.cursor.execute(query, (*updates.values(), user_id))
         self.connection.commit()
 
@@ -789,10 +674,14 @@ class Storage(object):
         if not name.strip():
             raise ValueError("Category name cannot be empty")
         try:
+            if self.cursor.fetchone():
+                raise ValueError(f"Категория с названием '{name}' уже существует")
+
             self.cursor.execute('''
                 INSERT INTO Categories (name, description, create_date)
                 VALUES (?, ?, datetime('now', 'localtime'))
             ''', (name, description))
+
             self.connection.commit()
             return self.cursor.lastrowid
         except sqlite3.IntegrityError:
@@ -800,15 +689,29 @@ class Storage(object):
 
     def category_update(self, category_id: int, name: str, description: str = None):
         """Обновить категорию"""
-        try:
-            self.cursor.execute('''
-                UPDATE Categories 
-                SET name = ?, description = ?
-                WHERE categoryID = ?
-            ''', (name, description, category_id))
-            self.connection.commit()
-        except sqlite3.IntegrityError:
-            raise ValueError(f"Category '{name}' already exists")
+        # Проверяем существование категории
+        self.cursor.execute("SELECT 1 FROM Categories WHERE categoryID = ?", (category_id,))
+        if not self.cursor.fetchone():
+            raise ValueError(f"Категория с ID={category_id} не найдена")
+
+        # Проверяем уникальность нового названия (без учёта регистра)
+        self.cursor.execute('''
+            SELECT 1 FROM Categories 
+        ''', (name, category_id))
+        if self.cursor.fetchone():
+            raise ValueError(f"Категория с названием '{name}' уже существует")
+
+        # Выполняем обновление
+        self.cursor.execute('''
+            UPDATE Categories 
+            SET name = ?, description = ?
+            WHERE categoryID = ?
+        ''', (name, description, category_id))
+
+        if self.cursor.rowcount == 0:
+            raise ValueError("Не удалось обновить категорию")
+
+        self.connection.commit()
 
     def category_delete(self, category_id: int):
         """Удалить категорию"""
@@ -824,3 +727,184 @@ class Storage(object):
         """Получить все категории"""
         self.cursor.execute('SELECT * FROM Categories ORDER BY create_date DESC')
         return [dict(row) for row in self.cursor.fetchall()]
+    
+    # Удаляем старые методы delete и перерабатываем логику
+
+    def news_soft_delete(self, newsID: int):
+        """Мягкое удаление в корзину"""
+        try:
+            self.cursor.execute('BEGIN TRANSACTION;')
+            
+            # Помечаем новость как удаленную
+            self.cursor.execute('''
+                UPDATE News 
+                SET delete_date = datetime('now', 'localtime') 
+                WHERE newsID = ?
+            ''', (newsID,))
+            
+            self.connection.commit()
+        except Exception as e:
+            self.connection.rollback()
+            raise e
+
+    def news_soft_delete_multiple(self, newsIDs: list):
+        """Мягкое удаление нескольких новостей"""
+        try:
+            self.cursor.execute('BEGIN TRANSACTION;')
+            
+            placeholders = ','.join(['?'] * len(newsIDs))
+            self.cursor.execute(f'''
+                UPDATE News 
+                SET delete_date = datetime('now', 'localtime') 
+                WHERE newsID IN ({placeholders})
+            ''', newsIDs)
+            
+            self.connection.commit()
+        except Exception as e:
+            self.connection.rollback()
+            raise e
+        
+    def restore_news(self, newsIDs: list):
+        """Восстановление новостей из корзины"""
+        try:
+            self.cursor.execute('BEGIN TRANSACTION;')
+            
+            placeholders = ','.join(['?'] * len(newsIDs))
+            self.cursor.execute(f'''
+                UPDATE News 
+                SET delete_date = NULL 
+                WHERE newsID IN ({placeholders})
+            ''', newsIDs)
+            self.connection.commit()
+        except Exception as e:
+            self.connection.rollback()
+            raise e
+        
+    def purge_news(self, newsIDs: list):
+        """Окончательное удаление новостей из корзины"""
+        try:
+            self.cursor.execute('BEGIN TRANSACTION;')
+            
+            # 1. Получаем файлы для удаления
+            placeholders = ','.join(['?'] * len(newsIDs))
+            self.cursor.execute(f'''
+                SELECT f.guid 
+                FROM Files f
+                JOIN File_Link fl ON fl.fileID = f.fileID
+                WHERE fl.newsID IN ({placeholders})
+            ''', newsIDs)
+            files_to_delete = [row[0] for row in self.cursor.fetchall()]
+            
+            # 2. Удаляем новости и связанные данные через CASCADE
+            self.cursor.execute(f'''
+                DELETE FROM News 
+                WHERE newsID IN ({placeholders})
+            ''', newsIDs)
+            
+            # 3. Удаляем файлы физически
+            upload_folder = current_app.config['UPLOAD_FOLDER']
+            for file_name in files_to_delete:
+                file_path = os.path.join(upload_folder, file_name)
+                if os.path.exists(file_path):
+                    try:
+                        os.remove(file_path)
+                    except Exception as e:
+                        print(f"Ошибка удаления файла {file_path}: {str(e)}")
+            
+            self.connection.commit()
+        except Exception as e:
+            self.connection.rollback()
+            raise e
+
+    def purge_expired_news(self, days=30):
+        """Очистка старых удаленных новостей"""
+        try:
+            self.cursor.execute('BEGIN TRANSACTION;')
+            
+            # Получаем новости для удаления
+            self.cursor.execute('''
+                SELECT newsID 
+                FROM News 
+                WHERE delete_date <= datetime('now', ?)
+            ''', (f'-{days} days',))
+            news_ids = [row[0] for row in self.cursor.fetchall()]
+            
+            if news_ids:
+                self.purge_news(news_ids)
+            
+            self.connection.commit()
+            return len(news_ids)
+        except Exception as e:
+            self.connection.rollback()
+            raise e
+    
+    def get_deleted_news(self) -> list:
+        """Get all news items with single query"""
+        self.cursor.execute('''
+            SELECT 
+                n.newsID, 
+                n.title, 
+                n.description, 
+                n.status,
+                n.create_date, 
+                n.publish_date, 
+                n.event_start, 
+                n.event_end,
+                up.nick AS publisher_nick, 
+                um.nick AS moderator_nick,
+                c.name AS category_name,
+                n.delete_date 
+            FROM News n
+            JOIN Users up ON up.userID = n.publisherID
+            LEFT JOIN Users um ON um.userID = n.moderated_byID
+            LEFT JOIN Categories c ON c.categoryID = n.categoryID
+            WHERE n.delete_date IS NOT NULL
+            GROUP BY n.newsID
+            ORDER BY n.delete_date DESC
+        ''')
+        
+        news_items = []
+        for row in self.cursor.fetchall():
+            news_id = row['newsID']
+            
+            # Get files
+            self.cursor.execute('''
+                SELECT f.fileID, guid, format 
+                FROM Files f
+                JOIN File_Link fl ON fl.fileID = f.fileID
+                WHERE fl.newsID = ?
+                ORDER BY f.fileID ASC
+            ''', (news_id,))
+            
+            files = [{
+                'fileID': r['fileID'],
+                'fileName': r['guid'],
+                'fileFormat': r['format']
+            } for r in self.cursor.fetchall()]
+            
+            news_items.append({
+                'newsID': news_id,
+                'title': row['title'],
+                'description': row['description'],
+                'status': row['status'],
+                'create_date': row['create_date'],
+                'publish_date': row['publish_date'],
+                'event_start': row['event_start'],
+                'event_end': row['event_end'],
+                'publisher_nick': row['publisher_nick'],
+                'moderator_nick': row['moderator_nick'],
+                'category_name': row['category_name'],
+                'delete_date': row['delete_date'],
+                'files': files
+            })
+        
+        return news_items
+
+    def get_deleted_news_single(self, news_id):
+        """Получает одну новость из корзины"""
+        self.cursor.execute('''
+            SELECT * FROM News 
+            WHERE newsID = ? AND delete_date IS NOT NULL
+        ''', (news_id,))
+        row = self.cursor.fetchone()
+        return dict(row) if row else None

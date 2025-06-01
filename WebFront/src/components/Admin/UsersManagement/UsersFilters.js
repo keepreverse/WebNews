@@ -13,8 +13,8 @@ const UsersFilters = ({
   onDateChange,
   onTogglePasswords,
   onClear,
-  onDeleteAll,       // Добавляем новый проп
-  deleteDisabled     // И этот
+  onDeleteAll,
+  deleteDisabled
 }) => {
   const configFlatpickr = {
     mode: "range",

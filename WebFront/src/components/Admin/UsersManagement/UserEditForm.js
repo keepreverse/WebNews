@@ -19,15 +19,15 @@ const UserEditForm = ({ user, onSave, onCancel }) => {
     }
   }, [user]);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!formData.login.trim()) {
-      alert('Логин не может быть пустым');
-      return;
-    }
-    onSave(user.userID, formData);
-  };
-
+const handleSubmit = (e) => {
+  e.preventDefault();
+  
+  if (!formData.login.trim() || !formData.nick.trim()) {
+    alert('Логин и никнейм не могут быть пустыми');
+    return;
+  }
+  onSave(user.userID, formData);
+};
 
   return (
     <form className="edit-form" onSubmit={handleSubmit}>
@@ -47,6 +47,7 @@ const UserEditForm = ({ user, onSave, onCancel }) => {
           type="text"
           value={formData.nick}
           onChange={(e) => setFormData({ ...formData, nick: e.target.value })}
+          required
         />
       </div>
 
@@ -71,7 +72,6 @@ const UserEditForm = ({ user, onSave, onCancel }) => {
           type="submit"
           id="submit"
           className="custom_button_short"
-          disabled={!formData.login.trim()}
         >
           Сохранить изменения
         </button>

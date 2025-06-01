@@ -57,7 +57,7 @@ const CategoryEditForm = ({ category, onSave, onCancel, isCreating }) => {
         </button>
         <button
           type="button"
-          className="custom_button_short cancel"
+          className="custom_button_short"
           onClick={onCancel}
         >
           Отмена

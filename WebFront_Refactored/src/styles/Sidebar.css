@@ -1,0 +1,211 @@
+/* Sidebar.css — сдвигает main-content, без багов */
+
+.sidebar {
+  width: 200px;
+  height: 100vh;
+  position: fixed;
+  left: 0;
+  top: 0;
+  background: linear-gradient(to bottom, #ffffff, #fafafa);
+  border-right: 1px solid #dcdcdc;
+  color: #2d2f30;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-family: 'Lato', sans-serif;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.03);
+  transition: width 0.3s ease;
+  overflow: hidden;
+}
+
+.sidebar.collapsed {
+  width: 70px;
+}
+
+.sidebar-menu {
+  list-style: none;
+  padding: 0 10px;
+  margin: 0;
+}
+
+.sidebar-link {
+  display: block;
+  padding: 8px;
+  margin-bottom: 4px;
+  color: #2d2f30;
+  text-decoration: none;
+  border-radius: 6px;
+  font-size: 10pt;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  text-align: center;
+  transition: all 0.25s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+  opacity: 1;
+}
+
+.sidebar-link:hover {
+  background-color: #f3f3f3;
+  color: #000;
+  transform: translateX(2px);
+}
+
+.sidebar-link.active {
+  background-color: #e4e4e4;
+  color: #000;
+  font-weight: 600;
+}
+
+.sidebar-link.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 4px;
+  background-color: #2d2f30;
+  border-radius: 4px 0 0 4px;
+}
+
+button.sidebar-link {
+  all: unset;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  margin-bottom: 4px;
+  font-family: inherit;
+  font-size: 10pt;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #2d2f30;
+  text-align: center;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s, transform 0.2s;
+}
+
+button.sidebar-link:hover {
+  background-color: #f3f3f3;
+  color: #000;
+  transform: translateX(2px);
+}
+
+.user-info-side {
+  font-size: 12pt;
+  text-align: center;
+  border-top: 1px solid #d3d3d3;
+  padding: 20px 0;
+  line-height: 1.4;
+  transition: opacity 0.3s ease;
+}
+
+.user-nickname {
+  font-size: 12.5pt;
+  font-weight: 600;
+  color: #333;
+}
+
+.user-role {
+  font-size: 10.5pt;
+  color: #666;
+}
+
+.sidebar.collapsed .sidebar-link {
+  opacity: 0;
+  transform: scaleY(0);
+  height: 0;
+  padding: 0;
+  margin: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease, height 0.2s ease;
+}
+
+.sidebar.collapsed .user-info-side {
+  display: none;
+}
+
+.main-content {
+  flex: 1;
+  margin-left: 200px;
+  transition: margin-left 0.3s ease;
+}
+
+.main-content.sidebar-collapsed {
+  margin-left: 60px;
+}
+
+.main-content.no-sidebar {
+  margin-left: 0 !important;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    width: 0;
+    left: -220px;
+  }
+
+  .sidebar.collapsed {
+    width: 0;
+    left: -220px;
+  }
+
+  .main-content {
+    margin-left: 0 !important;
+  }
+}
+
+.sidebar-header {
+  border-bottom: 1px solid #d3d3d3;
+  padding: 20px 0;
+  cursor: pointer;
+}
+
+.sidebar-logo {
+  position: relative;
+  overflow: hidden;
+  height: 32px;
+  line-height: 32px;
+  text-align: center;
+  font-size: 18pt;
+  font-weight: 600;
+  color: #2d2f30;
+}
+
+.logo-full,
+.logo-short {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  transform-origin: center;
+  transition:
+    transform 0.3s ease-in-out;
+}
+
+/* WEBNEWS */
+.logo-full {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.logo-full.hidden {
+  opacity: 0;
+  transform: scaleX(0.1); /* "собирается внутрь" */
+}
+
+/* WN */
+.logo-short {
+  opacity: 0;
+  transform: scaleX(2); /* "расползается изнутри" */
+}
+
+.logo-short.visible {
+  opacity: 1;
+  transform: scaleX(1);
+}

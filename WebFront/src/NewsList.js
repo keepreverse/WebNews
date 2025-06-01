@@ -66,15 +66,19 @@ function NewsList() {
     checkAuth();
   }, []);
 
-  useEffect(() => {
+useEffect(() => {
     const fetchData = async () => {
-      try {
-        const result = await api.get("/api/news");
-
-        // Фильтруем только опубликованные новости
-        const publishedNews = result.filter(item => item.status === "Approved");
-        setData(publishedNews);
-        setFilteredData(publishedNews);
+        try {
+            const result = await api.get("/api/news");
+            
+            // Дополнительная фильтрация на клиенте (опционально)
+            const publishedNews = result.filter(item => 
+                item.status === "Approved" && 
+                !item.delete_date
+            );
+            
+            setData(publishedNews);
+            setFilteredData(publishedNews);
         
         // Получаем уникальных авторов
         const authors = [...new Set(publishedNews.map(item => item.publisher_nick).filter(Boolean))];
@@ -187,6 +191,7 @@ function NewsList() {
       toast.error(error.message || "Ошибка при удалении всех новостей");
     }
   }, []);
+
 
   // Функция для открытия лайтбокса
   const openLightbox = (imageUrls, index) => {
@@ -424,7 +429,7 @@ const Pagination = React.memo(({ totalPages, currentPage, paginate }) => {
   };
 
   const getVisiblePages = () => {
-    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    if (totalPages <= 6) return Array.from({ length: totalPages }, (_, i) => i + 1);
     
     let pages = [];
     pages.push(1);
@@ -457,7 +462,7 @@ const Pagination = React.memo(({ totalPages, currentPage, paginate }) => {
           </button>
       ))}
 
-      {totalPages > 10 && (
+      {totalPages > 6 && (
         <form onSubmit={handlePageInput} className="page-input-form">
           <input
             type="number"

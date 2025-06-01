@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- Базовый заголовок -->
+    <title>&nbsp;</title>
+
+    <!-- Безопасность -->
+    <meta 
+      http-equiv="Content-Security-Policy" 
+      content="
+        default-src 'self';
+        connect-src 'self' http://localhost:5000 http://127.0.0.1:5000;
+        style-src 'self' 'unsafe-inline';
+        script-src 'self' 'unsafe-eval';
+        img-src 'self' data: blob: http://localhost:5000 http://127.0.0.1:5000;
+        frame-src 'none';
+        form-action 'self';
+      "
+    />
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="Referrer-Policy" content="no-referrer-when-downgrade" />
+    <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=()" />
+
+    <!-- SEO -->
+    <meta name="description" content="Веб-приложение для публикации и модерации новостей" />
+
+    <!-- Иконки и PWA -->
+    <link rel="icon" href="%PUBLIC_URL%/favicon.png" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+
+    <!-- Цвет адресной строки -->
+    <meta name="theme-color" content="#000000" />
+  </head>
+  <body>
+    <noscript>Для работы приложения необходимо включить JavaScript.</noscript>
+    <div id="root"></div>
+  </body>
+</html>

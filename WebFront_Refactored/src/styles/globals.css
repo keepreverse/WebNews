@@ -1,0 +1,941 @@
+body {
+     font-family: sans-serif;
+     background-color: hsl(0, 0%, 100%);
+     display: block;
+     min-height: 100vh;
+     margin: 0;
+}
+
+#auth-form {
+  max-width: 400px;
+  width: 100%;
+  margin: 0 auto;
+  min-height: 100vh; /* Полная высота экрана */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+#auth-form .content {
+  background: #fff;
+  padding: 1rem 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  min-height: 300px; /* Сделал больше высоту */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+ #auth-form .inpt {
+     width: 100%;
+     padding: 0.625rem;
+     margin-bottom: 1rem;
+     border: 1px solid #ddd;
+     border-radius: 4px;
+     font-size: 1rem;
+}
+
+.checkbox-container {
+  display: flex;
+  align-items: center;
+  margin-top: 1.8rem; /* Увеличен отступ сверху */
+  margin-bottom: 1.8rem;
+}
+
+/* Скрываем нативный чекбокс */
+ .checkbox-input {
+     position: absolute;
+     opacity: 0;
+     width: 0;
+     height: 0;
+}
+/* Кастомный чекбокс */
+ .checkbox-label {
+     position: relative;
+     padding-left: 30px;
+     cursor: pointer;
+     user-select: none;
+}
+/* Квадратик чекбокса */
+ .checkbox-label:before {
+     content: "";
+     position: absolute;
+     left: 0;
+     top: 50%;
+     transform: translateY(-50%);
+     width: 16px;
+     height: 16px;
+     border: 1px solid #b5b5b5;
+     border-radius: 3px;
+     background: #fff;
+     transition: background 0.1s ease;
+    /* Добавляем плавный переход */
+}
+/* Галочка при выборе */
+ .checkbox-input:checked + .checkbox-label:before {
+     content: "✓";
+     color: #000000;
+     font-size: 12px;
+     text-align: center;
+     line-height: 16px;
+     background: #ffffff;
+     font-weight: bold;
+}
+/* Затемнение при нажатии */
+ .checkbox-input:active + .checkbox-label:before, .checkbox-label:active:before {
+     background: #e0e0e0;
+    /* Цвет затемнения */
+}
+
+ .toggle-mode-btn {
+    margin-top: 1rem;
+    background: none;
+    border: none;
+    color: #007bff;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+ .toggle-mode-btn:hover {
+    text-decoration: underline;
+    color: #0056b3;
+}
+
+ #news-form, #data-list-form {
+     max-width: 1000px;
+    /* Максимальная ширина контейнера */
+     width: 100%;
+    /* Занимает всю доступную ширину до max-width */
+     margin: 0 auto;
+    /* Центрирование по горизонтали */
+     padding: 1% 5%;
+    /* Отступы внутри */
+     border-radius: 10px;
+     text-align: justify;
+     overflow-y: auto;
+     display: flex;
+     flex-direction: column;
+}
+ .container h1 {
+     font-size: 1.8rem;
+     font-weight: 700;
+     text-indent: 6px;
+     letter-spacing: 2px;
+     text-transform: uppercase;
+     color: #2d2f30;
+     text-align: center;
+}
+ .container .content label {
+     font-size: 14px;
+}
+ .container .content input.inpt {
+     width: 100%;
+    /* Добавляем это свойство, чтобы элементы занимали всю ширину контейнера */
+     font-family: Arial;
+     font-size: 12pt;
+     display: block;
+     padding: 10px 10px;
+     border: 1px solid #b5b5b5;
+     background: transparent;
+     border-radius: 3px;
+     box-sizing: border-box;
+}
+ .container .content input::-webkit-input-placeholder {
+     font-size: 12pt;
+     color: #999999;
+}
+ .container .content input.inpt:focus {
+     border-color: #999999;
+}
+ .drop-zone {
+     font-family: Arial, sans-serif;
+     font-size: 12pt;
+     display: block;
+     width: 100%;
+     color: #999999;
+     border: 1px solid #b5b5b5;
+     background: transparent;
+     border-radius: 3px;
+     box-sizing: border-box;
+     padding: 50px;
+     text-align: center;
+     position: relative;
+     pointer-events: auto;
+    /* Позволяет элементу реагировать на события указателя */
+     transition: background-color 0.2s ease;
+    /* Добавляем плавный переход для фона */
+}
+ .drop-zone.drag-active, .drop-zone:hover {
+     background-color: rgba(250, 250, 250, 1) !important;
+     border: 1px dashed rgba(0, 0, 0, 1) !important;
+}
+ .drop-zone span {
+     position: absolute;
+     top: 50%;
+     left: 50%;
+     transform: translate(-50%, -50%);
+}
+ #news-image {
+     width: 100%;
+     height: 100%;
+     position: absolute;
+     opacity: 0;
+     top: 0;
+     left: 0;
+     cursor: pointer;
+    /* Устанавливаем кликабельный курсор для всей области .drop-zone */
+}
+/* Контейнер для миниатюр */
+ .thumbnail-container {
+     display: flex;
+     flex-wrap: wrap;
+     gap: 30px;
+     justify-content: center;
+     max-width: 100%;
+     margin: 24px auto 0;
+}
+/* Каждая миниатюра */
+ .thumbnail {
+     position: relative;
+     flex-grow: 0;
+     flex-shrink: 0;
+     flex-basis: calc(33% - 20px);
+     max-width: calc(33% - 20px);
+     overflow: hidden;
+     border-radius: 10px;
+     display: flex;
+     justify-content: center;
+     transition: transform 0.3sease, opacity 0.3sease;
+     align-items: center;
+     flex-direction: column;
+}
+/* Изображение внутри миниатюры */
+ .thumbnail img {
+     max-width: 100%;
+     max-height: 300px;
+    /* ограничение по высоте, чтобы не растягивались вверх */
+     width: auto;
+     height: auto;
+     object-fit: contain;
+    /* сохраняем исходные пропорции без обрезки */
+     transition: transform 0.3s ease;
+     border-radius: 6px;
+}
+/* Эффект наведения */
+ .thumbnail img:hover {
+     transform: scale(1.05);
+     cursor: pointer;
+}
+ .delete-button {
+     position: relative;
+     cursor: pointer;
+     border-radius: 50%;
+     font-size: 20px;
+     padding: 4%;
+}
+
+ .container .content input:focus {
+     outline: none;
+}
+
+ .preview-title {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+ .jodit-react-container {
+     margin: 12px auto;
+}
+
+ .jodit-workplace, .jodit-container {
+     background-color: transparent !important;
+}
+ .jodit-toolbar__box:not(:empty):not(:empty) {
+     background-color: transparent !important;
+     border-bottom: 1px solid #b5b5b5 !important;
+}
+ .jodit-container {
+     border: 1px solid #b5b5b5 !important;
+}
+/* Современный минималистичный скроллбар */
+ :root {
+     --scrollbar-width: 8px;
+     --scrollbar-thumb-color: rgba(100, 100, 100, 0.4);
+     --scrollbar-thumb-hover: rgba(100, 100, 100, 0.6);
+     --scrollbar-track-color: transparent;
+}
+/* Основные стили (работает в Chrome, Edge, Safari) */
+ ::-webkit-scrollbar {
+     width: var(--scrollbar-width);
+     height: var(--scrollbar-width);
+     background-color: var(--scrollbar-track-color);
+}
+ ::-webkit-scrollbar-track {
+     background-color: var(--scrollbar-track-color);
+     border-radius: var(--scrollbar-width);
+}
+ ::-webkit-scrollbar-thumb {
+     background-color: var(--scrollbar-thumb-color);
+     border-radius: var(--scrollbar-width);
+     border: 2px solid transparent;
+     background-clip: content-box;
+     transition: background-color 0.2s ease;
+}
+ ::-webkit-scrollbar-thumb:hover {
+     background-color: var(--scrollbar-thumb-hover);
+}
+/* Для Firefox */
+ * {
+     scrollbar-width: thin;
+     scrollbar-color: var(--scrollbar-thumb-color) var(--scrollbar-track-color);
+}
+/* Убираем стандартный скроллбар и предотвращаем смещение контента */
+ html {
+     scrollbar-gutter: stable;
+    /* Новое CSS свойство */
+     overflow-y: auto;
+    /* Показываем только при необходимости */
+}
+/* Плавный скролл для всего сайта */
+ html {
+     scroll-behavior: smooth;
+}
+/* Скрываем скроллбар когда не нужен, но оставляем место */
+ body {
+     overflow-y: overlay;
+    /* Прозрачный скроллбар поверх контента */
+}
+/* Альтернативный вариант - скроллбар только при наведении */
+ @media (hover: hover) {
+     body {
+         scrollbar-width: none;
+        /* Для Firefox */
+    }
+     body::-webkit-scrollbar {
+         display: none;
+    }
+     body:hover::-webkit-scrollbar {
+         display: block;
+    }
+     body:hover::-webkit-scrollbar-thumb {
+         background-color: var(--scrollbar-thumb-color);
+    }
+}
+ .content input[type="text"] {
+     width: 100%;
+     font-family: Arial;
+     font-size: 12pt;
+     display: block;
+     margin: 12px auto;
+     padding: 10px 10px;
+     border: 1px solid #b5b5b5;
+     background: transparent;
+     border-radius: 3px;
+     box-sizing: border-box;
+}
+ .container .content input[type="text"]:focus {
+     border-color: #999999;
+}
+/* Контейнер для списка новостей */
+ .data-list {
+     display: flex;
+     flex-direction: column;
+     margin: 12px;
+     gap: 20px;
+}
+ .data-item, .moderation-item {
+     background: white;
+     border-radius: 12px;
+     padding: 1.5rem;
+     margin-bottom: 1.5rem;
+     transition: transform 0.2s ease, box-shadow 0.2s ease;
+     border: 1px solid rgba(0,0,0,0.05);
+}
+ .data-item:hover {
+     transform: translateY(-2px);
+     box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+/* Заголовок новости */
+ .data-item h2 {
+     font-size: 1.2rem;
+     font-weight: bold;
+     margin-bottom: 15px;
+     color: #333;
+     text-align: center;
+}
+ .news-description, .data-list p {
+     font-size: 1rem;
+}
+ .data-list p {
+     text-align: center;
+}
+/* Описание новости */
+ .data-item p {
+     font-size: 1rem;
+     color: #555;
+     margin-bottom: 15px;
+     text-align: left;
+}
+/* Стиль для уведомлений (toast) */
+ .Toastify__toast {
+     font-size: 1rem;
+     border-radius: 10px;
+     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+ .image-gallery {
+     display: grid;
+     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+     gap: 10px;
+}
+/* Стили для контейнера фильтров */
+ .user-info, .filters-container {
+     display: flex;
+     flex-wrap: wrap;
+    /* приоритет от первого */
+     align-items: center;
+    /* приоритет от первого */
+     justify-content: center;
+     margin: 0 12px;
+    /* заменит margin-bottom на отдельную настройку ниже */
+     padding: 15px 0;
+}   
+ .user-info {
+     gap: 0 60px;
+}
+ .filters-container {
+     gap: 10px;
+}
+/* Точное соответствие стилю фильтров */
+ .user-info p {
+     font-size: 10pt;
+     color: #555;
+     margin-bottom: 5px;
+     text-transform: uppercase;
+     letter-spacing: 1px;
+     font-family: inherit;
+     font-weight: normal;
+}
+ .filters-container .custom_button_long, .custom_button_long {
+     margin: 0;
+     flex: 0 0 auto;
+     height: 42px;
+     align-self: flex-end;
+}
+ .filter-group {
+     display: flex;
+     flex-direction: column;
+     flex: 1 1 180px;
+    /* Уменьшил минимальную ширину */
+     min-width: 0;
+    /* Важно для правильного сжатия */
+}
+ .filter-group--checkbox {
+     flex: 0 0 auto;
+     padding-top: 22px;
+    /* Выравниваем по базовой линии */
+     user-select: none;
+     white-space: nowrap;
+}
+ .filter-group--checkbox label {
+     display: flex;
+     align-items: center;
+     margin-right: 8px;
+     cursor: pointer;
+}
+ .filter-group--checkbox input[type="checkbox"] {
+     position: relative;
+     top: 2px;
+     margin-right: 6px;
+    /* Отступ от текста */
+     cursor: pointer;
+}
+ .form-group {
+     margin-bottom: 15px;
+}
+/* Стили для label внутри фильтров */
+ .filter-group label, .form-group label {
+     font-size: 10pt;
+     color: #555;
+     margin-bottom: 5px;
+     text-transform: uppercase;
+     letter-spacing: 1px;
+     text-align: left;
+     display: block;
+}
+/* Общие стили для input, select и flatpickr */
+ .filter-group select, .filter-group .form-control, #search-news, #search-categories, .form-group input, .form-group select {
+     font-family: "Lato", sans-serif;
+     font-size: 12pt;
+     padding: 10px 6px;
+     border: 1px solid #b5b5b5;
+     border-radius: 4px;
+     background-color: transparent;
+     color: #2d2f30;
+     transition: all 0.2s ease-in-out;
+     width: 100%;
+     height: 42px;
+     box-sizing: border-box;
+     outline: none;
+}
+/* Hover и focus эффекты для input, select, flatpickr */
+ .filter-group select:hover, .filter-group .form-control:hover, input:hover, input:focus, .form-group select:hover, .form-group select:focus, .jodit-container.jodit.jodit_theme_default.jodit-wysiwyg_mode:hover {
+     border-color: #888 !important;
+}
+/* Структура действий в списках и формах */
+ .list-actions, .form-actions {
+     display: flex;
+     justify-content: center;
+     gap: 15px;
+}
+ button#delete-all {
+     margin-bottom: 12px;
+}
+/* Стили для вкладок админ-панели */
+ .admin-tabs {
+     display: flex;
+     margin-bottom: 20px;
+     border-bottom: 1px solid #b5b5b5;
+     justify-content: center;
+     width: 100%;
+}
+ .tab-button {
+     flex: 1;
+     min-width: 0;
+     padding: 12px 10px;
+     background: none;
+     border: none;
+     border-bottom: 3px solid transparent;
+     cursor: pointer;
+     font-size: 11pt;
+     color: #555;
+     text-transform: uppercase;
+     letter-spacing: 1px;
+     transition: all 0.3s ease, font-weight 0.1s ease;
+    /* Добавляем анимацию для font-weight */
+     text-align: center;
+     position: relative;
+     font-weight: 400;
+    /* Явно указываем нормальное начертание */
+}
+ .tab-button:first-child {
+     margin-left: 0;
+}
+ .tab-button:last-child {
+     margin-right: 0;
+}
+ .tab-button:hover {
+     color: #2d2f30;
+     background-color: rgba(45, 47, 48, 0.05);
+}
+ .tab-button.active {
+     color: #2d2f30;
+     border-bottom-color: #2d2f30;
+     font-weight: 600;
+    /* Используем полужирное вместо bold для более плавного перехода */
+     z-index: 1;
+}
+/* Убираем лишние отступы и выравниваем текст */
+ .tab-button span {
+     display: inline-block;
+     width: 100%;
+     white-space: nowrap;
+     overflow: hidden;
+     text-overflow: ellipsis;
+}
+/* Остальные стили остаются без изменений */
+ .moderation-panel {
+     margin-top: 15px;
+}
+ .moderation-item {
+     background-color: #fff;
+     padding: 20px;
+     border-radius: 10px;
+     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 -1px 2px rgba(0, 0, 0, 0.05);
+     margin-bottom: 20px;
+     transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+ .moderation-item:hover {
+     transform: translateY(-4px);
+     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1), 0 -4px 8px rgba(0, 0, 0, 0.05);
+}
+ .moderation-item h3 {
+     font-size: 1.2rem;
+     font-weight: bold;
+     margin-bottom: 15px;
+     color: #333;
+     text-align: center;
+}
+ .news-content {
+     font-size: 1rem;
+     color: #555;
+     margin-bottom: 15px;
+     line-height: 1.6;
+}
+ .moderation-item p {
+     font-size: 0.9rem;
+     color: #666;
+     margin-bottom: 8px;
+}
+ .moderation-actions {
+     display: flex;
+     justify-content: center;
+     gap: 15px;
+     margin-top: 20px;
+}
+
+/* Стили для формы редактирования пользователей */
+ .edit-form {
+     margin-top: 15px;
+}
+ .form-group {
+     margin-bottom: 15px;
+}
+ .form-group label {
+     font-size: 10pt;
+     color: #555;
+     margin-bottom: 5px;
+     text-transform: uppercase;
+     letter-spacing: 1px;
+     display: block;
+     text-align: left;
+}
+ .form-group input:focus, .form-group select:focus {
+     border-color: #888;
+     outline: none;
+}
+ .form-actions {
+     display: flex;
+     justify-content: center;
+     gap: 15px;
+     margin-top: 20px;
+}
+/* Адаптивные стили */
+ @media (max-width: 768px) {
+     .admin-tabs {
+         flex-direction: column;
+         border-bottom: none;
+    }
+     .tab-button {
+         width: 100%;
+         margin: 0;
+         padding: 12px 15px;
+         border-bottom: none;
+         border-left: 3px solid transparent;
+         text-align: left;
+         margin-bottom: 2px;
+    }
+     .tab-button.active {
+         border-bottom: none;
+         border-left: 3px solid #2d2f30;
+    }
+     .moderation-actions {
+         flex-direction: column;
+         align-items: center;
+    }
+     .custom_button_short.approve, .custom_button_short.reject, .custom_button_short.archive {
+         width: 100%;
+    }
+}
+
+
+/* Стили для пагинации */
+ .pagination {
+     display: flex;
+     justify-content: center;
+     align-items: center;
+     gap: 6px;
+     margin: 20px 0;
+     flex-wrap: wrap;
+}
+ .pagination_button {
+     font-size: 14px;
+     min-width: 42px;
+     height: 42px;
+     padding: 0 8px;
+     cursor: pointer;
+     text-align: center;
+     color: #2d2f30;
+     border: 1px solid #b5b5b5;
+     background: transparent;
+     border-radius: 6px;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+    /* Убрана глобальная анимация */
+     transition: none;
+}
+ .pagination_button:hover:not(.active) {
+     background-color: #f5f5f5;
+     border-color: #8c8e91;
+     transform: translateY(-1px);
+    /* Анимация только при наведении */
+     transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+ .pagination_button.active {
+     background-color: #2d2f30;
+     color: white;
+     font-weight: 500;
+     border-color: #2d2f30;
+     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    /* Мгновенное переключение для активного состояния */
+     transition: none;
+}
+/* Остальные стили остаются без изменений */
+ .pagination-ellipsis {
+     color: #666;
+     padding: 0 8px;
+     user-select: none;
+     font-size: 14px;
+}
+ .page-input-form {
+     display: flex;
+     align-items: center;
+     gap: 8px;
+     margin-left: 12px;
+}
+ .page-input-form input {
+     box-sizing: border-box;
+     height: 42px;
+     padding-right: 8px;
+     border: 1px solid #b5b5b5;
+     border-radius: 8px;
+     text-align: center;
+     font-size: 14px;
+     line-height: 1;
+     transition: border-color 0.2s ease;
+}
+ .page-input-form input:focus {
+     outline: none;
+     border-color: #2d2f30;
+}
+ @media (max-width: 768px) {
+     .pagination {
+         gap: 4px;
+    }
+     .pagination_button {
+         min-width: 32px;
+         height: 32px;
+         font-size: 13px;
+    }
+     .page-input-form {
+         margin-left: 8px;
+         gap: 6px;
+    }
+     .page-input-form input {
+         width: 50px;
+         height: 32px;
+         font-size: 13px;
+    }
+     .page-input-form button {
+         height: 32px;
+         padding: 0 10px;
+         font-size: 13px;
+    }
+}
+/* Базовые стили кнопок */
+ .custom_button, .custom_button_short, .custom_button_long {
+     font-size: 10pt;
+     line-height: 38px;
+     display: block;
+     width: 100%;
+     height: 42px;
+     margin: 12px auto;
+     cursor: pointer;
+     letter-spacing: 2px;
+     text-transform: uppercase;
+     text-align: center;
+     color: #2d2f30;
+     border: 1px solid #b5b5b5;
+     background: transparent;
+     border-radius: 8px;
+     transition: all 0.2s ease;
+}
+ .custom_button_short {
+     width: 30%;
+     margin: 20px auto;
+}
+ .filters-container .custom_button_long {
+     margin: 0;
+     flex: 0 0 auto;
+     height: 42px;
+     align-self: flex-end;
+}
+/* Общее поведение */
+ .custom_button:hover, .custom_button_short:hover, .custom_button_long:hover, .page-input-form button:hover {
+     background-color: #2d2f30;
+     color: #ffffff;
+     transform: translateY(-2px);
+}
+ .custom_button:active, .custom_button_short:active, .custom_button_long:active, .page-input-form button:active {
+     transform: translateY(0px);
+}
+/* Тематические действия (по назначению) */
+ .custom_button.action-auth:hover, .custom_button.action-default:hover {
+     background-color: #2d2f30;
+     color: #ffffff;
+}
+ .custom_button.action-confirm:hover, .custom_button_short.action-confirm:hover, .custom_button_long.action-confirm:hover, .form-actions .action-confirm:hover {
+     background-color: #458745;
+     color: #ffffff;
+}
+ .custom_button.action-options:hover, .custom_button_short.action-options:hover, .custom_button_long.action-options:hover {
+     background-color: #b1894c;
+     color: #ffffff;
+}
+ .custom_button.action-remove:hover, .custom_button_short.action-remove:hover, .custom_button_long.action-remove:hover {
+     background-color: #853939;
+     color: #ffffff;
+}
+
+/* Модерационные кнопки */
+ .custom_button_short.action-confirm {
+     border: 1px solid #458745;
+     color: #458745;
+     background: transparent;
+}
+ .custom_button_short.action-confirm:hover {
+     background-color: #458745;
+     color: #ffffff;
+}
+ .custom_button_short.action-options {
+     border: 1px solid #b1894c;
+     color: #b1894c;
+     background: transparent;
+}
+ .custom_button_short.action-options:hover {
+     background-color: #b1894c;
+     color: #ffffff;
+}
+ .custom_button_short.action-remove {
+     border: 1px solid #853939;
+     color: #853939;
+     background: transparent;
+}
+ .custom_button_short.action-remove:hover {
+     background-color: #853939;
+     color: #ffffff;
+}
+ .custom_button_short.action-archive {
+     border: 1px solid #327396;
+     color: #327396;
+     background: transparent;
+}
+ .custom_button_short.action-archive:hover {
+     background-color: #327396;
+     color: #ffffff;
+}
+
+.custom_button_long.action-confirm {
+  border: 1px solid #458745;
+  color: #458745;
+  background: transparent;
+}
+.custom_button_long.action-confirm:hover {
+  background-color: #458745;
+  color: #ffffff;
+}
+
+.custom_button_long.action-options {
+  border: 1px solid #b1894c;
+  color: #b1894c;
+  background: transparent;
+}
+.custom_button_long.action-options:hover {
+  background-color: #b1894c;
+  color: #ffffff;
+}
+
+.custom_button_long.action-remove {
+  border: 1px solid #853939;
+  color: #853939;
+  background: transparent;
+}
+.custom_button_long.action-remove:hover {
+  background-color: #853939;
+  color: #ffffff;
+}
+
+.custom_button_long.action-archive {
+  border: 1px solid #327396;
+  color: #327396;
+  background: transparent;
+}
+.custom_button_long.action-archive:hover {
+  background-color: #327396;
+  color: #ffffff;
+}
+
+/* Стили для кнопок модерации */
+ .custom_button_short.approve {
+     background-color: transparent;
+     border: 1px solid #458745;
+     color: #458745;
+}
+ .custom_button_short.approve:hover {
+     background-color: #458745;
+     color: #ffffff;
+}
+ .custom_button_short.reject {
+     background-color: transparent;
+     border: 1px solid #853939;
+     color: #853939;
+}
+ .custom_button_short.reject:hover {
+     background-color: #853939;
+     color: #ffffff;
+}
+ .custom_button_short.archive {
+     background-color: transparent;
+     border: 1px solid #327396;
+     color: #327396;
+}
+ .custom_button_short.archive:hover {
+     background-color: #327396;
+     color: #ffffff;
+}
+
+/* Кнопка в пагинации */
+ .page-input-form button {
+     height: 42px;
+     padding: 0 12px;
+     background: #2d2f30;
+     color: white;
+     border: none;
+     border-radius: 8px;
+     cursor: pointer;
+     letter-spacing: 2px;
+     text-transform: uppercase;
+     transition: all 0.2s ease;
+     font-size: 14px;
+}
+/* Мобилка */
+ @media (max-width: 768px) {
+     .moderation-actions {
+         flex-direction: column;
+         align-items: center;
+    }
+     .custom_button_short.action-confirm, .custom_button_short.action-remove, .custom_button_short.action-archive {
+         width: 100%;
+    }
+}
+
+
+.main-content {
+  flex: 1;
+  margin-left: 0;
+  transition: margin-left 0.3s ease;
+}
+
+.sidebar-shown .main-content {
+  margin-left: 200px;
+}
+
+.sidebar-collapsed .main-content {
+  margin-left: 60px;
+}
+
+.no-sidebar .main-content {
+  margin-left: 0 !important;
+}

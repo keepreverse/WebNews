@@ -1,15 +1,14 @@
-# WebBack/app/decorators.py
 from functools import wraps
-from flask import request, g, jsonify, current_app  # Добавлен current_app
+from flask import request, g, jsonify, current_app
 import jwt
-from werkzeug.exceptions import Unauthorized, Forbidden
+from app.exceptions import PermissionDeniedError, AuthError
 
 def get_current_user(token):
     try:
         payload = jwt.decode(
             token,
-            current_app.config['JWT_SECRET_KEY'],  # Исправлено
-            algorithms=[current_app.config['JWT_ALGORITHM']]  # Исправлено
+            current_app.config['JWT_SECRET_KEY'],
+            algorithms=[current_app.config['JWT_ALGORITHM']]
         )
         return {
             'userID': payload['userID'],
@@ -18,13 +17,11 @@ def get_current_user(token):
             'nickname': payload['nickname']
         }
     except jwt.ExpiredSignatureError:
-        raise Unauthorized("Token has expired")
+        raise AuthError("Токен истёк")
     except jwt.InvalidTokenError:
-        raise Unauthorized("Invalid token")
+        raise AuthError("Неверный токен")
     except Exception as e:
-        raise Unauthorized(f"Token verification failed: {str(e)}")
-
-# Остальной код остается без изменений
+        raise AuthError(f"Ошибка верификации токена: {str(e)}")
 
 def role_required(roles):
     def decorator(f):
@@ -37,15 +34,22 @@ def role_required(roles):
             token = auth_header.replace('Bearer ', '') if auth_header.startswith('Bearer ') else None
             
             if not token:
-                raise Unauthorized("Authorization token is required")
+                raise AuthError("Требуется токен авторизации")
 
             try:
                 g.current_user = get_current_user(token)
-            except Unauthorized as e:
-                return jsonify({"error": e.description}), e.code
+            except AuthError as e:
+                return jsonify({"error": e.message}), e.status_code
 
             if g.current_user['user_role'] not in roles:
-                raise Forbidden(f"Required roles: {', '.join(roles)}")
+                # Формируем сообщение на русском
+                readable_roles = {
+                    "Administrator": "администратора",
+                    "Moderator": "модератора",
+                    "Publisher": "публикатора"
+                }
+                required = [readable_roles.get(r, r) for r in roles]
+                raise PermissionDeniedError(f"Доступ запрещён: требуется роль {' или '.join(required)}.")
 
             return f(*args, **kwargs)
         return wrapper

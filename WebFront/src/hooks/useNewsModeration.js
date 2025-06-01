@@ -47,6 +47,8 @@ const useNewsModeration = () => {
   // Загрузка данных
   const fetchPendingNews = useCallback(async () => {
     try {
+      localStorage.removeItem('cachedPendingNews');
+      
       const data = await api.get("/api/admin/pending-news");
       setAllNews(data || []);
       localStorage.setItem('cachedPendingNews', JSON.stringify(data));
@@ -108,7 +110,6 @@ const useNewsModeration = () => {
     setFilters(prev => ({ ...prev, [type]: value }));
   }, []);
 
-  // Модерация и архивация (без изменений)
   const handleModerate = async (newsID, action, moderatorId) => {
     try {
       await api.post(`/api/admin/moderate-news/${newsID}`, { action, moderator_id: moderatorId });

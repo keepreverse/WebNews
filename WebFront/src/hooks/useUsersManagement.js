@@ -43,6 +43,7 @@ const useUsersManagement = () => {
     }
   }, [setPagination]);
 
+  
   useEffect(() => {
     const filtered = users.filter(user => {
       const matchesRole = !filters.role || user.user_role === filters.role;
@@ -90,16 +91,29 @@ const useUsersManagement = () => {
     if (!window.confirm("Вы уверены, что хотите удалить ВСЕХ пользователей?")) return;
     
     try {
-      await api.delete("/api/admin/users/all");
-      setUsers([])
-      // await fetchUsers();
-      setFilteredUsers([]);
-
-      toast.success("Все пользователи удалены");
+      const response = await api.delete("/api/admin/users/all");
+      
+      // Обновляем состояние с оставшимися пользователями
+      setUsers(response.remainingUsers || []);
+      
+      // Сбрасываем фильтры и пагинацию
+      setFilters({
+        role: '',
+        dateRange: [null, null],
+        search: ''
+      });
+      setPagination(prev => ({
+        ...prev,
+        currentPage: 1,
+        totalItems: response.remainingUsers.length,
+        totalPages: Math.ceil(response.remainingUsers.length / prev.perPage)
+      }));
+      
+      toast.success(`Удалено ${response.deletedCount} пользователей`);
     } catch (error) {
       toast.error(error.message || "Ошибка удаления");
     }
-  }, []);
+  }, [setPagination]);
 
   const fetchRealPasswords = useCallback(async () => {
     try {
@@ -121,6 +135,7 @@ const useUsersManagement = () => {
     try {
       await api.put(`/api/admin/users/${userId}`, newData);
       await fetchUsers();
+      setEditingUser(null);
       toast.success("Изменения сохранены");
     } catch (error) {
       toast.error(error.message || "Ошибка обновления");
@@ -149,6 +164,7 @@ const useUsersManagement = () => {
         dateRange: [null, null],
         search: ''
       });
+      setShowPasswords(false);
       setPagination(prev => ({ ...prev, currentPage: 1 }));
     }
   };

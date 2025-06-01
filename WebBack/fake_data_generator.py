@@ -1,166 +1,106 @@
+
 import random
+import os
 from datetime import datetime, timedelta
 from faker import Faker
-from database.db import Storage  # Замените на ваш модуль
+from database.db import Storage
 
-fake = Faker("ru_RU")  # Русская локализация
+fake = Faker("ru_RU")
 
-def generate_fake_users(count: int = 5):
-    """Генерация тестовых пользователей"""
-    db = Storage()
-    db.open_connection()
-    
-    roles = ["Administrator", "Moderator", "Publisher"]
-    
-    for _ in range(count):
-        user_data = {
-            "login": fake.user_name(),
-            "password": "test123",  # Пароль будет хешироваться
-            "nick": fake.first_name(),
-            "role": random.choice(roles)
+class TestDataGenerator:
+    def __init__(self):
+        self.db = Storage()
+        self.db.open_connection()
+        self.generated_data = {
+            'users': [],
+            'news': [],
+            'categories': []
         }
-        
-        try:
-            db.user_create(
-                login=user_data["login"],
-                password=user_data["password"],
-                nickname=user_data["nick"],
-                role=user_data["role"]
-            )
-            print(f"Создан пользователь: {user_data['login']}")
-        except Exception as e:
-            print(f"Ошибка: {str(e)}")
-    
-    db.close_connection()
 
-def generate_fake_news(count: int = 50):
-    """Генерация тестовых новостей"""
-    db = Storage()
-    db.open_connection()
-    
-    users = db.user_get_all()
-    if not users:
-        raise Exception("Сначала создайте пользователей!")
-    
-    statuses = ["Pending", "Approved", "Rejected", "Archived"]
-    
-    for i in range(count):
-        news_data = {
-            "title": fake.sentence(nb_words=6),
-            "description": fake.text(max_nb_chars=500),
-            "status": random.choice(statuses),
-            "event_start": fake.date_time_between(
-                start_date="-30d", 
-                end_date="now"
-            ).strftime("%Y-%m-%d %H:%M:%S"),
-            "event_end": fake.date_time_between(
-                start_date="now", 
-                end_date="+30d"
-            ).strftime("%Y-%m-%d %H:%M:%S")
-        }
-        
-        try:
-            db.news_add(
-                user_id=random.choice(users)["userID"],
-                news_input_data=news_data,
-                files_received=False,
-                files_list=[],
-                files_folder=""
-            )
-            print(f"Создана новость #{i+1}: {news_data['title']}")
-        except Exception as e:
-            print(f"Ошибка: {str(e)}")
-    
-    db.close_connection()
+    def generate_users(self, count=5):
+        roles = ["Administrator", "Moderator", "Publisher"]
+        existing = set()
+        current_users = self.db.user_get_all()
+        existing.update((u['login'].lower(), u['nick'].lower()) for u in current_users)
+
+        for _ in range(count):
+            while True:
+                login = f"{fake.user_name()}{random.randint(1000,9999)}"
+                nick = f"{fake.first_name()}{random.randint(1000,9999)}"
+                if (login.lower(), nick.lower()) not in existing:
+                    break
+
+            user_data = {
+                "login": login,
+                "password": fake.password(length=12),
+                "nick": nick,
+                "role": random.choice(roles)
+            }
+
+            try:
+                user_id = self.db.user_create(
+                    login=user_data["login"],
+                    password=user_data["password"],
+                    nickname=user_data["nick"],
+                    role=user_data["role"]
+                )
+                self.generated_data['users'].append(user_id)
+                print(f"Создан пользователь: {user_data['login']}")
+                existing.add((login.lower(), nick.lower()))
+            except Exception as e:
+                print(f"Ошибка создания пользователя: {str(e)}")
+
+    def generate_categories(self, count=5):
+        existing = set(c['name'].lower() for c in self.db.category_get_all())
+        for _ in range(count):
+            name = fake.unique.word().capitalize()
+            while name.lower() in existing:
+                name = fake.unique.word().capitalize()
+
+            try:
+                category_id = self.db.category_create(
+                    name=name,
+                    description=fake.sentence()
+                )
+                self.generated_data['categories'].append(category_id)
+                print(f"Создана категория: {name}")
+                existing.add(name.lower())
+            except Exception as e:
+                print(f"Ошибка создания категории: {str(e)}")
+
+    def generate_news(self, count=20):
+        if not self.generated_data['users']:
+            raise Exception("Требуются пользователи для создания новостей")
+        statuses = ["Pending", "Approved", "Rejected", "Archived"]
+        for _ in range(count):
+            try:
+                event_start = fake.date_time_between("-30d", "+30d")
+                event_end = event_start + timedelta(hours=random.randint(1, 72))
+                news_data = {
+                    "title": fake.sentence(nb_words=6),
+                    "description": fake.text(max_nb_chars=500),
+                    "status": random.choice(statuses),
+                    "event_start": event_start.strftime("%Y-%m-%d %H:%M:%S"),
+                    "event_end": event_end.strftime("%Y-%m-%d %H:%M:%S"),
+                    "categoryID": random.choice(self.generated_data['categories']) if self.generated_data['categories'] else None
+                }
+                user_id = random.choice(self.generated_data['users'])
+                self.db.news_add(
+                    user_id=user_id,
+                    news_input_data=news_data,
+                    files_received=False,
+                    files_list=[],
+                    files_folder=os.path.abspath("uploads")
+                )
+                print(f"Создана новость: {news_data['title']}")
+            except Exception as e:
+                print(f"Ошибка создания новости: {str(e)}")
 
 if __name__ == "__main__":
-    generate_fake_users(12)  # Создаст 5 пользователей
-    generate_fake_news(555)   # Создаст 150 новостей
-    print("Тестовые данные успешно созданы!")
-
-
-
-# import random
-# from datetime import datetime, timedelta
-# from faker import Faker
-# from database.db import Storage  # Замените на ваш модуль
-
-# fake = Faker("ru_RU")  # Русская локализация
-
-# def generate_fake_users(count: int = 10):
-#     """Генерация тестовых пользователей"""
-#     db = Storage()
-#     db.open_connection()
-    
-#     roles = ["Publisher"] * 8 + ["Moderator"] * 2  # 80% публикаторов, 20% модераторов
-    
-#     for _ in range(count):
-#         user_data = {
-#             "login": fake.user_name() + str(random.randint(100, 999)),
-#             "password": "test123",
-#             "nick": fake.first_name() + " " + fake.last_name(),
-#             "role": random.choice(roles)
-#         }
-        
-#         try:
-#             db.user_create(
-#                 login=user_data["login"],
-#                 password=user_data["password"],
-#                 nickname=user_data["nick"],
-#                 role=user_data["role"]
-#             )
-#             print(f"Создан пользователь: {user_data['login']}")
-#         except Exception as e:
-#             print(f"Ошибка: {str(e)}")
-    
-#     db.close_connection()
-
-# def generate_approved_news(count: int = 200):
-#     """Генерация принятых новостей"""
-#     db = Storage()
-#     db.open_connection()
-    
-#     users = db.user_get_all()
-#     if not users:
-#         raise Exception("Сначала создайте пользователей!")
-    
-#     # Только публикаторы могут быть авторами новостей
-#     publishers = [u for u in users if u["user_role"] == "Publisher"]
-    
-#     for i in range(count):
-#         news_data = {
-#             "title": fake.sentence(nb_words=8),
-#             "description": fake.text(max_nb_chars=1000),
-#             "status": "Approved",  # Фиксированный статус
-#             "event_start": fake.date_time_between(
-#                 start_date="-30d", 
-#                 end_date="now"
-#             ).strftime("%Y-%m-%d %H:%M:%S"),
-#             "event_end": fake.date_time_between(
-#                 start_date="now", 
-#                 end_date="+60d"
-#             ).strftime("%Y-%m-%d %H:%M:%S"),
-#             "publish_date": fake.date_time_between(
-#                 start_date="-7d",
-#                 end_date="now"
-#             ).strftime("%Y-%m-%d %H:%M:%S")
-#         }
-        
-#         try:
-#             db.news_add(
-#                 user_id=random.choice(publishers)["userID"],
-#                 news_input_data=news_data,
-#                 files_received=False,
-#                 files_list=[],
-#                 files_folder=""
-#             )
-#             print(f"Создана новость {i+1}/200: {news_data['title']}")
-#         except Exception as e:
-#             print(f"Ошибка: {str(e)}")
-    
-#     db.close_connection()
-
-# if __name__ == "__main__":
-#     generate_fake_users(10)    # 10 пользователей
-#     generate_approved_news(200) # 200 принятых новостей
-#     print("Генерация данных завершена!")
+    generator = TestDataGenerator()
+    print("=== Генерация пользователей ===")
+    generator.generate_users(27)
+    print("=== Генерация категорий ===")
+    generator.generate_categories(525)
+    print("=== Генерация новостей ===")
+    generator.generate_news(1445)
