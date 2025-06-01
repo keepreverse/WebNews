@@ -325,12 +325,12 @@ function NewsList() {
                     {item.files.map((file, index) => (
                       <div key={index} className="thumbnail">
                         <img
-                          src={`http://127.0.0.1:5000/uploads/${file.fileName}`}
+                          src={`https://webnews-1fwz.onrender.com/uploads/${file.fileName}`}
                           alt={index}
                           className="data-image"
                           onClick={() =>
                             openLightbox(
-                              item.files.map((f) => `http://127.0.0.1:5000/uploads/${f.fileName}`),
+                              item.files.map((f) => `https://webnews-1fwz.onrender.com/uploads/${f.fileName}`),
                               index
                             )
                           }

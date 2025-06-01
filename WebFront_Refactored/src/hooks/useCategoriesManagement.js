@@ -37,6 +37,7 @@ const useCategoriesManagement = () => {
       
       setPagination(prev => ({
         ...prev,
+        currentPage: 1,
         totalItems: data.length,
         totalPages: Math.ceil(data.length / prev.perPage)
       }));

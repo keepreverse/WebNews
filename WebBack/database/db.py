@@ -606,27 +606,27 @@ class Storage(object):
         if not updates:
             raise ValueError("Нет допустимых полей для обновления")
 
-        # Проверка уникальности логина (без учёта регистра)
         if "login" in updates:
-            self.cursor.execute('''
-                SELECT 1 FROM Users 
-            ''', (updates["login"], user_id))
+            self.cursor.execute(
+                "SELECT 1 FROM Users WHERE lower(login) = lower(?) AND userID != ?",
+                (updates["login"], user_id)
+            )
             if self.cursor.fetchone():
                 raise ValueError(f"Логин '{updates['login']}' уже используется")
-
-        # Проверка уникальности ника (без учёта регистра)
         if "nick" in updates:
-            self.cursor.execute('''
-                SELECT 1 FROM Users 
-            ''', (updates["nick"], user_id))
+            self.cursor.execute(
+                "SELECT 1 FROM Users WHERE lower(nick) = lower(?) AND userID != ?",
+                (updates["nick"], user_id)
+            )
             if self.cursor.fetchone():
                 raise ValueError(f"Никнейм '{updates['nick']}' уже используется")
 
-        set_clause = ", ".join([f"{field} = ?" for field in updates.keys()])
-        query = f"UPDATE Users SET {set_clause} WHERE userID = ?"
 
-        self.cursor.execute(query, (*updates.values(), user_id))
+        set_clause = ", ".join([f"{field} = ?" for field in updates.keys()])
+        values = list(updates.values()) + [user_id]
+        self.cursor.execute(f"UPDATE Users SET {set_clause} WHERE userID = ?", values)
         self.connection.commit()
+
 
     def user_delete(self, user_id):
         """Delete user by ID"""

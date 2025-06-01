@@ -456,7 +456,7 @@
           const images = formData.files.map(file => ({
             id: uuidv4(),
             fileName: file.fileName,
-            preview: `http://127.0.0.1:5000/uploads/${file.fileName}`
+            preview: `https://webnews-1fwz.onrender.com/uploads/${file.fileName}`
           }));
           setNewsImages(images);
         }

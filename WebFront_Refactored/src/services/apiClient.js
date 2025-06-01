@@ -1,4 +1,4 @@
-const API_URL = "https://webnews-pro.up.railway.app/api";
+const API_URL = "https://webnews-1fwz.onrender.com/api";
 let authToken = null;
 
 export const initAuthToken = () => {
