@@ -7,35 +7,39 @@ def create_app(config_object='config'):
     app = Flask(__name__)
     app.config.from_object(config_object)
 
+    # Убедимся, что UPLOAD_FOLDER установлен
     if not app.config.get('UPLOAD_FOLDER'):
         raise ValueError("UPLOAD_FOLDER must be configured")
-    
+
+    # Прокинем CORS_ORIGINS в конфиг, если он есть
+    if hasattr(app.config, 'CORS_ORIGINS'):
+        app.config['CORS_ORIGINS'] = app.config['CORS_ORIGINS']
+
     configure_cors(app)
     configure_uploads(app)
     configure_database(app)
-    
-    from .routes import bp  # Изменено здесь
+
+    # Регистрация маршрутов
+    from .routes import bp
     app.register_blueprint(bp)
-    
+
     return app
 
 def configure_cors(app):
-    # Добавьте лог для проверки
-    app.logger.info(f"CORS origins: {app.config['CORS_OPTIONS']['origins']}")
     CORS(
         app,
-        resources={r"/api/*": {"origins": app.config['CORS_OPTIONS']['origins']}},
-        supports_credentials=True
+        resources={r"/api/*": {
+            "origins": app.config.get("CORS_ORIGINS", []),
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"],
+            "supports_credentials": True
+        }}
     )
 
-
 def configure_uploads(app):
-    # Создаем папку из конфига
     upload_dir = app.config['UPLOAD_FOLDER']
     if not os.path.exists(upload_dir):
         os.makedirs(upload_dir)
-    
-    # Добавляем в конфиг абсолютный путь
     app.config['UPLOAD_FOLDER'] = os.path.abspath(upload_dir)
 
 def configure_database(app):
@@ -51,4 +55,4 @@ def configure_database(app):
             try:
                 db.close_connection()
             except Exception as e:
-                app.logger.error(f"Error closing DB: {str(e)}")
+                app.logger.error(f"Ошибка при закрытии БД: {str(e)}")

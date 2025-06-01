@@ -1,24 +1,20 @@
 import os
 from datetime import timedelta
 
-# Путь относительно корня проекта
+# Абсолютный путь к директории проекта
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+
+# Папка для загрузок
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 
-# Конфигурация CORS
-CORS_OPTIONS = {
-    "origins": [
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "https://keepreverse.github.io"
-    ],
-    "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    "allow_headers": ["Content-Type", "Authorization"],
-    "max_age": 86400
-}
+# Разрешённые домены для CORS
+CORS_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "https://keepreverse.github.io"  # GitHub Pages frontend
+]
 
-
-# Добавляем JWT конфигурацию
+# JWT настройки
 JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'your-secret-key-here')
 JWT_ALGORITHM = 'HS256'
 JWT_EXPIRATION_DELTA = timedelta(hours=24)
