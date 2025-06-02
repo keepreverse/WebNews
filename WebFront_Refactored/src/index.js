@@ -24,14 +24,6 @@ root.render(
 window.onerror = function (message) {
   if (String(message).includes("Cannot read properties of null (reading 'value')")) {
     window.location.reload();
-    return true; // предотвратить отображение
-  }
-};
-
-window.onunhandledrejection = function (event) {
-  const msg = event?.reason?.message || "";
-  if (msg.includes("Cannot read properties of null (reading 'value')")) {
-    window.location.reload();
     return true;
   }
 };

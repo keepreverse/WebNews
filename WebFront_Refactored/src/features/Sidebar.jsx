@@ -34,17 +34,34 @@ function Sidebar({ currentUser, onCollapseChange }) {
       </div>
 
       <ul className="sidebar-menu">
-        <li><Link to="/news-creator" className="sidebar-link">Создать новость</Link></li>
-        <li><Link to="/news-list" className="sidebar-link">Список новостей</Link></li>
+        <li>
+          <Link to="/news-creator" className="sidebar-link">
+            Конструктор
+          </Link>
+        </li>
+        <li>
+          <Link to="/news-list" className="sidebar-link">
+            Публикации
+          </Link>
+        </li>
         {(isAdmin(currentUser) || isModerator(currentUser)) && (
-          <li><Link to="/admin-panel" className="sidebar-link">Админ-панель</Link></li>
+          <li>
+            <Link to="/admin-panel" className="sidebar-link">
+              Управление
+            </Link>
+          </li>
         )}
-        <li><button onClick={handleLogout} className="sidebar-link" type="button">Выйти</button></li>
+        <li>
+          <button onClick={handleLogout} className="sidebar-link" type="button">
+            Выйти
+          </button>
+        </li>
       </ul>
 
       {currentUser && !collapsed && (
         <div className="user-info-side">
           <p className="user-nickname">{currentUser.nickname}</p>
+          <p className="user-login">( {currentUser.login} )</p>
           <p className="user-role">{translateRole(currentUser.role)}</p>
         </div>
       )}

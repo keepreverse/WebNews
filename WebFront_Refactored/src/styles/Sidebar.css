@@ -15,7 +15,7 @@
   justify-content: space-between;
   font-family: 'Lato', sans-serif;
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.03);
-  transition: width 0.3s ease;
+  transition: all 0.3s ease;
   overflow: hidden;
 }
 
@@ -36,9 +36,9 @@
   color: #2d2f30;
   text-decoration: none;
   border-radius: 6px;
-  font-size: 10pt;
+  font-size: 11pt;
   font-weight: 500;
-  letter-spacing: 1.5px;
+  letter-spacing: 3px;
   text-transform: uppercase;
   text-align: center;
   transition: all 0.25s ease;
@@ -78,11 +78,11 @@ button.sidebar-link {
   width: 100%;
   box-sizing: border-box;
   padding: 8px;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
   font-family: inherit;
-  font-size: 10pt;
+  font-size: 11pt;
   font-weight: 500;
-  letter-spacing: 1.5px;
+  letter-spacing: 4px;
   text-transform: uppercase;
   color: #2d2f30;
   text-align: center;
@@ -110,7 +110,16 @@ button.sidebar-link:hover {
   font-size: 12.5pt;
   font-weight: 600;
   color: #333;
+  line-height: 0.5; /* согласование высоты строк */
 }
+
+.user-login {
+  font-size: 10.5pt;
+  font-weight: 500;
+  color: #333;
+  line-height: 0.5; /* согласование высоты строк */
+}
+
 
 .user-role {
   font-size: 10.5pt;
@@ -130,35 +139,6 @@ button.sidebar-link:hover {
   display: none;
 }
 
-.main-content {
-  flex: 1;
-  margin-left: 200px;
-  transition: margin-left 0.3s ease;
-}
-
-.main-content.sidebar-collapsed {
-  margin-left: 60px;
-}
-
-.main-content.no-sidebar {
-  margin-left: 0 !important;
-}
-
-@media (max-width: 768px) {
-  .sidebar {
-    width: 0;
-    left: -220px;
-  }
-
-  .sidebar.collapsed {
-    width: 0;
-    left: -220px;
-  }
-
-  .main-content {
-    margin-left: 0 !important;
-  }
-}
 
 .sidebar-header {
   border-bottom: 1px solid #d3d3d3;

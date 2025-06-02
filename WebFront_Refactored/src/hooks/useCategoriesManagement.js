@@ -15,14 +15,7 @@ const useCategoriesManagement = () => {
     totalPages: 1
   });
 
-  const [categories, setCategories] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('cachedCategories')) || [];
-    } catch {
-      return [];
-    }
-  });
-
+  const [categories, setCategories] = useState([]);
   const [filteredCategories, setFilteredCategories] = useState([]);
   const [filters, setFilters] = useState({ 
     search: '',
@@ -31,24 +24,24 @@ const useCategoriesManagement = () => {
 
   const fetchCategories = useCallback(async () => {
     try {
-      const data = await api.get('/categories');
-      setCategories(data);
-      localStorage.setItem('cachedCategories', JSON.stringify(data));
-      
+      const data = await api.get("/categories");
+      const items = data || [];
+      setCategories(items);
+
       setPagination(prev => ({
         ...prev,
         currentPage: 1,
-        totalItems: data.length,
-        totalPages: Math.ceil(data.length / prev.perPage)
+        totalItems: items.length,
+        totalPages: Math.ceil(items.length / prev.perPage),
       }));
     } catch (error) {
-      toast.error('Ошибка загрузки категорий');
     }
   }, [setPagination]);
 
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
+
 
   useEffect(() => {
     const filtered = categories.filter(cat => {

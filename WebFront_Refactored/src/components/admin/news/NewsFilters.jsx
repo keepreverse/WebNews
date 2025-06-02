@@ -1,14 +1,14 @@
-import React from 'react';
-import PropTypes from 'prop-types';
-import Flatpickr from 'react-flatpickr';
-import { Russian } from 'flatpickr/dist/l10n/ru.js';
-import 'flatpickr/dist/flatpickr.min.css';
+import React from "react";
+import PropTypes from "prop-types";
+import Flatpickr from "react-flatpickr";
+import { Russian } from "flatpickr/dist/l10n/ru.js";
+import "flatpickr/dist/flatpickr.min.css";
 
 const NewsFilters = ({
   uniqueAuthors,
   filters,
   onFilterChange,
-  onClear
+  onClear,
 }) => {
   const datePickerConfig = {
     mode: "range",
@@ -16,21 +16,39 @@ const NewsFilters = ({
     altFormat: "F j, Y",
     dateFormat: "Y-m-d",
     locale: Russian,
-    onChange: (dates) => onFilterChange('dateRange', dates)
+    onChange: (dates) => onFilterChange("dateRange", dates),
+  };
+
+  // Дополнительно: поле поиска (его нет в админской версии)
+  const handleSearchChange = (e) => {
+    onFilterChange("searchQuery", e.target.value);
   };
 
   return (
     <div className="filters-container">
+      {/* Поле поиска по новостям */}
+      <div className="filter-group">
+        <label htmlFor="search">Поиск по новостям:</label>
+        <input
+          id="search"
+          type="text"
+          placeholder="Поиск по заголовку или описанию"
+          value={filters.searchQuery || ""}
+          onChange={handleSearchChange}
+        />
+      </div>
+
+      {/* Фильтр по автору */}
       <div className="filter-group">
         <label>Фильтр по автору:</label>
         <select
-          value={filters.author || ''}
+          value={filters.author || ""}
           onChange={(e) => {
-            onFilterChange('author', e.target.value);
+            onFilterChange("author", e.target.value);
           }}
         >
           <option value="">Все авторы</option>
-          {uniqueAuthors.map(author => (
+          {uniqueAuthors.map((author) => (
             <option key={author} value={author}>
               {author}
             </option>
@@ -38,6 +56,7 @@ const NewsFilters = ({
         </select>
       </div>
 
+      {/* Фильтр по диапазону дат */}
       <div className="filter-group">
         <label>Диапазон дат события:</label>
         <Flatpickr
@@ -51,7 +70,9 @@ const NewsFilters = ({
       <button
         onClick={onClear}
         className="custom_button_long"
-        disabled={!filters.author && !filters.dateRange[0]}
+        disabled={
+          !filters.author && !filters.dateRange[0] && !filters.searchQuery
+        }
         aria-label="Сбросить фильтры"
       >
         Сбросить фильтры
@@ -64,10 +85,11 @@ NewsFilters.propTypes = {
   uniqueAuthors: PropTypes.arrayOf(PropTypes.string).isRequired,
   filters: PropTypes.shape({
     author: PropTypes.string,
-    dateRange: PropTypes.arrayOf(PropTypes.instanceOf(Date))
+    dateRange: PropTypes.arrayOf(PropTypes.instanceOf(Date)),
+    searchQuery: PropTypes.string,
   }).isRequired,
-  onFilterChange: PropTypes.func.isRequired, // Изменено
-  onClear: PropTypes.func.isRequired
+  onFilterChange: PropTypes.func.isRequired,
+  onClear: PropTypes.func.isRequired,
 };
 
 export default React.memo(NewsFilters);

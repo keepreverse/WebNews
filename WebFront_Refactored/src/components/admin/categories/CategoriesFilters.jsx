@@ -25,18 +25,18 @@ const CategoriesFilters = ({
   return (
     <div className="filters-container" style={{ padding: '12px 0 0 0' }}>
       <div className="filter-group">
-        <label htmlFor="search-categories">Поиск по названию</label>
+        <label htmlFor="search">Поиск по категориям:</label>
         <input
-          id="search-categories"
+          id="search"
           type="text"
-          placeholder="Введите название..."
+          placeholder="Поиск по названию или описанию"
           value={searchFilter}
           onChange={(e) => onSearchChange(e.target.value)}
         />
       </div>
 
       <div className="filter-group">
-        <label htmlFor="date-filter">Диапазон дат создания</label>
+        <label htmlFor="date-filter">Диапазон дат создания:</label>
         <Flatpickr
           options={configFlatpickr}
           value={dateRange}

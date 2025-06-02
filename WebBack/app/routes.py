@@ -58,7 +58,7 @@ def news_line():
         return make_response(jsonify({}), 200)
 
     if request.method == "GET":
-        news_list = [n for n in g.db.news_getlist() 
+        news_list = [n for n in g.db.get_news() 
                    if n['status'] == 'Approved' and not n.get('delete_date')]
         return jsonify(news_list)
 
@@ -112,7 +112,7 @@ def news_line():
         except sqlite3.OperationalError as e:
             raise DatabaseError("Ошибка записи в базу данных") from e
 
-        return jsonify({"message": "Новость успешно добавлена"}), HTTPStatus.CREATED
+        return jsonify({"message": "Новость успешно добавлена"}), HTTPStatus.OK
 
     elif request.method == "DELETE":
         news_ids = [row[0] for row in g.db.cursor.execute('''
@@ -126,14 +126,14 @@ def news_line():
             "message": "Все новости удалены",
             "count": len(news_ids)
         })
-    
+
 @bp.route("/api/news/<int:newsID>", methods=["GET", "PUT", "DELETE", "OPTIONS"])
 def single_news(newsID):
     if request.method == "OPTIONS":
         return jsonify({})
 
     # Общая проверка существования новости для всех методов
-    news_data = g.db.news_get_single(newsID)
+    news_data = g.db.get_news_single(newsID)
     if not news_data[0]:
         raise NotFoundError(resource_type="Новость", resource_id=newsID)
 
@@ -158,7 +158,7 @@ def single_news(newsID):
         files_list = request.files.getlist('files') if 'files' in request.files else []
         MAX_FILE_SIZE = 5 * 1024 * 1024
         ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-        
+
         for file in files_list:
             # Проверка размера файла
             if file.content_length > MAX_FILE_SIZE:
@@ -166,14 +166,14 @@ def single_news(newsID):
                     f"Файл {file.filename} превышает лимит размера",
                     file_info={"filename": file.filename, "size": file.content_length}
                 )
-            
+
             # Проверка расширения файла
             if '.' not in file.filename:
                 raise FileValidationError(
                     "Файл не имеет расширения",
                     file_info={"filename": file.filename}
                 )
-                
+
             extension = file.filename.rsplit('.', 1)[1].lower()
             if extension not in ALLOWED_EXTENSIONS:
                 raise FileValidationError(
@@ -194,14 +194,15 @@ def single_news(newsID):
                 bool(files_list),
                 files_list,
                 current_app.config['UPLOAD_FOLDER'],
-                request.form.getlist('existing_files')
+                request.form.getlist('existing_files'),
+                status_override='Approved'  # <- Добавляем смену статуса
             )
         except sqlite3.OperationalError as e:
             raise DatabaseError("Ошибка обновления записи") from e
         except FileNotFoundError as e:
             raise FileSystemError("Ошибка файловой системы") from e
 
-        return jsonify({"message": "Новость успешно обновлена"}), HTTPStatus.OK
+        return jsonify({"message": "Новость успешно обновлена и одобрена"}), HTTPStatus.OK
 
     elif request.method == "DELETE":
         try:
@@ -213,7 +214,8 @@ def single_news(newsID):
         except sqlite3.OperationalError as e:
             raise DatabaseError("Ошибка удаления новости") from e
 
-@bp.route("/api/auth/login", methods=["POST", "OPTIONS"])  # Добавьте OPTIONS
+
+@bp.route("/api/auth/login", methods=["POST", "OPTIONS"])
 def login():
     if request.method == "OPTIONS":
         return jsonify({}), 200
@@ -238,7 +240,7 @@ def login():
             break
 
     if not matched_user or not check_password_hash(matched_user["password"], password):
-        raise AuthError("Неверные учетные данные")
+        raise AuthError("Неверный логин или пароль")
 
     try:
         token_payload = {
@@ -313,7 +315,7 @@ def register():
     return jsonify({
         "message": "Пользователь успешно зарегистрирован",
         "userID": user_id
-    }), HTTPStatus.CREATED
+    }), HTTPStatus.OK
 
 @bp.route("/api/auth/logout", methods=["POST", "OPTIONS"])
 def logout():
@@ -370,67 +372,18 @@ def admin_users_real_passwords():
 
 @bp.route("/api/admin/pending-news", methods=["GET"])
 @moderator_required
-def admin_pending_news():
+def pending_news():
+    """
+    Возвращает список всех новостей со статусом 'Pending' и delete_date IS NULL.
+    """
     try:
-        # Выполнение SQL-запроса
-        g.db.cursor.execute('''
-            SELECT n.newsID, title, description, status, create_date,
-                   event_start, event_end, up.nick AS publisher_nick,
-                   f.fileID, f.guid, f.format
-            FROM News n
-            JOIN Users up ON up.userID = n.publisherID
-            LEFT JOIN File_Link fl ON fl.newsID = n.newsID
-            LEFT JOIN Files f ON f.fileID = fl.fileID
-            WHERE n.status = 'Pending'
-            ORDER BY n.create_date DESC
-        ''')
-        
-        # Обработка результатов запроса
-        rows = g.db.cursor.fetchall()
-        pending_news = {}
-        
-        for row in rows:
-            try:
-                news_id = row['newsID']
-                if news_id not in pending_news:
-                    pending_news[news_id] = {
-                        'newsID': news_id,
-                        'title': row['title'],
-                        'description': row['description'],
-                        'status': row['status'],
-                        'create_date': row['create_date'],
-                        'event_start': row['event_start'],
-                        'event_end': row['event_end'],
-                        'publisher_nick': row['publisher_nick'],
-                        'files': []
-                    }
-                
-                if row['fileID']:
-                    pending_news[news_id]['files'].append({
-                        'fileID': row['fileID'],
-                        'fileName': row['guid'],
-                        'fileFormat': row['format']
-                    })
-                    
-            except KeyError as e:
-                raise DatabaseError(
-                    "Ошибка структуры данных новости",
-                    details={
-                        "missing_field": str(e),
-                        "row_data": dict(row)
-                    }
-                ) from e
+        # Вызываем новый метод из Storage
+        pending_list = g.db.get_pending_news()
+        return jsonify(pending_list), HTTPStatus.OK
 
-        return jsonify(list(pending_news.values()))
-        
-    except sqlite3.OperationalError as e:
-        raise DatabaseError(
-            "Ошибка получения данных из базы",
-            details={
-                "operation": "fetch_pending_news",
-                "error": str(e)
-            }
-        ) from e
+    except DatabaseError as e:
+        # Перебрасываем нашу кастомную ошибку (обработается глобально)
+        raise e
 
 @bp.route("/api/admin/moderate-news/<int:newsID>", methods=["POST", "OPTIONS"])
 @moderator_required
@@ -457,7 +410,7 @@ def moderate_news(newsID):
             )
 
         # Получение и проверка новости
-        news_data = g.db.news_get_single(newsID)
+        news_data = g.db.get_news_single(newsID)
         if not news_data or not news_data[0]:
             raise NotFoundError(resource_type="Новость", resource_id=newsID)
 
@@ -505,7 +458,7 @@ def moderate_news(newsID):
             "message": f"Новость успешно {'одобрена' if action == 'approve' else 'отклонена'}",
             "newsID": newsID,
             "newStatus": new_status
-        }), HTTPStatus.CREATED
+        }), HTTPStatus.OK
 
     except json.JSONDecodeError:
         raise ValidationError("Невалидный JSON в теле запроса")
@@ -523,7 +476,7 @@ def archive_news(newsID):
 
     try:
         # Проверяем существование новости
-        news_data = g.db.news_get_single(newsID)
+        news_data = g.db.get_news_single(newsID)
         if not news_data or not news_data[0]:
             raise NotFoundError(resource_type="Новость", resource_id=newsID)
 
@@ -724,7 +677,7 @@ def categories():
         return jsonify({
             "message": "Категория создана",
             "categoryID": category_id
-        }), HTTPStatus.CREATED
+        }), HTTPStatus.OK
 
     if request.method == "DELETE":
         category_id = request.args.get("id")
@@ -735,7 +688,7 @@ def categories():
         return jsonify({"message": "Категория удалена"}), HTTPStatus.OK
 
 @bp.route("/api/categories/all", methods=["DELETE", "OPTIONS"])
-@admin_required
+@moderator_required
 def delete_all_categories():
     if request.method == "OPTIONS":
         return jsonify({}), HTTPStatus.OK
@@ -756,7 +709,7 @@ def delete_all_categories():
         ) from e
 
 @bp.route("/api/categories/<int:category_id>", methods=["PUT", "OPTIONS"])
-@admin_required
+@moderator_required
 def update_category(category_id):
     if request.method == "OPTIONS":
         return jsonify({}), HTTPStatus.OK
@@ -784,7 +737,7 @@ def update_category(category_id):
     return jsonify({"message": "Категория успешно обновлена"}), HTTPStatus.OK
 
 @bp.route("/api/admin/trash", methods=["GET"])
-@admin_required
+@moderator_required
 def get_trash():
     try:
         # Получаем удаленные новости
@@ -802,7 +755,7 @@ def get_trash():
         ) from e
 
 @bp.route("/api/admin/trash/<int:newsID>/purge", methods=["DELETE"])
-@admin_required
+@moderator_required
 def purge_single_news(newsID):
     # Проверяем существование новости в корзине
     news_data = g.db.get_deleted_news_single(newsID)
@@ -833,7 +786,7 @@ def purge_single_news(newsID):
         ) from e
 
 @bp.route("/api/admin/trash/purge", methods=["DELETE"])
-@admin_required
+@moderator_required
 def purge_trash():
     try:
         # Получаем все ID в корзине
@@ -857,7 +810,7 @@ def purge_trash():
         ) from e
 
 @bp.route("/api/admin/trash/check-expired", methods=["POST"])
-@admin_required
+@moderator_required
 def check_expired():
     try:
         # Вызываем метод для удаления просроченных новостей
@@ -875,7 +828,7 @@ def check_expired():
         ) from e
 
 @bp.route("/api/admin/trash/<int:newsID>/restore", methods=["POST"])
-@admin_required
+@moderator_required
 def restore_news(newsID):
     # Проверяем существование новости
     news_data = g.db.get_deleted_news_single(newsID)
@@ -901,6 +854,44 @@ def restore_news(newsID):
         
         return jsonify({
             "message": "Новость успешно восстановлена"
+        }), HTTPStatus.OK
+        
+    except sqlite3.OperationalError as e:
+        raise DatabaseError(
+            "Ошибка восстановления новости",
+            details={
+                "operation": "restore_news",
+                "news_id": newsID
+            }
+        ) from e
+
+@bp.route("/api/admin/trash/<int:newsID>/restore-edit", methods=["POST"])
+@moderator_required
+def restore_edit_news(newsID):
+    # Проверяем существование новости
+    news_data = g.db.get_deleted_news_single(newsID)
+    if not news_data:
+        raise NotFoundError(resource_type="Новость", resource_id=newsID)
+    
+    # Проверяем, находится ли новость в корзине
+    if not news_data.get('delete_date'):
+        raise BusinessRuleError(
+            "Новость не находится в корзине",
+            error_code="NOT_IN_TRASH"
+        )
+    
+    try:
+        # Восстанавливаем новость
+        g.db.cursor.execute('''
+            UPDATE News
+            SET delete_date = NULL,
+                status = 'Pending'
+            WHERE newsID = ?
+        ''', (newsID,))
+        g.db.connection.commit()
+        
+        return jsonify({
+            "message": "Новость подготовлена к восстановлению"
         }), HTTPStatus.OK
         
     except sqlite3.OperationalError as e:

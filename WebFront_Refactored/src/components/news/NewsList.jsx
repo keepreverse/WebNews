@@ -1,378 +1,183 @@
-import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { Helmet } from 'react-helmet-async';
-import { useNavigate } from 'react-router-dom';
-import { ToastContainer, toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
-import PageWrapper from "../../features/PageWrapper";
+// src/components/news/NewsList.jsx
+import React, { useMemo, useState } from 'react';
+import PropTypes from "prop-types";
+import Lightbox from 'yet-another-react-lightbox';
+import Fullscreen from 'yet-another-react-lightbox/plugins/fullscreen';
+import Thumbnails from 'yet-another-react-lightbox/plugins/thumbnails';
+import Zoom from 'yet-another-react-lightbox/plugins/zoom';
 import HTMLReactParser from "html-react-parser";
-import Flatpickr from "react-flatpickr";
-import "flatpickr/dist/flatpickr.min.css";
-import { Russian } from "flatpickr/dist/l10n/ru.js";
+import NewsFilters from "../../components/admin/news/NewsFilters";
+import NewsGallery from "../../features/Gallery";
+import Pagination from "../../features/Pagination";
+import { translateRole } from '../../utils/helpers';
 
-import Lightbox from "yet-another-react-lightbox";
-import Fullscreen from "yet-another-react-lightbox/plugins/fullscreen";
-import Thumbnails from "yet-another-react-lightbox/plugins/thumbnails";
-import Zoom from "yet-another-react-lightbox/plugins/zoom";
-import "yet-another-react-lightbox/plugins/thumbnails.css";
-import "yet-another-react-lightbox/styles.css";
+import 'yet-another-react-lightbox/styles.css';
+import 'yet-another-react-lightbox/plugins/thumbnails.css';
 
-import { api } from '../../services/apiClient';
-
-function NewsList() {
-
-  const navigate = useNavigate();
-  
-  const [currentUser, setCurrentUser] = useState(null);
-
-  const [data, setData] = useState([]);
-  const [filteredData, setFilteredData] = useState([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const newsPerPage = 5;
-
-  // Фильтры
-  const [authorFilter, setAuthorFilter] = useState("");
-  const [dateRange, setDateRange] = useState([null, null]);
-  const [uniqueAuthors, setUniqueAuthors] = useState([]);
-  const [searchQuery, setSearchQuery] = useState("");
-
-  // Lightbox State
+const NewsList = ({
+  currentUser,
+  allNews,
+  filteredNews,
+  currentNews,
+  pagination,
+  filters,
+  onFilterChange,
+  onClearFilters,
+  onDeleteNews,
+  onDeleteAllNews,
+  onEditNews,
+  onPageChange
+}) => {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [lightboxSlides, setLightboxSlides] = useState([]);
 
-  // Конфигурация Flatpickr для диапазона дат
-  const configFlatpickr = useMemo(() => ({
-    mode: "range", // Включаем режим диапазона
-    altInput: true,
-    altFormat: "F j, Y",
-    dateFormat: "Y-m-d",
-    locale: Russian,
-  }), []);
+  // Собираем уникальных авторов из всех новостей (для фильтра)
+  const uniqueAuthors = useMemo(
+    () =>
+      Array.from(
+        new Set(allNews.map((item) => item.publisher_nick).filter(Boolean))
+      ),
+    [allNews]
+  );
 
-  useEffect(() => {
-    const checkAuth = () => {
-      try {
-        const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
-        if (userData) {
-          setCurrentUser(userData);
-          api.setAuthToken(userData.token); // Устанавливаем токен в API
-        }
-      } catch (error) {
-        console.error('Error loading user data:', error);
-      }
-    };
+  const handleOpenLightbox = (newsItem, index) => {
+    if (!newsItem.files?.length) return;
     
-    checkAuth();
-  }, []);
-
-  useEffect(() => {
-    const fetchData = async () => {
-        try {
-            const result = await api.get("/news");
-            
-            // Дополнительная фильтрация на клиенте (опционально)
-            const publishedNews = result.filter(item => 
-                item.status === "Approved" && 
-                !item.delete_date
-            );
-            
-            setData(publishedNews);
-            setFilteredData(publishedNews);
-        
-        // Получаем уникальных авторов
-        const authors = [...new Set(publishedNews.map(item => item.publisher_nick).filter(Boolean))];
-        setUniqueAuthors(authors);
-      } catch (error) {
-        console.error("Ошибка загрузки данных:", error);
-        toast.error("Не удалось загрузить данные");
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  useEffect(() => {
-    let result = [...data];
-  
-    if (authorFilter) {
-      result = result.filter(item => item.publisher_nick === authorFilter);
-    }
-  
-    if (dateRange[0] && dateRange[1]) {
-      const [startDate, endDate] = dateRange;
-      const filterStartDate = new Date(startDate).setHours(0, 0, 0, 0);
-      const filterEndDate = new Date(endDate).setHours(23, 59, 59, 999);
-  
-      result = result.filter(item => {
-        const itemDate = new Date(item.event_start).getTime();
-        return itemDate >= filterStartDate && itemDate <= filterEndDate;
-      });
-    }
-  
-    // Добавляем поиск по заголовку и тексту новости
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(item => 
-        item.title.toLowerCase().includes(query) || 
-        (item.description && item.description.toLowerCase().includes(query))
-      );
-    }
-  
-    setFilteredData(result);
-  }, [data, authorFilter, dateRange, searchQuery]);
-
-  // Обработчик изменения даты (теперь работает с диапазоном)
-  const handleDateChange = (selectedDates) => {
-    setDateRange(selectedDates);
-  };
-
-  const clearFilters = () => {
-    setAuthorFilter("");
-    setDateRange([null, null]);
-    setSearchQuery("");
-  };
-
-  // MemoizedFlatpickr с поддержкой диапазона
-  const MemoizedFlatpickr = useMemo(() => {
-    return (
-      <Flatpickr
-        options={configFlatpickr}
-        onChange={handleDateChange}
-        value={dateRange}
-        placeholder="Выберите диапазон дат"
-      />
-    );
-  }, [configFlatpickr, dateRange]);
-  
-  const handleAuthorChange = (e) => {
-    setAuthorFilter(e.target.value || "");
-  };
-
-  const currentNews = useMemo(() => {
-    const indexOfLastNews = currentPage * newsPerPage;
-    const indexOfFirstNews = indexOfLastNews - newsPerPage;
-    return filteredData.slice(indexOfFirstNews, indexOfLastNews);
-  }, [filteredData, currentPage, newsPerPage]);
-
-  const totalPages = Math.ceil(filteredData.length / newsPerPage);
-
-  useEffect(() => {
-    if (currentNews.length === 0 && currentPage > 1) {
-      setCurrentPage((prev) => Math.max(prev - 1, 1));
-    }
-  }, [currentNews, currentPage]);
-
-  const handleEditNews = (newsItem) => {
-    navigate(`/news-creator?edit=${newsItem.newsID}`);
-  };
-
-  const deleteNews = useCallback(async (newsID) => {
-    try {
-      await api.delete(`/news/${newsID}`);
-      toast.success("Новость удалена успешно!");
-      setData((prevData) => prevData.filter((item) => item.newsID !== newsID));
-    } catch (error) {
-      console.error("Ошибка при удалении новости:", error);
-      toast.error(error.message || "Ошибка при удалении новости");
-    }
-  }, []);
-  
-  const deleteAllNews = useCallback(async () => {
-    if (!window.confirm("Вы уверены, что хотите удалить ВСЕ новости?")) return;
-  
-    try {
-      await api.delete("/news");
-      toast.success("Все новости удалены успешно!");
-      setData([]);
-      setCurrentPage(1);
-    } catch (error) {
-      console.error("Ошибка при удалении всех новостей:", error);
-      toast.error(error.message || "Ошибка при удалении всех новостей");
-    }
-  }, []);
-
-
-  // Функция для открытия лайтбокса
-  const openLightbox = (imageUrls, index) => {
-    const slides = imageUrls.map((url, i) => ({
-      src: url,
-      alt: `Изображение ${i + 1}`,
-    }));
-    setLightboxSlides(slides);
+    setLightboxSlides(newsItem.files.map(file => ({
+      src: `http://127.0.0.1:5000/uploads/${file.fileName}`,
+      alt: `Изображение новости ${newsItem.newsID}`
+    })));
     setLightboxIndex(index);
     setLightboxOpen(true);
   };
 
-  const translateRole = (role) => {
-    const roleTranslations = {
-      'Administrator': 'Администратор',
-      'Moderator': 'Модератор',
-      'Publisher': 'Публикатор'
-    };
-    return roleTranslations[role] || role;
-  };
-  
-
   return (
-    <PageWrapper>
-    <Helmet>
-      <title>Список публикаций</title>
-    </Helmet>
-      <div id="data-list-form" className="container">
-        <h1>Список публикаций</h1>
-        {currentUser && (
-          <div className="user-info">
-            <p>
-              Текущий пользователь: {currentUser.nickname} ({currentUser.login})
-            </p>
-            <p>Роль: {translateRole(currentUser.role)}</p>
-            <p>Доступные действия: 
-              {currentUser.role === 'Administrator' && ' Удаление, Редактирование'}
-              {currentUser.role === 'Moderator' && ' Удаление, Редактирование'}
-              {currentUser.role === 'Publisher' && ' Просмотр'}
-            </p>
-          </div>
-        )}
-
-        {/* Фильтры */}
-        <div className="filters-container">
-          <div className="filter-group">
-            <label htmlFor="search-news">Поиск по новостям:</label>
-            <input
-              id="search-news"
-              type="text"
-              placeholder="Поиск по заголовку или тексту"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          
-          <div className="filter-group">
-            <label htmlFor="author-filter">Фильтр по автору:</label>
-            <select
-              id="author-filter"
-              value={authorFilter}
-              onChange={handleAuthorChange}
-            >
-              <option value="">Все авторы</option>
-              {uniqueAuthors.map(author => (
-                <option key={author} value={author}>{author}</option>
-              ))}
-            </select>
-          </div>
-          
-          <div className="filter-group">
-            <label>Фильтр по дате публикации:</label>
-              {MemoizedFlatpickr}
-          </div>
-          
-          <button 
-            onClick={clearFilters} 
-            className="custom_button_long"
-            disabled={!authorFilter && !dateRange[0] && !searchQuery}
-          >
-            Сбросить фильтры
-          </button>
-
-          {/* Кнопка "Удалить все новости" — только для администраторов */}
-          {(currentUser?.role === 'Administrator' || currentUser?.role === 'Moderator')  && filteredData.length > 0 && (
-            <button onClick={deleteAllNews} className="custom_button_long action-remove">
-              Удалить все новости
-            </button>
-          )}
-
+    <>
+      {/* 1. Секция “Информация о пользователе” */}
+      {currentUser && (
+        <div className="user-info">
+          <p>
+            Текущий пользователь: {currentUser.nickname} (
+            {currentUser.login})
+          </p>
+          <p>Роль: {translateRole(currentUser.role)}</p>
+          <p>
+            Доступные действия:
+            {(currentUser.role === "Administrator" ||
+              currentUser.role === "Moderator") &&
+              " Удаление, Редактирование"}
+            {currentUser.role === "Publisher" && " Просмотр"}
+          </p>
         </div>
+      )}
 
-        {totalPages > 1 && (
-          <Pagination totalPages={totalPages} currentPage={currentPage} paginate={setCurrentPage} />
+      {/* 2. Фильтры */}
+
+      {/* 2.1 Поиск по тексту + фильтр по автору + диапазон дат */}
+      <NewsFilters
+        uniqueAuthors={uniqueAuthors}
+        filters={filters}
+        onFilterChange={onFilterChange}
+        onClear={onClearFilters}
+      />
+      
+      {/* 2.2 Кнопка “Удалить все” (для админа/модератора, если есть хотя бы одна отфильтрованная) */}
+      <div className="filters-container" style={{ padding: '0 0 12px 0' }}>
+        {filteredNews.length > 0 && (
+          <button
+            onClick={onDeleteAllNews}
+            className="custom_button_long action-remove"
+          >
+            Удалить все новости
+          </button>
         )}
+      </div>
 
-        <div className="data-list">
-          {currentNews.length === 0 ? (
-            <p>Публикации не найдены</p>
-          ) : (
-            currentNews.map((item) => (
-              <div key={item.newsID} className="data-item">
-                <h2>{item.title}</h2>
-                <div className="news-description">{HTMLReactParser(item.description)}</div>
-                {item.publisher_nick && (
-                  <p>
-                    <strong>Автор:</strong> {item.publisher_nick}
-                  </p>
-                )}
-                {item.event_start && (
-                  <p>
-                    <strong>Дата события:</strong>{" "}
-                    {new Date(item.event_start).toLocaleDateString("ru-RU", {
+      <Pagination
+        totalPages={pagination.totalPages}
+        currentPage={pagination.currentPage}
+        paginate={onPageChange}
+        totalItems={pagination.totalItems}
+      />
+
+      {/* 4. Список карточек новостей */}
+      <div className="data-list">
+        {currentNews.length === 0 ? (
+          <p>Публикации не найдены</p>
+        ) : (
+          currentNews.map((item) => (
+            <div key={item.newsID} className="data-item">
+              <h2>{item.title}</h2>
+              <div className="news-description">
+                {HTMLReactParser(item.description)}
+              </div>
+              {item.publisher_nick && (
+                <p>
+                  <strong>Автор:</strong> {item.publisher_nick}
+                </p>
+              )}
+              {item.event_start && (
+                <p>
+                  <strong>Дата события:</strong>{" "}
+                  {new Date(item.event_start).toLocaleDateString(
+                    "ru-RU",
+                    {
                       year: "numeric",
                       month: "long",
                       day: "numeric",
-                    })}
-                    {", "}
-                    {new Date(item.event_start).toLocaleTimeString("ru-RU", {
+                    }
+                  )}
+                  {", "}
+                  {new Date(item.event_start).toLocaleTimeString(
+                    "ru-RU",
+                    {
                       hour: "2-digit",
                       minute: "2-digit",
-                    })}
-                  </p>
-                )}
-                {item.files?.length > 0 && (
-                  <p>
-                    <strong>Количество фотографий:</strong> {item.files.length}
-                  </p>
-                )}
-                {item.files?.length > 0 && (
-                  <div className="thumbnail-container">
-                    {item.files.map((file, index) => (
-                      <div key={index} className="thumbnail">
-                        <img
-                          src={`https://webnews-1fwz.onrender.com/uploads/${file.fileName}`}
-                          alt={index}
-                          className="data-image"
-                          onClick={() =>
-                            openLightbox(
-                              item.files.map((f) => `https://webnews-1fwz.onrender.com/uploads/${f.fileName}`),
-                              index
-                            )
-                          }
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
+                    }
+                  )}
+                </p>
+              )}
+              {/* Количество фотографий */}
+              {item.files?.length > 0 && (
+                <p>
+                  <strong>Количество фотографий:</strong>{" "}
+                  {item.files.length}
+                </p>
+              )}
 
-                {/* Весь блок действий будет скрыт для Publisher */}
-                {(currentUser?.role === 'Administrator' || currentUser?.role === 'Moderator') && (
-                  <div className="list-actions">
-                    {/* Кнопка "Редактировать" — для администраторов и модераторов */}
-                    <button 
-                      onClick={() => handleEditNews(item)} 
-                      className="custom_button_short action-options"
-                    >
-                      Редактировать
-                    </button>
+              {item.files?.length > 0 && (
+                <NewsGallery 
+                  files={item.files}
+                  onImageClick={(index) => handleOpenLightbox(item, index)}
+                />
+              )}
 
-                    {/* Кнопка "Удалить" — только для администраторов и модераторов */}
-                    {(currentUser?.role === 'Administrator' || currentUser?.role === 'Moderator') && (
-                      <button 
-                        onClick={() => deleteNews(item.newsID)} 
-                        className="custom_button_short action-remove"
-                      >
-                        Удалить
-                      </button>
-                    )}
-                  </div>
-                )}
-
-              </div>
-            ))
-          )}
-        </div>
-
-        {totalPages > 1 && (
-          <Pagination totalPages={totalPages} currentPage={currentPage} paginate={setCurrentPage} />
+                <div className="list-actions">
+                  <button
+                    onClick={() => onEditNews(item)}
+                    className="custom_button_short action-options"
+                  >
+                    Редактировать
+                  </button>
+                  <button
+                    onClick={() => onDeleteNews(item.newsID)}
+                    className="custom_button_short action-remove"
+                  >
+                    Удалить
+                  </button>
+                </div>
+            </div>
+          ))
         )}
       </div>
-      <ToastContainer />
+
+      <Pagination
+        totalPages={pagination.totalPages}
+        currentPage={pagination.currentPage}
+        paginate={onPageChange}
+        totalItems={pagination.totalItems}
+      />
 
       <Lightbox
         open={lightboxOpen}
@@ -410,72 +215,41 @@ function NewsList() {
         }}
       />
 
-    </PageWrapper>
-    
+    </>
   );
-}
+};
 
-const Pagination = React.memo(({ totalPages, currentPage, paginate }) => {
-  const [inputPage, setInputPage] = useState('');
+NewsList.propTypes = {
+  currentUser: PropTypes.shape({
+    login: PropTypes.string,
+    nickname: PropTypes.string,
+    role: PropTypes.string,
+  }),
+  allNews: PropTypes.array.isRequired,
+  filteredNews: PropTypes.array.isRequired,
+  currentNews: PropTypes.array.isRequired,
+  pagination: PropTypes.shape({
+    currentPage: PropTypes.number.isRequired,
+    perPage: PropTypes.number.isRequired,
+    totalItems: PropTypes.number.isRequired,
+    totalPages: PropTypes.number.isRequired,
+  }).isRequired,
+  filters: PropTypes.shape({
+    author: PropTypes.string,
+    dateRange: PropTypes.array,
+    searchQuery: PropTypes.string,
+  }).isRequired,
+  onFilterChange: PropTypes.func.isRequired,
+  onClearFilters: PropTypes.func.isRequired,
+  onDeleteNews: PropTypes.func.isRequired,
+  onDeleteAllNews: PropTypes.func.isRequired,
+  onEditNews: PropTypes.func.isRequired,
+  onPageChange: PropTypes.func.isRequired,
+  onOpenLightbox: PropTypes.func.isRequired,
+  onCloseLightbox: PropTypes.func.isRequired,
+  lightboxOpen: PropTypes.bool.isRequired,
+  lightboxIndex: PropTypes.number.isRequired,
+  lightboxSlides: PropTypes.array.isRequired,
+};
 
-  const handlePageInput = (e) => {
-    e.preventDefault();
-    const page = parseInt(inputPage);
-    if (page >= 1 && page <= totalPages) {
-      paginate(page);
-    }
-    setInputPage('');
-  };
-
-  const getVisiblePages = () => {
-    if (totalPages <= 6) return Array.from({ length: totalPages }, (_, i) => i + 1);
-    
-    let pages = [];
-    pages.push(1);
-    
-    if (currentPage > 3) pages.push('...');
-    
-    const start = Math.max(2, currentPage - 1);
-    const end = Math.min(totalPages - 1, currentPage + 1);
-    
-    for (let i = start; i <= end; i++) pages.push(i);
-    
-    if (currentPage < totalPages - 2) pages.push('...');
-    
-    pages.push(totalPages);
-    
-    return pages;
-  };
-
-  return (
-    <div className="pagination">
-      {getVisiblePages().map((page, index) => (
-        page === '...' ? 
-          <span key={`ellipsis-${index}`} className="pagination-ellipsis">...</span> :
-          <button
-            key={page}
-            onClick={() => paginate(page)}
-            className={`pagination_button ${currentPage === page ? "active" : ""}`}
-          >
-            {page}
-          </button>
-      ))}
-
-      {totalPages > 6 && (
-        <form onSubmit={handlePageInput} className="page-input-form">
-          <input
-            type="number"
-            min="1"
-            max={totalPages}
-            value={inputPage}
-            onChange={(e) => setInputPage(e.target.value)}
-            placeholder="№"
-          />
-          <button type="submit">Перейти</button>
-        </form>
-      )}
-    </div>
-  );
-});
-
-export default NewsList;
+export default React.memo(NewsList);

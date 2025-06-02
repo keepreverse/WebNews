@@ -13,8 +13,8 @@ const UsersFilters = ({
   onDateChange,
   onTogglePasswords,
   onClear,
-  onDeleteAll,       // Добавляем новый проп
-  deleteDisabled     // И этот
+  onDeleteAll,
+  deleteDisabled
 }) => {
   const configFlatpickr = {
     mode: "range",
@@ -37,7 +37,7 @@ const UsersFilters = ({
   return (
     <div className="filters-container">
       <div className="filter-group">
-        <label htmlFor="role-filter">Фильтр по роли</label>
+        <label htmlFor="role-filter">Фильтр по роли:</label>
         <select
           id="role-filter"
           value={roleFilter}
@@ -53,7 +53,7 @@ const UsersFilters = ({
       </div>
 
       <div className="filter-group">
-        <label htmlFor="date-filter">Диапазон дат регистрации</label>
+        <label htmlFor="date-filter">Диапазон дат регистрации:</label>
         <Flatpickr
           options={configFlatpickr}
           value={dateRange}

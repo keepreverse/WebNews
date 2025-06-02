@@ -3,7 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 
 import LoginPage from "./components/auth/LoginPage";
 import NewsCreator from "./components/news/NewsCreator";
-import NewsList from "./components/news/NewsList";
+import NewsListPage from "./components/news/NewsListPage";
 import AdminPanel from "./components/admin/AdminPanel";
 import NotFoundPage from "./pages/NotFoundPage";
 
@@ -28,7 +28,7 @@ function App() {
           path="/news-list" 
           element={
             <ErrorBoundary key="news-list">
-              <NewsList />
+              <NewsListPage />
             </ErrorBoundary>
           } 
         />

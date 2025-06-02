@@ -89,35 +89,35 @@ body {
     /* Цвет затемнения */
 }
 
- .toggle-mode-btn {
+.toggle-mode-btn {
     margin-top: 1rem;
     background: none;
     border: none;
-    color: #007bff;
+    color: #3b91ee;
     cursor: pointer;
-    font-size: 1rem;
+    font-size: 0.9rem;
+    text-decoration: none;
+    padding: 0; /* Убираем внутренние отступы */
+    display: inline; /* Делаем инлайновым элементом */
+    width: auto; /* Ширина по содержимому */
 }
 
- .toggle-mode-btn:hover {
+.toggle-mode-btn:hover {
     text-decoration: underline;
     color: #0056b3;
 }
 
- #news-form, #data-list-form {
-     max-width: 1000px;
-    /* Максимальная ширина контейнера */
-     width: 100%;
-    /* Занимает всю доступную ширину до max-width */
-     margin: 0 auto;
-    /* Центрирование по горизонтали */
-     padding: 1% 5%;
-    /* Отступы внутри */
-     border-radius: 10px;
-     text-align: justify;
-     overflow-y: auto;
-     display: flex;
-     flex-direction: column;
+#news-form, #data-list-form {
+    max-width: 1000px;
+    width: 100%;
+    margin: 0 auto;
+    box-sizing: border-box;
+    padding-right: clamp(16px, 5vw, 60px);
+    padding-left: clamp(16px, 5vw, 60px);
+    padding-bottom: clamp(16px, 5vw, 20px);
+    padding-top: clamp(16px, 5vw, 20px);
 }
+
  .container h1 {
      font-size: 1.8rem;
      font-weight: 700;
@@ -307,22 +307,8 @@ body {
      overflow-y: overlay;
     /* Прозрачный скроллбар поверх контента */
 }
-/* Альтернативный вариант - скроллбар только при наведении */
- @media (hover: hover) {
-     body {
-         scrollbar-width: none;
-        /* Для Firefox */
-    }
-     body::-webkit-scrollbar {
-         display: none;
-    }
-     body:hover::-webkit-scrollbar {
-         display: block;
-    }
-     body:hover::-webkit-scrollbar-thumb {
-         background-color: var(--scrollbar-thumb-color);
-    }
-}
+
+
  .content input[type="text"] {
      width: 100%;
      font-family: Arial;
@@ -465,7 +451,7 @@ body {
      display: block;
 }
 /* Общие стили для input, select и flatpickr */
- .filter-group select, .filter-group .form-control, #search-news, #search-categories, .form-group input, .form-group select {
+ .filter-group select, .filter-group .form-control, #search, .form-group input, .form-group select {
      font-family: "Lato", sans-serif;
      font-size: 12pt;
      padding: 10px 6px;
@@ -611,33 +597,6 @@ body {
      gap: 15px;
      margin-top: 20px;
 }
-/* Адаптивные стили */
- @media (max-width: 768px) {
-     .admin-tabs {
-         flex-direction: column;
-         border-bottom: none;
-    }
-     .tab-button {
-         width: 100%;
-         margin: 0;
-         padding: 12px 15px;
-         border-bottom: none;
-         border-left: 3px solid transparent;
-         text-align: left;
-         margin-bottom: 2px;
-    }
-     .tab-button.active {
-         border-bottom: none;
-         border-left: 3px solid #2d2f30;
-    }
-     .moderation-actions {
-         flex-direction: column;
-         align-items: center;
-    }
-     .custom_button_short.approve, .custom_button_short.reject, .custom_button_short.archive {
-         width: 100%;
-    }
-}
 
 
 /* Стили для пагинации */
@@ -710,30 +669,8 @@ body {
      outline: none;
      border-color: #2d2f30;
 }
- @media (max-width: 768px) {
-     .pagination {
-         gap: 4px;
-    }
-     .pagination_button {
-         min-width: 32px;
-         height: 32px;
-         font-size: 13px;
-    }
-     .page-input-form {
-         margin-left: 8px;
-         gap: 6px;
-    }
-     .page-input-form input {
-         width: 50px;
-         height: 32px;
-         font-size: 13px;
-    }
-     .page-input-form button {
-         height: 32px;
-         padding: 0 10px;
-         font-size: 13px;
-    }
-}
+
+
 /* Базовые стили кнопок */
  .custom_button, .custom_button_short, .custom_button_long {
      font-size: 10pt;
@@ -910,16 +847,8 @@ body {
      transition: all 0.2s ease;
      font-size: 14px;
 }
-/* Мобилка */
- @media (max-width: 768px) {
-     .moderation-actions {
-         flex-direction: column;
-         align-items: center;
-    }
-     .custom_button_short.action-confirm, .custom_button_short.action-remove, .custom_button_short.action-archive {
-         width: 100%;
-    }
-}
+
+
 
 
 .main-content {
@@ -938,4 +867,147 @@ body {
 
 .no-sidebar .main-content {
   margin-left: 0 !important;
+}
+
+
+
+
+
+
+
+
+
+/* ======== Общие стили для мобильных устройств ======== */
+
+@media (max-width: 768px) {
+  /* Контейнеры */
+  .container {
+    padding: 0 16px;
+    box-sizing: border-box;
+  }
+
+  /* Сайдбар */
+  .sidebar {
+    width: 0;
+    left: -220px;
+    transition: left 0.3s ease;
+  }
+
+  .sidebar.open {
+    left: 0;
+    width: 220px;
+  }
+
+  .main-content {
+    margin-left: 0 !important;
+  }
+
+  /* Таблица администратора */
+  .admin-tabs {
+    flex-direction: column;
+    border-bottom: none;
+  }
+
+  .tab-button {
+    width: 100%;
+    margin: 0;
+    padding: 12px 15px;
+    border-bottom: none;
+    border-left: 3px solid transparent;
+    text-align: left;
+    margin-bottom: 2px;
+  }
+
+  .tab-button.active {
+    border-left: 3px solid #2d2f30;
+  }
+
+  /* Кнопки модерации */
+  .moderation-actions {
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .custom_button_short.action-confirm,
+  .custom_button_short.action-remove,
+  .custom_button_short.action-archive,
+  .custom_button_short.approve,
+  .custom_button_short.reject,
+  .custom_button_short.archive {
+    width: 100%;
+  }
+
+  /* Пагинация */
+  .pagination {
+    gap: 4px;
+  }
+
+  .pagination_button {
+    min-width: 32px;
+    height: 32px;
+    font-size: 13px;
+  }
+
+  .page-input-form {
+    margin-left: 8px;
+    gap: 6px;
+  }
+
+  .page-input-form input {
+    width: 50px;
+    height: 32px;
+    font-size: 13px;
+  }
+
+  .page-input-form button {
+    height: 32px;
+    padding: 0 10px;
+    font-size: 13px;
+  }
+
+  /* Кнопки */
+  .custom_button,
+  .custom_button_short {
+    font-size: 14px;
+    padding: 10px 14px;
+    width: 100%;
+  }
+}
+
+/* ======== Стили для экранов менее 480px ======== */
+@media (max-width: 480px) {
+  .tab-button {
+    font-size: 15px;
+    padding: 10px 12px;
+  }
+
+  .custom_button,
+  .custom_button_short {
+    font-size: 13px;
+    padding: 8px 10px;
+  }
+
+  h1, h2, h3 {
+    font-size: 1.25rem;
+  }
+}
+
+/* ======== Поведение скролла при наведении ======== */
+@media (hover: hover) {
+  body {
+    scrollbar-width: none; /* Firefox */
+  }
+
+  body::-webkit-scrollbar {
+    display: none;
+  }
+
+  body:hover::-webkit-scrollbar {
+    display: block;
+  }
+
+  body:hover::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb-color);
+  }
 }

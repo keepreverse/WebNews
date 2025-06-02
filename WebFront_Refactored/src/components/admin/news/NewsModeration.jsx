@@ -6,7 +6,7 @@ import Thumbnails from 'yet-another-react-lightbox/plugins/thumbnails';
 import Zoom from 'yet-another-react-lightbox/plugins/zoom';
 import HTMLReactParser from "html-react-parser";
 import NewsFilters from './NewsFilters';
-import NewsGallery from './NewsGallery';
+import Gallery from '../../../features/Gallery';
 import Pagination from '../../../features/Pagination';
 import 'yet-another-react-lightbox/styles.css';
 import 'yet-another-react-lightbox/plugins/thumbnails.css';
@@ -42,7 +42,7 @@ const NewsModeration = ({
     if (!newsItem.files?.length) return;
     
     setLightboxSlides(newsItem.files.map(file => ({
-      src: `https://webnews-1fwz.onrender.com/uploads/${file.fileName}`,
+      src: `http://127.0.0.1:5000/uploads/${file.fileName}`,
       alt: `Изображение новости ${newsItem.newsID}`
     })));
     setLightboxIndex(index);
@@ -93,7 +93,7 @@ const NewsModeration = ({
               )}
 
               {news.files?.length > 0 && (
-                <NewsGallery 
+                <Gallery 
                   files={news.files}
                   onImageClick={(index) => handleOpenLightbox(news, index)}
                 />

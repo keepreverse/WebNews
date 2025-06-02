@@ -456,7 +456,7 @@
           const images = formData.files.map(file => ({
             id: uuidv4(),
             fileName: file.fileName,
-            preview: `https://webnews-1fwz.onrender.com/uploads/${file.fileName}`
+            preview: `http://127.0.0.1:5000/uploads/${file.fileName}`
           }));
           setNewsImages(images);
         }
@@ -468,7 +468,7 @@
 
 
     useEffect(() => {
-      const params = new URLSearchParams(window.location.search);
+      const params = new URLSearchParams(location.search);
       const newsId = params.get('edit');
       
       if (newsId) {
@@ -476,7 +476,7 @@
         setEditNewsId(newsId);
         loadNewsData(newsId);
       }
-    }, [loadNewsData]); // Теперь функция в зависимостях
+    }, [loadNewsData, location.search]); // Теперь функция в зависимостях
 
 
     const handleSubmit = async (e) => {
@@ -621,10 +621,10 @@
     return (
       <PageWrapper>
       <Helmet>
-        <title>Конфигуратор публикаций</title>
+        <title>Конструктор публикаций</title>
       </Helmet>
         <div id="news-form" className="container">
-          <h1>Конфигуратор публикаций</h1>
+          <h1>Конструктор публикаций</h1>
           {currentUser && (
             <div className="user-info">
               <p>
@@ -683,7 +683,7 @@
 
               <JoditEditor
                 name="description"
-                defaultValue={description || ""}
+                value={description || ""}
                 config={configJoditEditor}
                 tabIndex={1}
                 ref={editorRef}

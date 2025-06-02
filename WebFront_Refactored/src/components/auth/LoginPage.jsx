@@ -63,12 +63,10 @@ const LoginPage = () => {
         toast.success("Успешный вход");
         navigate("/news-creator");
       } else {
-        toast.success("Регистрация успешна! Теперь войдите.");
+        toast.success("Регистрация прошла успешна!");
         setIsLoginMode(true);
       }
     } catch (err) {
-      console.error("Ошибка авторизации/регистрации:", err);
-      toast.error(err.message || "Ошибка");
     }
   };
 
@@ -131,8 +129,11 @@ const LoginPage = () => {
           <button
             className="toggle-mode-btn"
             onClick={() => setIsLoginMode(!isLoginMode)}
+            type="button"
           >
-            {isLoginMode ? "Нет аккаунта? Зарегистрироваться" : "Уже есть аккаунт? Войти"}
+            {isLoginMode 
+              ? "Нет аккаунта? Зарегистрироваться" 
+              : "Уже есть аккаунт? Войти"}
           </button>
           <ToastContainer position="top-right" autoClose={3000} />
         </div>

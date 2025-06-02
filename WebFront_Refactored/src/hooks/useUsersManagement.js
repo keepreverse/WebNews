@@ -39,11 +39,9 @@ const useUsersManagement = () => {
         totalPages: Math.ceil(data.length / prev.perPage)
       }));
     } catch (error) {
-      toast.error(error.message || "Ошибка загрузки пользователей");
-    }
+    }   
   }, [setPagination]);
 
-  
   useEffect(() => {
     const filtered = users.filter(user => {
       const matchesRole = !filters.role || user.user_role === filters.role;

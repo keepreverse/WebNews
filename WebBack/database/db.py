@@ -259,7 +259,7 @@ class Storage(object):
 
         self.connection.commit()
 
-    def news_getlist(self) -> list:
+    def get_news(self) -> list:
         """Get all news items with single query"""
         try:
             self.cursor.execute('''
@@ -325,7 +325,7 @@ class Storage(object):
             if "UNIQUE constraint failed" in str(e):
                 raise Exception("Такая запись уже существует")
 
-    def news_get_single(self, newsID: int) -> list:
+    def get_news_single(self, newsID: int) -> list:
         """Get specific news item by ID"""
         # Get main news data
         self.cursor.execute('''
@@ -384,31 +384,40 @@ class Storage(object):
             'files': files
         }, news_data['newsID']]
 
-    def news_update(self, news_id, user_id, news_data, files_received, files, upload_folder, existing_files=None):
-        """Update existing news item"""
+    def news_update(self, news_id, user_id, news_data, files_received, files, upload_folder, existing_files=None, status_override=None):
+        """Update existing news item with optional status change"""
         self.cursor.execute('BEGIN TRANSACTION;')
         
         try:
             # 1. Обновление основной информации о новости
-            self.cursor.execute('''
+            update_query = '''
                 UPDATE News
                 SET title = ?, description = ?, event_start = ?, publisherID = ?, categoryID = ?
-                WHERE newsID = ?
-            ''', (
+            '''
+            update_values = [
                 news_data.get('title'),
                 news_data.get('description'),
                 news_data.get('event_start'),
                 user_id,
-                news_data.get('categoryID'),
-                news_id
-            ))
+                news_data.get('categoryID')
+            ]
 
-            # 2. Обработка файлов
+            # Добавим изменение статуса, если передан параметр
+            if status_override:
+                update_query += ', status = ?'
+                update_values.append(status_override)
+
+            update_query += ' WHERE newsID = ?'
+            update_values.append(news_id)
+
+            self.cursor.execute(update_query, tuple(update_values))
+
+            # --- остальной код без изменений ---
+            # Удаление/обновление файлов, как в твоей версии:
             all_existing_files = existing_files if existing_files else []
             files_to_delete = []
 
             if not all_existing_files:
-                # Случай 1: Полное удаление всех файлов
                 self.cursor.execute('''
                     SELECT guid FROM Files
                     WHERE fileID IN (
@@ -416,16 +425,10 @@ class Storage(object):
                     )
                 ''', (news_id,))
                 files_to_delete = [row[0] for row in self.cursor.fetchall()]
-
-                # Удаляем связи и файлы
                 self.cursor.execute('DELETE FROM File_Link WHERE newsID = ?', (news_id,))
                 self.cursor.execute('DELETE FROM Files WHERE fileID IN (SELECT fileID FROM File_Link WHERE newsID = ?)', (news_id,))
-
             else:
-                # Случай 2: Частичное удаление
                 placeholders = ','.join(['?'] * len(all_existing_files))
-                
-                # Получаем файлы для удаления
                 self.cursor.execute(f'''
                     SELECT guid FROM Files
                     WHERE fileID IN (
@@ -435,7 +438,6 @@ class Storage(object):
                 ''', [news_id] + all_existing_files)
                 files_to_delete = [row[0] for row in self.cursor.fetchall()]
 
-                # Удаляем файлы из БД
                 self.cursor.execute(f'''
                     DELETE FROM Files 
                     WHERE fileID IN (
@@ -448,7 +450,6 @@ class Storage(object):
                     )
                 ''', [news_id] + all_existing_files)
 
-                # Обновляем связи
                 self.cursor.execute('DELETE FROM File_Link WHERE newsID = ?', (news_id,))
                 for guid in all_existing_files:
                     self.cursor.execute('''
@@ -456,8 +457,6 @@ class Storage(object):
                         SELECT fileID, ? FROM Files WHERE guid = ?
                     ''', (news_id, guid))
 
-            # 3. Физическое удаление файлов
-            upload_folder = current_app.config['UPLOAD_FOLDER']
             for img_name in files_to_delete:
                 img_path = os.path.join(upload_folder, img_name)
                 if os.path.exists(img_path):
@@ -466,7 +465,6 @@ class Storage(object):
                     except Exception as e:
                         print(f"Ошибка удаления файла {img_path}: {str(e)}")
 
-            # 4. Добавление новых файлов
             if files_received and files:
                 for file in files:
                     if file.filename:
@@ -489,7 +487,7 @@ class Storage(object):
         except Exception as e:
             self.connection.rollback()
             raise e
-    
+
     def news_delete_files(self, newsID: int):
         """Удалить файлы новости (без удаления самой новости)"""
         self.cursor.execute('BEGIN TRANSACTION;')
@@ -908,3 +906,74 @@ class Storage(object):
         ''', (news_id,))
         row = self.cursor.fetchone()
         return dict(row) if row else None
+    
+
+    def get_pending_news(self) -> list:
+        """
+        Возвращает список всех новостей со статусом 'Pending' и delete_date IS NULL.
+        Для каждой новости формирует вложенный список файлов (если они есть).
+        """
+        try:
+            # 1) Выполняем SQL-запрос, сразу отфильтровав удалённые записи
+            self.cursor.execute('''
+                SELECT 
+                    n.newsID,
+                    n.title,
+                    n.description,
+                    n.status,
+                    n.create_date,
+                    n.event_start,
+                    n.event_end,
+                    up.nick AS publisher_nick,
+                    f.fileID,
+                    f.guid,
+                    f.format
+                FROM News n
+                JOIN Users up ON up.userID = n.publisherID
+                LEFT JOIN File_Link fl ON fl.newsID = n.newsID
+                LEFT JOIN Files f ON f.fileID = fl.fileID
+                WHERE n.status = 'Pending'
+                  AND n.delete_date IS NULL
+                ORDER BY n.create_date DESC
+            ''')
+            
+            rows = self.cursor.fetchall()
+            pending_dict = {}
+
+            # 2) Группируем результаты по newsID, собирая файлы в список
+            for row in rows:
+                news_id = row['newsID']
+
+                # Если новости с таким ID ещё нет в словаре — создаём её
+                if news_id not in pending_dict:
+                    pending_dict[news_id] = {
+                        'newsID': news_id,
+                        'title': row['title'],
+                        'description': row['description'],
+                        'status': row['status'],
+                        'create_date': row['create_date'],
+                        'event_start': row['event_start'],
+                        'event_end': row['event_end'],
+                        'publisher_nick': row['publisher_nick'],
+                        'files': []
+                    }
+                
+                # Если для этой новости есть файл — добавляем в массив
+                if row['fileID'] is not None:
+                    pending_dict[news_id]['files'].append({
+                        'fileID': row['fileID'],
+                        'fileName': row['guid'],
+                        'fileFormat': row['format']
+                    })
+
+            # 3) Возвращаем список словарей, убрав промежуточный dict
+            return list(pending_dict.values())
+
+        except sqlite3.OperationalError as e:
+            raise sqlite3.DatabaseError(
+                "Ошибка получения списка ожидающих модерацию новостей",
+                details={
+                    "operation": "get_pending_news",
+                    "error": str(e)
+                }
+            ) from e

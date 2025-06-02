@@ -1,9 +1,15 @@
-const API_URL = "https://webnews-1fwz.onrender.com/api";
+import { toast } from "react-toastify"; // чтобы выводить тосты
+
+const API_URL = "http://127.0.0.1:5000/api";
+//const API_URL = "https://webnews-1fwz.onrender.com/api";
+
 let authToken = null;
+let lastErrorMessage = ""; // хранит текст последнего показанного тоста
 
 export const initAuthToken = () => {
   try {
-    const userData = localStorage.getItem("user") || sessionStorage.getItem("user");
+    const userData =
+      localStorage.getItem("user") || sessionStorage.getItem("user");
     if (userData) {
       const user = JSON.parse(userData);
       if (user?.token) {
@@ -22,29 +28,49 @@ export const clearAuthData = () => {
   sessionStorage.removeItem("user");
 };
 
+// Явно сбрасывает последний показанный текст, если потребуется (например, вручную вызвать)
+export const resetErrorFlag = () => {
+  lastErrorMessage = "";
+};
+
 const handleResponse = async (response) => {
   if (!response.ok) {
+    // Пытаемся распарсить JSON-ответ (если он есть)
     let errorData = {};
     try {
       errorData = await response.json();
-    } catch (e) {}
+    } catch (e) {
+      // если ответ не JSON — просто проигнорируем
+    }
 
+    // Собираем текст ошибки из ответа или ставим дефолтный
+    const errorMessage =
+      errorData.error || "Произошла ошибка при выполнении запроса";
+
+    // Если новый текст ошибки не совпадает с последним показанным — показываем тост
+    if (errorMessage !== lastErrorMessage) {
+      toast.error(errorMessage);
+      lastErrorMessage = errorMessage;
+    }
+
+    // Бросаем ошибку, чтобы вызывающий код мог её отловить
     switch (response.status) {
       case 401:
-        throw new Error(errorData.error || "Неверный логин или пароль");
+        throw new Error(errorMessage || "Неверный логин или пароль");
       case 403:
-        throw new Error(errorData.error || "Доступ запрещен");
+        throw new Error(errorMessage || "Доступ запрещен");
       case 404:
-        throw new Error(errorData.error || "Ресурс не найден");
+        throw new Error(errorMessage || "Ресурс не найден");
       case 409:
-        throw new Error(errorData.error || "Конфликт данных");
+        throw new Error(errorMessage || "Конфликт данных");
       case 500:
-        throw new Error(errorData.error || "Внутренняя ошибка сервера");
+        throw new Error(errorMessage || "Внутренняя ошибка сервера");
       default:
-        throw new Error(errorData.error || "Произошла ошибка при запросе");
+        throw new Error(errorMessage);
     }
   }
 
+  // Если сервер вернул OK, но не вернул JSON (или вернул кривой) — бросим ошибку
   try {
     return await response.json();
   } catch {
@@ -60,6 +86,10 @@ export const api = {
   getAuthToken: () => authToken,
 
   get: async (path) => {
+    // Перед каждым новым запросом сбрасываем lastErrorMessage,
+    // чтобы пользователь вновь увидел ту же ошибку, если она повторится.
+    lastErrorMessage = "";
+
     const headers = {};
     if (authToken) {
       headers["Authorization"] = `Bearer ${authToken}`;
@@ -75,9 +105,15 @@ export const api = {
   },
 
   post: async (path, data, isFormData = false) => {
+    lastErrorMessage = "";
+
     const headers = {};
     if (authToken) {
       headers["Authorization"] = `Bearer ${authToken}`;
+    }
+    // Если не FormData, ставим Content-Type
+    if (!isFormData) {
+      headers["Content-Type"] = "application/json";
     }
 
     const options = {
@@ -87,18 +123,19 @@ export const api = {
       body: isFormData ? data : JSON.stringify(data),
     };
 
-    if (!isFormData) {
-      headers["Content-Type"] = "application/json";
-    }
-
     const response = await fetch(`${API_URL}${path}`, options);
     return await handleResponse(response);
   },
 
   put: async (path, data, isFormData = false) => {
+    lastErrorMessage = "";
+
     const headers = {};
     if (authToken) {
       headers["Authorization"] = `Bearer ${authToken}`;
+    }
+    if (!isFormData) {
+      headers["Content-Type"] = "application/json";
     }
 
     const options = {
@@ -108,15 +145,13 @@ export const api = {
       body: isFormData ? data : JSON.stringify(data),
     };
 
-    if (!isFormData) {
-      headers["Content-Type"] = "application/json";
-    }
-
     const response = await fetch(`${API_URL}${path}`, options);
     return await handleResponse(response);
   },
 
   delete: async (path) => {
+    lastErrorMessage = "";
+
     const headers = {};
     if (authToken) {
       headers["Authorization"] = `Bearer ${authToken}`;

@@ -1,9 +1,10 @@
+// src/components/admin/AdminPanel.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
+import { isAdmin, isModerator } from "../../services/authHelpers";
 
 import PageWrapper from "../../features/PageWrapper";
-
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -19,14 +20,12 @@ import useCategoriesManagement from "../../hooks/useCategoriesManagement";
 import TrashManagement from "./trash/TrashManagement";
 import useTrashManagement from "../../hooks/useTrashManagement";
 
-
-
 function AdminPanel() {
   const [activeTab, setActiveTab] = useState('news');
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(null);
-  
-  // Инициализация хуков с деструктуризацией
+
+  // —————— News Moderation ——————
   const {
     allNews,
     pendingNews,
@@ -40,10 +39,11 @@ function AdminPanel() {
     handlePageChange: handleNewsPageChange
   } = useNewsModeration();
 
+  // —————— Users Management ——————
   const {
     users,
     uniqueRoles,
-    pagination,
+    pagination: usersPagination,
     showPasswords,
     editingUser,
     setEditingUser,
@@ -59,6 +59,7 @@ function AdminPanel() {
     handlePageChange: handleUsersPageChange
   } = useUsersManagement();
 
+  // —————— Categories Management ——————
   const {
     categories,
     pagination: categoriesPagination,
@@ -72,17 +73,22 @@ function AdminPanel() {
     updateCategory
   } = useCategoriesManagement();
 
+  // —————— Trash Management ——————
   const {
-    deletedNews,
+    allTrash,
+    trash,                // отфильтрованный массив
     pagination: trashPagination,
+    filters: trashFilters,
+    fetchDeletedNews,
+    handlePageChange: handleTrashPageChange,
+    handleFilterChange: handleTrashFilterChange,
     restoreNews,
+    restoreEditNews,
     purgeSingleNews,
     purgeTrash,
-    fetchDeletedNews,
-    handlePageChange: handleTrashPageChange
   } = useTrashManagement();
 
-  // Унифицированный эффект загрузки данных
+  // —————— Унифицированная загрузка при переключении табов ——————
   useEffect(() => {
     const loadData = {
       'users': fetchUsers,
@@ -90,23 +96,21 @@ function AdminPanel() {
       'categories': fetchCategories,
       'trash': fetchDeletedNews,
     };
-
     if (loadData[activeTab]) {
       loadData[activeTab]();
     }
   }, [activeTab, fetchUsers, fetchPendingNews, fetchCategories, fetchDeletedNews]);
 
-  // Проверка авторизации
+  // —————— Проверка авторизации ——————
   useEffect(() => {
     const userData = JSON.parse(
-      localStorage.getItem('user') || 
-      sessionStorage.getItem('user') || 
+      localStorage.getItem('user') ||
+      sessionStorage.getItem('user') ||
       'null'
     );
-    
+
     if (userData) {
       setCurrentUser(userData);
-      
       if (!['Administrator', 'Moderator'].includes(userData.role)) {
         navigate('/');
       }
@@ -116,61 +120,55 @@ function AdminPanel() {
     }
   }, [navigate]);
 
-  // Обработчик модерации
-  const enhancedHandleModerate = async (newsID, action) => {
-    if (!currentUser?.id) {
-      toast.error("Ошибка авторизации");
-      return;
-    }
-
-    try {
-      await handleModerate(newsID, action, currentUser.id);
-    } catch (error) {
-      toast.error(error.message || "Ошибка модерации");
-    }
-  };
 
   return (
     <PageWrapper>
       <Helmet>
-        <title>Панель администратора</title>
+        <title>
+          {isModerator(currentUser) ? "Панель модератора" : "Панель администратора"}
+        </title>
       </Helmet>
-      
+
       <div id="data-list-form" className="container">
-        <h1>Панель администратора</h1>
+
+        <h1>
+          {isModerator(currentUser) ? "Панель модератора" : "Панель администратора"}
+        </h1>
 
         <div className="admin-tabs">
-          <button 
+          <button
             className={`tab-button ${activeTab === 'news' ? 'active' : ''}`}
             onClick={() => setActiveTab('news')}
           >
-            Модерация новостей ({allNews.length})
+            Новости ({allNews.length})
           </button>
-          <button 
-            className={`tab-button ${activeTab === 'users' ? 'active' : ''}`}
-            onClick={() => setActiveTab('users')}
-          >
-            Пользователи
-          </button>
-          <button 
+          {isAdmin(currentUser) && (
+            <button
+              className={`tab-button ${activeTab === 'users' ? 'active' : ''}`}
+              onClick={() => setActiveTab('users')}
+            >
+              Пользователи
+            </button>
+          )}
+          <button
             className={`tab-button ${activeTab === 'categories' ? 'active' : ''}`}
             onClick={() => setActiveTab('categories')}
           >
             Категории
           </button>
-          <button 
+          <button
             className={`tab-button ${activeTab === 'trash' ? 'active' : ''}`}
             onClick={() => setActiveTab('trash')}
           >
-            Корзина ({deletedNews.length})
+            Корзина ({allTrash.length})
           </button>
         </div>
-        
-        {activeTab === 'users' && (
+
+        {activeTab === 'users' && isAdmin(currentUser) && (
           <UsersManagement
             users={users}
             uniqueRoles={uniqueRoles}
-            pagination={pagination}
+            pagination={usersPagination}
             editingUser={editingUser}
             setEditingUser={setEditingUser}
             deleteUser={deleteUser}
@@ -191,7 +189,7 @@ function AdminPanel() {
             allNews={allNews}
             pendingNews={pendingNews}
             pagination={newsPagination}
-            handleModerate={enhancedHandleModerate}
+            handleModerate={handleModerate}
             handleArchive={handleArchive}
             filters={newsFilters}
             onFilterChange={handleNewsFilterChange}
@@ -216,16 +214,20 @@ function AdminPanel() {
 
         {activeTab === 'trash' && (
           <TrashManagement
-            deletedNews={deletedNews}
+            trash={trash} 
+            allTrash={allTrash}
             pagination={trashPagination}
-            restoreNews={restoreNews}
-            purgeNews={purgeSingleNews}
-            purgeAllNews={purgeTrash}
+            filters={trashFilters}
+            handleFilterChange={handleTrashFilterChange}
             handlePageChange={handleTrashPageChange}
+            restoreNews={restoreNews}
+            restoreEditNews={restoreEditNews}
+            purgeSingleNews={purgeSingleNews}
+            purgeTrash={purgeTrash}
           />
         )}
       </div>
-      
+
       <ToastContainer />
     </PageWrapper>
   );
