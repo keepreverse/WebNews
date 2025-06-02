@@ -38,7 +38,7 @@
 
     const titleRef = useRef("");
 
-    const [description, setDescription] = useState("");
+    const descriptionRef = useRef("");
 
     const [newsImages, setNewsImages] = useState([]);
     const [previewMode, setPreviewMode] = useState(false);
@@ -75,6 +75,29 @@
     const [users, setUsers] = useState([]);
     const [selectedAuthor, setSelectedAuthor] = useState('');
 
+    function cleanPastedHTML(rawHTML) {
+      return rawHTML
+        // Удалить изображения, стили, классы и мусор
+        .replace(/<img[^>]*>/gi, '')
+        .replace(/<svg[\s\S]*?<\/svg>/gi, '')
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<link[^>]*>/gi, '')
+        .replace(/<(button|form|input|iframe|object|embed)[^>]*>[\s\S]*?<\/\1>/gi, '')
+
+        // Заменить таблицы на абзацы с текстом
+        .replace(/<\/?(table|thead|tbody|tfoot|tr|td|th)[^>]*>/gi, '')
+
+        // Удалить стили и классы
+        .replace(/style="[^"]*"/gi, '')
+        .replace(/class="[^"]*"/gi, '')
+        .replace(/&nbsp;/gi, ' ')
+
+        // Преобразование div в p
+        .replace(/<div[^>]*>/gi, '<p>')
+        .replace(/<\/div>/gi, '</p>')
+        .replace(/<br\s*\/?>/gi, '</p><p>');
+    }
+
 
     // Конфигурация JoditEditor
     const configJoditEditor = useMemo(() => ({
@@ -89,7 +112,7 @@
       askBeforePasteFromWord: true,
       toolbarButtonSize: "large",
       placeholder: 'Введите текст новости',
-      removeEmptyBlocks: true, // удаляет пустые <p></p> и подобные
+      removeEmptyBlocks: true,
       cleanHTML: {
         removeEmptyElements: true,
         fillEmptyParagraph: false,
@@ -98,7 +121,7 @@
         denyTags: ['font', 'style'],
       },
       defaultActionOnPaste: 'insert_clear_html',
-      enter: 'div', // чтобы не было лишних <p> с &nbsp;, можно переключить с 'p' на 'div'
+      enter: 'div',
       minHeight: 200,
       disablePlugins:
         "video,about,add-new-line,class-span,source,resizer," +
@@ -115,8 +138,7 @@
         beforePaste(event, editor) {
           const clipboardData = event.clipboardData || window.clipboardData;
           if (clipboardData) {
-            const items = clipboardData.items;
-            for (const item of items) {
+            for (const item of clipboardData.items) {
               if (item.type.startsWith("image/")) {
                 event.preventDefault();
                 toast.warn("Вставка изображений запрещена!");
@@ -125,66 +147,38 @@
             }
           }
         },
-        beforePasteInsert(html) {
-          const cleaned = html
-            .replace(/<img[^>]*>/gi, '')
-            .replace(/<svg[\s\S]*?<\/svg>/gi, '')
-            .replace(/<style[\s\S]*?<\/style>/gi, '')
-            .replace(/<link[^>]*>/gi, '')
-            .replace(/style="[^"]*"/gi, '')
-            .replace(/class="[^"]*"/gi, '')
-            .replace(/&nbsp;/gi, ' ');
-
-          // Заменить <div> на <p> (опционально)
-          const normalized = cleaned
-            .replace(/<div>/gi, '<p>')
-            .replace(/<\/div>/gi, '</p>')
-            .replace(/<br\s*\/?>/gi, '</p><p>');
-
-          toast.warn("HTML вставка очищена от стилей и изображений!");
-          return normalized;
-        },
-
         onPaste(event) {
           const html = event.clipboardData?.getData("text/html") || "";
-          if (html) {
+          const plainText = event.clipboardData?.getData("text/plain") || "";
+          const editor = editorRef.current?.editor;
+
+          if (html && editor) {
             event.preventDefault();
-
-            const cleaned = html
-              .replace(/<img[^>]*>/gi, '')
-              .replace(/<svg[\s\S]*?<\/svg>/gi, '')
-              .replace(/<style[\s\S]*?<\/style>/gi, '')
-              .replace(/<link[^>]*>/gi, '')
-              .replace(/style="[^"]*"/gi, '')
-              .replace(/class="[^"]*"/gi, '')
-              .replace(/&nbsp;/gi, ' ')
-              .replace(/<div>/gi, '<p>')
-              .replace(/<\/div>/gi, '</p>')
-              .replace(/<br\s*\/?>/gi, '</p><p>');
-
-            const plainText = event.clipboardData?.getData("text/plain") || "";
+            const cleaned = cleanPastedHTML(html);
             const content = cleaned.trim() === '' && plainText.trim() !== '' ? plainText : cleaned;
-
-            const editor = editorRef.current?.editor;
-            if (editor) {
-              editor.selection.insertHTML(content);
-              toast.warn("Очищенный текст вставлен!");
-            }
+            editor.selection.insertHTML(content);
+            toast.warn("Вставка очищена и вставлена");
           }
-        },    
-        drop(event, editor) {
+        },
+        beforePasteInsert(html) {
+          const cleaned = cleanPastedHTML(html);
+          toast.warn("HTML очищен от стилей и обёрток");
+          return cleaned;
+        },
+        drop(event) {
           const dt = event.dataTransfer;
           if (dt && dt.files.length > 0) {
             for (const file of dt.files) {
               if (file.type.startsWith("image/")) {
                 event.preventDefault();
-                toast.warn("Вставка изображений запрещена!");
+                toast.warn("Перетаскивание изображений запрещено!");
                 return false;
               }
             }
           }
         },
-        beforeDrop(event) {
+
+        beforeDrop(event) { 
           const items = event?.dataTransfer?.items || [];
           for (const item of items) {
             if (item.kind === "file" && item.type.startsWith("image/")) {
@@ -233,12 +227,20 @@
     }
 
     const [title, setTitle] = useState("");
-    const debouncedTitle = useDebounce(title, 300);
+    const debouncedTitle = useDebounce(title, 20);
 
     const handleTitleChange = useCallback((e) => {
       titleRef.current = e.target.value;
       setTitle(e.target.value);
     }, []);
+
+    const [description, setDescription] = useState("");
+    const debouncedDescription = useDebounce(description, 20);
+
+    const handleDescriptionBlur = (text) => {
+      descriptionRef.current = text;
+      setDescription(text);
+    };
 
     const handleFiles = (files) => {
       const fileInput = document.getElementById("news-image");
@@ -683,12 +685,10 @@
 
               <JoditEditor
                 name="description"
-                value={description || ""}
+                ref={editorRef}
                 config={configJoditEditor}
                 tabIndex={1}
-                ref={editorRef}
-                onBlur={(newText) => setDescription(newText)}
-                onChange={(newText) => setDescription(newText)}
+                onBlur={handleDescriptionBlur}
               />
 
               <div 
@@ -793,7 +793,7 @@
                   </button>
 
                   {title && <h3 className="preview-title">{HTMLReactParser(debouncedTitle)}</h3>}
-                  {description && <div>{HTMLReactParser(description)}</div>}
+                  {description && <div>{HTMLReactParser(debouncedDescription)}</div>}
                 </div>
               ) : (
                 <button

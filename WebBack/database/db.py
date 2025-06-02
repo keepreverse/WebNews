@@ -692,13 +692,6 @@ class Storage(object):
         if not self.cursor.fetchone():
             raise ValueError(f"Категория с ID={category_id} не найдена")
 
-        # Проверяем уникальность нового названия (без учёта регистра)
-        self.cursor.execute('''
-            SELECT 1 FROM Categories 
-        ''', (name, category_id))
-        if self.cursor.fetchone():
-            raise ValueError(f"Категория с названием '{name}' уже существует")
-
         # Выполняем обновление
         self.cursor.execute('''
             UPDATE Categories 
@@ -710,6 +703,7 @@ class Storage(object):
             raise ValueError("Не удалось обновить категорию")
 
         self.connection.commit()
+
 
     def category_delete(self, category_id: int):
         """Удалить категорию"""

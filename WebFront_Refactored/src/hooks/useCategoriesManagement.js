@@ -83,8 +83,6 @@ const useCategoriesManagement = () => {
       }));
       toast.success('Категория создана');
     } catch (error) {
-      const serverError = error.response?.data?.error || error.message;
-      toast.error(serverError || 'Ошибка создания категории');
     }
   }, [fetchCategories, setPagination]);
 
@@ -127,8 +125,6 @@ const useCategoriesManagement = () => {
       await fetchCategories();
       toast.success("Изменения сохранены");
     } catch (error) {
-      const serverError = error.response?.data?.error || error.message;
-      toast.error(serverError || 'Ошибка создания категории');
     }
   }, [fetchCategories]);
 

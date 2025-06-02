@@ -81,7 +81,6 @@ const useUsersManagement = () => {
       setUsers(prev => prev.filter(u => u.userID !== userId));
       toast.success("Пользователь удалён");
     } catch (error) {
-      toast.error(error.message || "Ошибка удаления");
     }
   }, []);
 
@@ -109,7 +108,6 @@ const useUsersManagement = () => {
       
       toast.success(`Удалено ${response.deletedCount} пользователей`);
     } catch (error) {
-      toast.error(error.message || "Ошибка удаления");
     }
   }, [setPagination]);
 

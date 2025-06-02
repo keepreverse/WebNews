@@ -81,7 +81,7 @@ const handleSubmit = (e) => {
           className="custom_button_short"
           onClick={onCancel}
         >
-          Отменить редактирование
+          Отмена
         </button>
       </div>
     </form>
