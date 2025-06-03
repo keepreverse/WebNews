@@ -1,19 +1,21 @@
-import { toast } from "react-toastify"; // чтобы выводить тосты
+import { toast } from "react-toastify";
 
-const API_URL = "http://127.0.0.1:5000/api";
-//const API_URL = "https://webnews-1fwz.onrender.com/api";
+// const API_URL = "http://127.0.0.1:5000/api";
+
+const API_URL = "https://webnews-1fwz.onrender.com/api";
+
 
 let authToken = null;
 let lastErrorMessage = ""; // хранит текст последнего показанного тоста
 
 export const initAuthToken = () => {
   try {
-    const userData =
-      localStorage.getItem("user") || sessionStorage.getItem("user");
+    const userData = localStorage.getItem("user") || sessionStorage.getItem("user");
     if (userData) {
       const user = JSON.parse(userData);
       if (user?.token) {
         authToken = user.token;
+        api.setAuthToken(authToken);
       }
     }
   } catch (error) {
@@ -21,6 +23,7 @@ export const initAuthToken = () => {
     clearAuthData();
   }
 };
+
 
 export const clearAuthData = () => {
   authToken = null;
@@ -84,6 +87,19 @@ export const api = {
   },
 
   getAuthToken: () => authToken,
+
+  ping: async () => {
+    try {
+      const response = await fetch(`${API_URL}/ping`, {
+        method: "GET",
+        credentials: "include",
+      });
+      return response.ok;
+    } catch (error) {
+      console.error("Сервер недоступен:", error);
+      return false;
+    }
+  },
 
   get: async (path) => {
     // Перед каждым новым запросом сбрасываем lastErrorMessage,

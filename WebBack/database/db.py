@@ -1,32 +1,54 @@
 import os
 import uuid
-import random
-import string
 import sqlite3
-import datetime
-
 from flask import current_app
-from enums import InvalidValues
 from werkzeug.security import generate_password_hash
+from enums import InvalidValues
+
 class Storage(object):
 
     def __init__(self):
         self.connection = None
         self.cursor = None
+        # Путь к БД
         self.db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'storage.db')
 
-    def user_get_by_token(self, token):
-        self.cursor.execute('''SELECT userID, password, user_role FROM Users WHERE auth_token = ?''', (token,))
-        return self.cursor.fetchone()
+    # -------------------------------
+    # Работа с соединением
 
-    def user_set_token(self, user_id, token):
-        self.cursor.execute('''UPDATE Users SET auth_token = ? WHERE userID = ?''', (token, user_id))
-        self.connection.commit()
- 
+    def open_connection(self):
+        """Открыть соединение к базе (с WAL и row_factory)."""
+        if self.connection is None:
+            self.connection = sqlite3.connect(
+                self.db_path,
+                timeout=10,
+                check_same_thread=False
+            )
+            self.connection.row_factory = sqlite3.Row
+            self.cursor = self.connection.cursor()
+            self.cursor.execute('PRAGMA foreign_keys = ON;')
+            self.cursor.execute('PRAGMA journal_mode=WAL')
+
+            self._create_tables()
+            self._create_indexes()
+            self._create_triggers()
+            self.connection.commit()
+
+    def close_connection(self):
+        """Закрыть соединение к базе, если оно открыто."""
+        if self.connection:
+            try:
+                self.connection.close()
+            except:
+                pass
+            finally:
+                self.connection = None
+                self.cursor = None
+
     def _create_tables(self):
-        """Создать все таблицы при подключении к БД"""
+        """Создать необходимые таблицы (если их ещё нет)."""
         try:
-            # 1. Таблица Users
+            # 1) Таблица Users
             self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS Users (
                     userID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,7 +63,7 @@ class Storage(object):
                 )
             ''')
 
-            # 2. Таблица News (с учетом categoryID)
+            # 2) Таблица News
             self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS News (
                     newsID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,6 +79,7 @@ class Storage(object):
                     publish_date TEXT,
                     create_date TEXT NOT NULL,
                     delete_date TEXT,
+                    archive_date TEXT,
                     categoryID INTEGER,
                     FOREIGN KEY (publisherID) REFERENCES Users(userID) ON DELETE CASCADE,
                     FOREIGN KEY (moderated_byID) REFERENCES Users(userID) ON DELETE SET NULL,
@@ -64,7 +87,7 @@ class Storage(object):
                 )
             ''')
 
-            # 3. Таблица Files
+            # 3) Таблица Files
             self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS Files (
                     fileID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -73,7 +96,7 @@ class Storage(object):
                 )
             ''')
 
-            # 4. Таблица File_Link
+            # 4) Таблица File_Link (связь Files ↔ News)
             self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS File_Link (
                     file_linkID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -84,7 +107,7 @@ class Storage(object):
                 )
             ''')
 
-            # 5. Таблица Categories (главное исправление здесь)
+            # 5) Таблица Categories
             self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS Categories (
                     categoryID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -96,47 +119,48 @@ class Storage(object):
 
             self.connection.commit()
         except sqlite3.OperationalError as e:
-            print(f"Ошибка создания таблиц: {str(e)}")
- 
+            print(f"Ошибка создания таблиц: {e}")
+
     def _create_indexes(self):
-        """Создать индексы при подключении к БД"""
+        """Создать индексы для оптимизации поиска."""
         try:
-            # Для Users
+            # Users
             self.cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_nick_nocase ON Users(nick COLLATE NOCASE)')
             self.cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_login_nocase ON Users(login COLLATE NOCASE)')
 
-            # Для News
+            # News
             self.cursor.execute('CREATE INDEX IF NOT EXISTS idx_news_publisher ON News(publisherID)')
             self.cursor.execute('CREATE INDEX IF NOT EXISTS idx_news_status ON News(status)')
             self.cursor.execute('CREATE INDEX IF NOT EXISTS idx_news_create_date ON News(create_date)')
-            
-            # Для Files
+            self.cursor.execute('CREATE INDEX IF NOT EXISTS idx_news_archive_date ON News(archive_date)')
+
+            # Files
             self.cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_files_guid ON Files(guid)')
-            
+
             # Categories
             self.cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_name_nocase ON Categories(name COLLATE NOCASE)')
 
             self.connection.commit()
         except sqlite3.OperationalError as e:
-            print(f"Ошибка создания индексов: {str(e)}")
+            print(f"Ошибка создания индексов: {e}")
 
     def _create_triggers(self):
-        """Создать триггеры при подключении к БД"""
+        """Создать триггеры для автоматических дат."""
         try:
-            # Для Users
+            # 1) При вставке в Users, если registration_date пуст, установить текущую дату
             self.cursor.execute('''
                 CREATE TRIGGER IF NOT EXISTS set_registration_date
                 AFTER INSERT ON Users
                 FOR EACH ROW
                 WHEN NEW.registration_date IS NULL OR NEW.registration_date = ''
                 BEGIN
-                    UPDATE Users 
-                    SET registration_date = datetime('now', 'localtime') 
+                    UPDATE Users
+                    SET registration_date = datetime('now', 'localtime')
                     WHERE userID = NEW.userID;
                 END;
             ''')
 
-            # Для News
+            # 2) При вставке в News проверяем: if event_end не NULL и event_start > event_end – abort
             self.cursor.execute('''
                 CREATE TRIGGER IF NOT EXISTS validate_event_dates
                 BEFORE INSERT ON News
@@ -147,108 +171,97 @@ class Storage(object):
                 END;
             ''')
 
+            # 3) При изменении status → 'Approved' ставим publish_date
             self.cursor.execute('''
                 CREATE TRIGGER IF NOT EXISTS update_publish_date
                 AFTER UPDATE OF status ON News
                 FOR EACH ROW
                 WHEN NEW.status = 'Approved' AND OLD.status != 'Approved'
                 BEGIN
-                    UPDATE News SET publish_date = datetime('now', 'localtime') WHERE newsID = NEW.newsID;
+                    UPDATE News
+                    SET publish_date = datetime('now', 'localtime')
+                    WHERE newsID = NEW.newsID;
                 END;
             ''')
+
 
             self.cursor.execute('''
                 CREATE TRIGGER IF NOT EXISTS delete_news_files
-                AFTER DELETE ON News
+                BEFORE DELETE ON News
                 FOR EACH ROW
                 BEGIN
-                    DELETE FROM Files 
+                    DELETE FROM Files
                     WHERE fileID IN (
                         SELECT fileID FROM File_Link WHERE newsID = OLD.newsID
                     );
+                    DELETE FROM File_Link WHERE newsID = OLD.newsID;
                 END;
             ''')
 
+            # 5) При удалении категории сбрасываем categoryID у новостей
             self.cursor.execute('''
                 CREATE TRIGGER IF NOT EXISTS reset_category_on_delete
                 AFTER DELETE ON Categories
                 FOR EACH ROW
                 BEGIN
-                    UPDATE News SET categoryID = NULL WHERE categoryID = OLD.categoryID;
+                    UPDATE News
+                    SET categoryID = NULL
+                    WHERE categoryID = OLD.categoryID;
                 END;
             ''')
 
             self.connection.commit()
         except sqlite3.OperationalError as e:
-            print(f"Ошибка создания триггеров: {str(e)}")
+            print(f"Ошибка создания триггеров: {e}")
 
-    def open_connection(self):
-        """Open database connection with timeout and check_same_thread=False"""
-        if self.connection is None:
-            self.connection = sqlite3.connect(
-                self.db_path,
-                timeout=10,
-                check_same_thread=False
-            )
-            self.connection.row_factory = sqlite3.Row
-            self.cursor = self.connection.cursor()
-            
-            self.cursor.execute('PRAGMA journal_mode=WAL')
-            
-            # Правильный порядок инициализации
-            self._create_tables()     # 1. Таблицы
-            self._create_indexes()    # 2. Индексы
-            self._create_triggers()   # 3. Триггеры
-            
-            self.connection.commit()
+    # -------------------------------
+    # Методы для работы с News
 
-    def close_connection(self):
-        """Close database connection if it exists"""
-        if self.connection:
-            try:
-                self.connection.close()
-            except:
-                pass
-            finally:
-                self.connection = None
-                self.cursor = None
-
-    # News methods
     def news_add(self, user_id, news_input_data, files_received, files_list, files_folder):
-        """Add new news item"""
+        """Добавление новой новости."""
         self.cursor.execute('BEGIN TRANSACTION;')
 
-        # Add files if present
+        # 1) Если переданы файлы, сразу сохраняем их в Files
         if files_received:
             for file in files_list:
                 file_guid = str(uuid.uuid4().hex)
                 file_format = file.filename.rsplit('.', 1)[1].lower()
                 file.save(os.path.join(files_folder, file_guid))
-                
+
                 self.cursor.execute('''
                     INSERT INTO Files (guid, format)
                     VALUES (?, ?)
-                ''', (file_guid, file_format))  
+                ''', (file_guid, file_format))
 
-        # Add news entry
+        # 2) Вставляем запись в News (status = Pending by default)
         self.cursor.execute('''
-            INSERT INTO News (publisherID, title, description, status, 
-                            event_start, event_end, create_date, categoryID)
-            VALUES (?, ?, ?, ?, ?, ?, datetime('now', 'localtime'), ?)
+            INSERT INTO News (
+                publisherID,
+                title,
+                description,
+                status,
+                event_start,
+                event_end,
+                create_date,
+                categoryID
+            ) VALUES (
+                ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'), ?
+            )
         ''', (
             user_id,
             news_input_data.get("title"),
             news_input_data.get("description"),
-            news_input_data.get("status", "Pending"),  # Статус по умолчанию
+            news_input_data.get("status", "Pending"),
             news_input_data.get("event_start"),
             news_input_data.get("event_end", None),
             news_input_data.get("categoryID")
         ))
 
-        # Link files to news
+        # 3) Привязка файлов к этой новости (если были)
         if files_received:
             news_id = self.cursor.lastrowid
             for i in range(len(files_list)):
+                # берем последний INSERT INTO Files, OFFSET по i (в том порядке, в котором они вставлялись)
                 self.cursor.execute('''
                     INSERT INTO File_Link (fileID, newsID)
                     VALUES (
@@ -260,65 +273,64 @@ class Storage(object):
         self.connection.commit()
 
     def get_news(self) -> list:
-        """Get all news items with single query"""
+        """Получить все «неудалённые» новости (delete_date IS NULL)."""
         try:
             self.cursor.execute('''
-                SELECT 
-                    n.newsID, 
-                    n.title, 
-                    n.description, 
+                SELECT
+                    n.newsID,
+                    n.title,
+                    n.description,
                     n.status,
-                    n.create_date, 
-                    n.publish_date, 
-                    n.event_start, 
+                    n.create_date,
+                    n.publish_date,
+                    n.event_start,
                     n.event_end,
-                    up.nick AS publisher_nick, 
-                    um.nick AS moderator_nick,
-                    c.name AS category_name
+                    up.nick   AS publisher_nick,
+                    um.nick   AS moderator_nick,
+                    c.name    AS category_name,
+                    n.archive_date
                 FROM News n
                 JOIN Users up ON up.userID = n.publisherID
                 LEFT JOIN Users um ON um.userID = n.moderated_byID
                 LEFT JOIN Categories c ON c.categoryID = n.categoryID
                 WHERE n.delete_date IS NULL
-                GROUP BY n.newsID
                 ORDER BY n.create_date DESC
             ''')
-            
+
             news_items = []
             for row in self.cursor.fetchall():
-                news_id = row['newsID']
-                
-                # Get files
+                nid = row['newsID']
+                # Получаем список файлов
                 self.cursor.execute('''
-                    SELECT f.fileID, guid, format 
+                    SELECT f.fileID, guid, format
                     FROM Files f
                     JOIN File_Link fl ON fl.fileID = f.fileID
                     WHERE fl.newsID = ?
                     ORDER BY f.fileID ASC
-                ''', (news_id,))
-                
+                ''', (nid,))
                 files = [{
-                    'fileID': r['fileID'],
-                    'fileName': r['guid'],
-                    'fileFormat': r['format']
+                    'fileID':    r['fileID'],
+                    'fileName':  r['guid'],
+                    'fileFormat':r['format']
                 } for r in self.cursor.fetchall()]
-                
+
                 news_items.append({
-                    'newsID': news_id,
-                    'title': row['title'],
-                    'description': row['description'],
-                    'status': row['status'],
-                    'create_date': row['create_date'],
-                    'publish_date': row['publish_date'],
-                    'event_start': row['event_start'],
-                    'event_end': row['event_end'],
+                    'newsID':         nid,
+                    'title':          row['title'],
+                    'description':    row['description'],
+                    'status':         row['status'],
+                    'create_date':    row['create_date'],
+                    'publish_date':   row['publish_date'],
+                    'event_start':    row['event_start'],
+                    'event_end':      row['event_end'],
                     'publisher_nick': row['publisher_nick'],
                     'moderator_nick': row['moderator_nick'],
-                    'category_name': row['category_name'],
-                    'files': files
+                    'category_name':  row['category_name'],
+                    'archive_date':   row['archive_date'],
+                    'files':          files
                 })
             return news_items
-        
+
         except sqlite3.OperationalError as e:
             raise Exception("Ошибка базы данных. Попробуйте позже") from e
         except Exception as e:
@@ -326,70 +338,78 @@ class Storage(object):
                 raise Exception("Такая запись уже существует")
 
     def get_news_single(self, newsID: int) -> list:
-        """Get specific news item by ID"""
-        # Get main news data
+        """
+        Получить одну новость по ID (если delete_date IS NULL).
+        Возвращает [ {данные}, newsID ] или [{}, INVALID_ID].
+        """
         self.cursor.execute('''
-            SELECT 
-                n.newsID, 
-                n.title, 
-                n.description, 
+            SELECT
+                n.newsID,
+                n.title,
+                n.description,
                 n.status,
-                n.create_date, 
-                n.publish_date, 
-                n.event_start, 
+                n.create_date,
+                n.publish_date,
+                n.event_start,
                 n.event_end,
-                up.nick AS publisher_nick, 
-                um.nick AS moderator_nick,
-                c.name AS category_name,
-                n.categoryID
+                up.nick   AS publisher_nick,
+                um.nick   AS moderator_nick,
+                c.name    AS category_name,
+                n.categoryID,
+                n.archive_date
             FROM News n
             JOIN Users up ON up.userID = n.publisherID
             LEFT JOIN Users um ON um.userID = n.moderated_byID
             LEFT JOIN Categories c ON c.categoryID = n.categoryID
-            WHERE n.newsID = ? 
-            AND n.delete_date IS NULL
+            WHERE n.newsID = ?
+              AND n.delete_date IS NULL
         ''', (newsID,))
-        
+
         news_data = self.cursor.fetchone()
         if not news_data:
             return [{}, InvalidValues.INVALID_ID.value]
 
+        # Сбор файлов
         self.cursor.execute('''
-            SELECT f.fileID, guid, format 
+            SELECT f.fileID, guid, format
             FROM Files f
             JOIN File_Link fl ON fl.fileID = f.fileID
             WHERE fl.newsID = ?
             ORDER BY f.fileID ASC
         ''', (newsID,))
-        
+
         files = [{
-            'fileID': row['fileID'],
-            'fileName': row['guid'],
-            'fileFormat': row['format']
+            'fileID':    row['fileID'],
+            'fileName':  row['guid'],
+            'fileFormat':row['format']
         } for row in self.cursor.fetchall()]
 
         return [{
-            'newsID': news_data['newsID'],
-            'title': news_data['title'],
-            'description': news_data['description'],
-            'status': news_data['status'],
-            'create_date': news_data['create_date'],
-            'publish_date': news_data['publish_date'],
-            'event_start': news_data['event_start'],
-            'event_end': news_data['event_end'],
+            'newsID':         news_data['newsID'],
+            'title':          news_data['title'],
+            'description':    news_data['description'],
+            'status':         news_data['status'],
+            'create_date':    news_data['create_date'],
+            'publish_date':   news_data['publish_date'],
+            'event_start':    news_data['event_start'],
+            'event_end':      news_data['event_end'],
             'publisher_nick': news_data['publisher_nick'],
             'moderator_nick': news_data['moderator_nick'],
-            'categoryID': news_data['categoryID'],
-            'category_name': news_data['category_name'],
-            'files': files
+            'categoryID':     news_data['categoryID'],
+            'category_name':  news_data['category_name'],
+            'archive_date':   news_data['archive_date'],
+            'files':          files
         }, news_data['newsID']]
 
     def news_update(self, news_id, user_id, news_data, files_received, files, upload_folder, existing_files=None, status_override=None):
-        """Update existing news item with optional status change"""
+        """
+        Обновить новость; если передан status_override:
+        - 'Archived'  → status='Archived', archive_date=now
+        - любое другое значение → сброс archive_date
+        """
         self.cursor.execute('BEGIN TRANSACTION;')
-        
         try:
-            # 1. Обновление основной информации о новости
+            # Собираем базовый UPDATE без статуса
             update_query = '''
                 UPDATE News
                 SET title = ?, description = ?, event_start = ?, publisherID = ?, categoryID = ?
@@ -402,85 +422,92 @@ class Storage(object):
                 news_data.get('categoryID')
             ]
 
-            # Добавим изменение статуса, если передан параметр
+            # Если нужно изменить статус – добавляем соответствующую часть
             if status_override:
-                update_query += ', status = ?'
-                update_values.append(status_override)
+                if status_override == 'Archived':
+                    update_query += ", status = ?, archive_date = datetime('now', 'localtime')"
+                    update_values.append(status_override)
+                else:
+                    # Сбрасываем archive_date при переходе **не в Archived** (например: 'Approved' или 'Rejected')
+                    update_query += ", status = ?, archive_date = NULL"
+                    update_values.append(status_override)
 
-            update_query += ' WHERE newsID = ?'
+            update_query += " WHERE newsID = ?"
             update_values.append(news_id)
-
             self.cursor.execute(update_query, tuple(update_values))
 
-            # --- остальной код без изменений ---
-            # Удаление/обновление файлов, как в твоей версии:
+            # --- Работа с файлами (сохранение/удаление) ---
             all_existing_files = existing_files if existing_files else []
             files_to_delete = []
 
             if not all_existing_files:
+                # Если нет существующих файлов, надо удалить все привязки и сами файлы
                 self.cursor.execute('''
-                    SELECT guid FROM Files
-                    WHERE fileID IN (
-                        SELECT fileID FROM File_Link WHERE newsID = ?
-                    )
+                    SELECT f.fileID, f.guid
+                    FROM Files f
+                    JOIN File_Link fl ON fl.fileID = f.fileID
+                    WHERE fl.newsID = ?
                 ''', (news_id,))
-                files_to_delete = [row[0] for row in self.cursor.fetchall()]
+                rows = self.cursor.fetchall()
+                files_to_disk_delete = [r['guid'] for r in rows]
+                file_ids_to_db_delete = [r['fileID'] for r in rows]
+
                 self.cursor.execute('DELETE FROM File_Link WHERE newsID = ?', (news_id,))
-                self.cursor.execute('DELETE FROM Files WHERE fileID IN (SELECT fileID FROM File_Link WHERE newsID = ?)', (news_id,))
+
+                if file_ids_to_db_delete:
+                    placeholders = ','.join(['?'] * len(file_ids_to_db_delete))
+                    self.cursor.execute(f'DELETE FROM Files WHERE fileID IN ({placeholders})', file_ids_to_db_delete)
+
+                # Удаляем реальные файлы с диска
+                for img in files_to_disk_delete:
+                    img_path = os.path.join(upload_folder, img)
+                    if os.path.exists(img_path):
+                        try:
+                            os.remove(img_path)
+                        except Exception as e:
+                            print(f"Ошибка удаления файла {img_path}: {e}")
             else:
+                # Иначе удаляем только те файлы, которых нет в all_existing_files
                 placeholders = ','.join(['?'] * len(all_existing_files))
+                # Сначала находим fileID и guid старых
                 self.cursor.execute(f'''
-                    SELECT guid FROM Files
-                    WHERE fileID IN (
-                        SELECT fileID FROM File_Link WHERE newsID = ?
-                    )
-                    AND guid NOT IN ({placeholders})
+                    SELECT f.fileID, f.guid
+                    FROM Files f
+                    JOIN File_Link fl ON fl.fileID = f.fileID
+                    WHERE fl.newsID = ? AND f.guid NOT IN ({placeholders})
                 ''', [news_id] + all_existing_files)
-                files_to_delete = [row[0] for row in self.cursor.fetchall()]
+                rows = self.cursor.fetchall()
+                files_to_disk_delete = [r['guid'] for r in rows]
+                file_ids_to_db_delete = [r['fileID'] for r in rows]
 
-                self.cursor.execute(f'''
-                    DELETE FROM Files 
-                    WHERE fileID IN (
-                        SELECT fl.fileID FROM File_Link fl
-                        WHERE fl.newsID = ? 
-                        AND fl.fileID NOT IN (
-                            SELECT f.fileID FROM Files f
-                            WHERE f.guid IN ({placeholders})
-                        )
-                    )
-                ''', [news_id] + all_existing_files)
+                # Удаляем связи File_Link для тех fileID
+                if file_ids_to_db_delete:
+                    placeholders_db = ','.join(['?'] * len(file_ids_to_db_delete))
+                    self.cursor.execute(f'DELETE FROM File_Link WHERE fileID IN ({placeholders_db}) AND newsID = ?', file_ids_to_db_delete + [news_id])
 
+                # Удаляем сами записи из Files
+                if file_ids_to_db_delete:
+                    placeholders_db = ','.join(['?'] * len(file_ids_to_db_delete))
+                    self.cursor.execute(f'DELETE FROM Files WHERE fileID IN ({placeholders_db})', file_ids_to_db_delete)
+
+                # Удаляем реальные файлы с диска
+                for img in files_to_disk_delete:
+                    img_path = os.path.join(upload_folder, img)
+                    if os.path.exists(img_path):
+                        try:
+                            os.remove(img_path)
+                        except Exception as e:
+                            print(f"Ошибка удаления файла {img_path}: {e}")
+
+                # Оставшиеся существующие файлы должны сохранить связи, поэтому
+                # сначала удаляем все связи, потом добавим обратно только нужные:
                 self.cursor.execute('DELETE FROM File_Link WHERE newsID = ?', (news_id,))
                 for guid in all_existing_files:
-                    self.cursor.execute('''
-                        INSERT INTO File_Link (fileID, newsID)
-                        SELECT fileID, ? FROM Files WHERE guid = ?
-                    ''', (news_id, guid))
-
-            for img_name in files_to_delete:
-                img_path = os.path.join(upload_folder, img_name)
-                if os.path.exists(img_path):
-                    try:
-                        os.remove(img_path)
-                    except Exception as e:
-                        print(f"Ошибка удаления файла {img_path}: {str(e)}")
-
-            if files_received and files:
-                for file in files:
-                    if file.filename:
-                        file_guid = str(uuid.uuid4().hex)
-                        file_format = file.filename.rsplit('.', 1)[1].lower()
-                        file.save(os.path.join(upload_folder, file_guid))
-                        
-                        self.cursor.execute('''
-                            INSERT INTO Files (guid, format)
-                            VALUES (?, ?)
-                        ''', (file_guid, file_format))
-                        
-                        self.cursor.execute('''
-                            INSERT INTO File_Link (fileID, newsID)
-                            VALUES (last_insert_rowid(), ?)
-                        ''', (news_id,))
+                    self.cursor.execute('SELECT fileID FROM Files WHERE guid = ?', (guid,))
+                    row = self.cursor.fetchone()
+                    if row:
+                        fid = row['fileID']
+                        self.cursor.execute('INSERT INTO File_Link (fileID, newsID) VALUES (?, ?)', (fid, news_id))
 
             self.connection.commit()
 
@@ -489,33 +516,56 @@ class Storage(object):
             raise e
 
     def news_delete_files(self, newsID: int):
-        """Удалить файлы новости (без удаления самой новости)"""
+        """Удалить все файлы, привязанные к конкретной новости (но не саму новость)."""
         self.cursor.execute('BEGIN TRANSACTION;')
         try:
-            # Получаем GUID файлов для удаления
+            # Получаем fileID и guid всех файлов, связанных с этой новостью
             self.cursor.execute('''
-                SELECT guid FROM Files
-                WHERE fileID IN (
-                    SELECT fileID FROM File_Link WHERE newsID = ?
-                )
+                SELECT f.fileID, f.guid
+                FROM Files f
+                JOIN File_Link fl ON fl.fileID = f.fileID
+                WHERE fl.newsID = ?
             ''', (newsID,))
-            files_to_delete = [row[0] for row in self.cursor.fetchall()]
+            rows = self.cursor.fetchall()
+            guids_to_delete = [r['guid'] for r in rows]
+            file_ids_to_delete = [r['fileID'] for r in rows]
 
-            # Удаляем связи и файлы
+            # Удаляем связи File_Link
             self.cursor.execute('DELETE FROM File_Link WHERE newsID = ?', (newsID,))
-            self.cursor.execute('DELETE FROM Files WHERE fileID IN (SELECT fileID FROM File_Link WHERE newsID = ?)', (newsID,))
 
-            # Удаляем файлы из файловой системы
+            # Удаляем сами записи из Files
+            if file_ids_to_delete:
+                placeholders = ','.join(['?'] * len(file_ids_to_delete))
+                self.cursor.execute(f'DELETE FROM Files WHERE fileID IN ({placeholders})', file_ids_to_delete)
+
+            # Удаляем файлы с диска
             upload_folder = current_app.config['UPLOAD_FOLDER']
-            for img_name in files_to_delete:
+            for img_name in guids_to_delete:
                 img_path = os.path.join(upload_folder, img_name)
                 if os.path.isfile(img_path) or os.path.islink(img_path):
-                    os.unlink(img_path)
+                    try:
+                        os.unlink(img_path)
+                    except Exception as e:
+                        print(f"Ошибка удаления файла {img_path}: {e}")
 
             self.connection.commit()
         except Exception as e:
             self.connection.rollback()
             raise e
+        except Exception as e:
+            self.connection.rollback()
+            raise e
+
+    # -------------------------------
+    # Методы для юзеров (Users)
+
+    def user_get_by_token(self, token):
+        self.cursor.execute('''SELECT userID, password, user_role FROM Users WHERE auth_token = ?''', (token,))
+        return self.cursor.fetchone()
+
+    def user_set_token(self, user_id, token):
+        self.cursor.execute('''UPDATE Users SET auth_token = ? WHERE userID = ?''', (token, user_id))
+        self.connection.commit()
 
     def user_get_by_id(self, user_id: int):
         """Get user by ID with basic information"""
@@ -625,7 +675,6 @@ class Storage(object):
         self.cursor.execute(f"UPDATE Users SET {set_clause} WHERE userID = ?", values)
         self.connection.commit()
 
-
     def user_delete(self, user_id):
         """Delete user by ID"""
         self.cursor.execute("DELETE FROM Users WHERE userID = ?", (user_id,))
@@ -666,7 +715,9 @@ class Storage(object):
             self.connection.rollback()
             raise e
 
-    # Categories methods
+    # -------------------------------
+    # Методы для категорий (Categories)
+
     def category_create(self, name: str, description: str = None) -> int:
         """Создать категорию"""
         if not name.strip():
@@ -704,7 +755,6 @@ class Storage(object):
 
         self.connection.commit()
 
-
     def category_delete(self, category_id: int):
         """Удалить категорию"""
         self.cursor.execute('DELETE FROM Categories WHERE categoryID = ?', (category_id,))
@@ -719,198 +769,210 @@ class Storage(object):
         """Получить все категории"""
         self.cursor.execute('SELECT * FROM Categories ORDER BY create_date DESC')
         return [dict(row) for row in self.cursor.fetchall()]
-    
-    # Удаляем старые методы delete и перерабатываем логику
+
+    # -------------------------------
+    # Методы для корзины (Trash / Soft Delete)
 
     def news_soft_delete(self, newsID: int):
-        """Мягкое удаление в корзину"""
+        """
+        Мягкое удаление: 
+        ● Помечает delete_date = now, 
+        ● Очищает archive_date и publish_date,
+        ● Статус при этом остаётся прежним (чаще всего 'Approved' или 'Archived').
+        """
         try:
             self.cursor.execute('BEGIN TRANSACTION;')
-            
-            # Помечаем новость как удаленную
             self.cursor.execute('''
-                UPDATE News 
-                SET delete_date = datetime('now', 'localtime') 
+                UPDATE News
+                SET delete_date = datetime('now', 'localtime'),
+                    archive_date = NULL,
+                    publish_date = NULL
                 WHERE newsID = ?
             ''', (newsID,))
-            
             self.connection.commit()
         except Exception as e:
             self.connection.rollback()
             raise e
 
     def news_soft_delete_multiple(self, newsIDs: list):
-        """Мягкое удаление нескольких новостей"""
+        """Мягкое удаление сразу нескольких новостей."""
         try:
             self.cursor.execute('BEGIN TRANSACTION;')
-            
             placeholders = ','.join(['?'] * len(newsIDs))
             self.cursor.execute(f'''
-                UPDATE News 
-                SET delete_date = datetime('now', 'localtime') 
+                UPDATE News
+                SET delete_date = datetime('now', 'localtime'),
+                    archive_date = NULL,
+                    publish_date = NULL
                 WHERE newsID IN ({placeholders})
             ''', newsIDs)
-            
             self.connection.commit()
         except Exception as e:
             self.connection.rollback()
             raise e
-        
+
     def restore_news(self, newsIDs: list):
-        """Восстановление новостей из корзины"""
+        """
+        Восстановление новостей из корзины:
+        ● Сбрасываем delete_date,
+        ● Очищаем archive_date и publish_date,
+        ● Переводим статус → 'Pending' (чтобы новость шла повторно на модерацию).
+        """
         try:
             self.cursor.execute('BEGIN TRANSACTION;')
-            
             placeholders = ','.join(['?'] * len(newsIDs))
             self.cursor.execute(f'''
-                UPDATE News 
-                SET delete_date = NULL 
+                UPDATE News
+                SET delete_date = NULL,
+                    archive_date = NULL,
+                    publish_date = NULL,
+                    status = 'Pending'
                 WHERE newsID IN ({placeholders})
             ''', newsIDs)
             self.connection.commit()
         except Exception as e:
             self.connection.rollback()
             raise e
-        
+
     def purge_news(self, newsIDs: list):
-        """Окончательное удаление новостей из корзины"""
+        """
+        Окончательное удаление новостей:
+        ● Сначала собираем все файлы (guid) для удаления из ФС,
+        ● Удаляем записи в News (CASCADE по File_Link → Files),
+        ● Затем удаляем файлы с диска.
+        """
         try:
             self.cursor.execute('BEGIN TRANSACTION;')
-            
-            # 1. Получаем файлы для удаления
+
             placeholders = ','.join(['?'] * len(newsIDs))
+            # Сбор guid всех файлов для удаления из ФС
             self.cursor.execute(f'''
-                SELECT f.guid 
+                SELECT f.guid
                 FROM Files f
                 JOIN File_Link fl ON fl.fileID = f.fileID
                 WHERE fl.newsID IN ({placeholders})
             ''', newsIDs)
             files_to_delete = [row[0] for row in self.cursor.fetchall()]
-            
-            # 2. Удаляем новости и связанные данные через CASCADE
+
+            # Удаляем сами новости (и связанные через FK)
             self.cursor.execute(f'''
-                DELETE FROM News 
+                DELETE FROM News
                 WHERE newsID IN ({placeholders})
             ''', newsIDs)
-            
-            # 3. Удаляем файлы физически
+
+            # Физически удаляем файлы с диска
             upload_folder = current_app.config['UPLOAD_FOLDER']
-            for file_name in files_to_delete:
-                file_path = os.path.join(upload_folder, file_name)
+            for fname in files_to_delete:
+                file_path = os.path.join(upload_folder, fname)
                 if os.path.exists(file_path):
                     try:
                         os.remove(file_path)
                     except Exception as e:
-                        print(f"Ошибка удаления файла {file_path}: {str(e)}")
-            
+                        print(f"Ошибка удаления файла {file_path}: {e}")
+
             self.connection.commit()
         except Exception as e:
             self.connection.rollback()
             raise e
 
     def purge_expired_news(self, days=30):
-        """Очистка старых удаленных новостей"""
+        """
+        Удаляет из корзины новости, 
+        у которых delete_date старее, чем now - days.
+        """
         try:
             self.cursor.execute('BEGIN TRANSACTION;')
-            
-            # Получаем новости для удаления
             self.cursor.execute('''
-                SELECT newsID 
-                FROM News 
+                SELECT newsID
+                FROM News
                 WHERE delete_date <= datetime('now', ?)
             ''', (f'-{days} days',))
             news_ids = [row[0] for row in self.cursor.fetchall()]
-            
             if news_ids:
                 self.purge_news(news_ids)
-            
             self.connection.commit()
             return len(news_ids)
         except Exception as e:
             self.connection.rollback()
             raise e
-    
+
     def get_deleted_news(self) -> list:
-        """Get all news items with single query"""
+        """
+        Возвращает список всех «удалённых» (в корзине) новостей:
+        WHERE delete_date IS NOT NULL
+        """
         self.cursor.execute('''
-            SELECT 
-                n.newsID, 
-                n.title, 
-                n.description, 
+            SELECT
+                n.newsID,
+                n.title,
+                n.description,
                 n.status,
-                n.create_date, 
-                n.publish_date, 
-                n.event_start, 
+                n.create_date,
+                n.publish_date,
+                n.event_start,
                 n.event_end,
-                up.nick AS publisher_nick, 
-                um.nick AS moderator_nick,
-                c.name AS category_name,
-                n.delete_date 
+                up.nick   AS publisher_nick,
+                um.nick   AS moderator_nick,
+                c.name    AS category_name,
+                n.delete_date
             FROM News n
             JOIN Users up ON up.userID = n.publisherID
             LEFT JOIN Users um ON um.userID = n.moderated_byID
             LEFT JOIN Categories c ON c.categoryID = n.categoryID
             WHERE n.delete_date IS NOT NULL
-            GROUP BY n.newsID
             ORDER BY n.delete_date DESC
         ''')
-        
+
         news_items = []
         for row in self.cursor.fetchall():
-            news_id = row['newsID']
-            
-            # Get files
+            nid = row['newsID']
             self.cursor.execute('''
-                SELECT f.fileID, guid, format 
+                SELECT f.fileID, guid, format
                 FROM Files f
                 JOIN File_Link fl ON fl.fileID = f.fileID
                 WHERE fl.newsID = ?
                 ORDER BY f.fileID ASC
-            ''', (news_id,))
-            
+            ''', (nid,))
             files = [{
-                'fileID': r['fileID'],
-                'fileName': r['guid'],
-                'fileFormat': r['format']
+                'fileID':    r['fileID'],
+                'fileName':  r['guid'],
+                'fileFormat':r['format']
             } for r in self.cursor.fetchall()]
-            
+
             news_items.append({
-                'newsID': news_id,
-                'title': row['title'],
-                'description': row['description'],
-                'status': row['status'],
-                'create_date': row['create_date'],
-                'publish_date': row['publish_date'],
-                'event_start': row['event_start'],
-                'event_end': row['event_end'],
+                'newsID':         nid,
+                'title':          row['title'],
+                'description':    row['description'],
+                'status':         row['status'],
+                'create_date':    row['create_date'],
+                'publish_date':   row['publish_date'],
+                'event_start':    row['event_start'],
+                'event_end':      row['event_end'],
                 'publisher_nick': row['publisher_nick'],
                 'moderator_nick': row['moderator_nick'],
-                'category_name': row['category_name'],
-                'delete_date': row['delete_date'],
-                'files': files
+                'category_name':  row['category_name'],
+                'delete_date':    row['delete_date'],
+                'files':          files
             })
-        
         return news_items
 
     def get_deleted_news_single(self, news_id):
-        """Получает одну новость из корзины"""
+        """Получить одну «удалённую» новость (delete_date IS NOT NULL)."""
         self.cursor.execute('''
-            SELECT * FROM News 
+            SELECT * FROM News
             WHERE newsID = ? AND delete_date IS NOT NULL
         ''', (news_id,))
         row = self.cursor.fetchone()
         return dict(row) if row else None
-    
 
     def get_pending_news(self) -> list:
         """
         Возвращает список всех новостей со статусом 'Pending' и delete_date IS NULL.
-        Для каждой новости формирует вложенный список файлов (если они есть).
+        Формат: {newsID, title, description, status, create_date, event_start, event_end, publisher_nick, files: [...]}
         """
         try:
-            # 1) Выполняем SQL-запрос, сразу отфильтровав удалённые записи
             self.cursor.execute('''
-                SELECT 
+                SELECT
                     n.newsID,
                     n.title,
                     n.description,
@@ -918,7 +980,7 @@ class Storage(object):
                     n.create_date,
                     n.event_start,
                     n.event_end,
-                    up.nick AS publisher_nick,
+                    up.nick    AS publisher_nick,
                     f.fileID,
                     f.guid,
                     f.format
@@ -930,44 +992,164 @@ class Storage(object):
                   AND n.delete_date IS NULL
                 ORDER BY n.create_date DESC
             ''')
-            
+
             rows = self.cursor.fetchall()
             pending_dict = {}
 
-            # 2) Группируем результаты по newsID, собирая файлы в список
             for row in rows:
-                news_id = row['newsID']
-
-                # Если новости с таким ID ещё нет в словаре — создаём её
-                if news_id not in pending_dict:
-                    pending_dict[news_id] = {
-                        'newsID': news_id,
-                        'title': row['title'],
-                        'description': row['description'],
-                        'status': row['status'],
-                        'create_date': row['create_date'],
-                        'event_start': row['event_start'],
-                        'event_end': row['event_end'],
+                nid = row['newsID']
+                if nid not in pending_dict:
+                    pending_dict[nid] = {
+                        'newsID':         nid,
+                        'title':          row['title'],
+                        'description':    row['description'],
+                        'status':         row['status'],
+                        'create_date':    row['create_date'],
+                        'event_start':    row['event_start'],
+                        'event_end':      row['event_end'],
                         'publisher_nick': row['publisher_nick'],
-                        'files': []
+                        'files':          []
                     }
-                
-                # Если для этой новости есть файл — добавляем в массив
                 if row['fileID'] is not None:
-                    pending_dict[news_id]['files'].append({
-                        'fileID': row['fileID'],
-                        'fileName': row['guid'],
-                        'fileFormat': row['format']
+                    pending_dict[nid]['files'].append({
+                        'fileID':    row['fileID'],
+                        'fileName':  row['guid'],
+                        'fileFormat':row['format']
                     })
 
-            # 3) Возвращаем список словарей, убрав промежуточный dict
             return list(pending_dict.values())
-
         except sqlite3.OperationalError as e:
             raise sqlite3.DatabaseError(
                 "Ошибка получения списка ожидающих модерацию новостей",
                 details={
                     "operation": "get_pending_news",
-                    "error": str(e)
+                    "error":     str(e)
                 }
+            ) from e
+
+    def get_archived_news(self) -> list:
+        """
+        Возвращает список всех «архивных» новостей:
+        WHERE status = 'Archived' AND delete_date IS NULL AND archive_date IS NOT NULL
+        """
+        self.cursor.execute('''
+            SELECT
+                n.newsID,
+                n.title,
+                n.description,
+                n.status,
+                n.create_date,
+                n.publish_date,
+                n.event_start,
+                n.event_end,
+                up.nick    AS publisher_nick,
+                um.nick    AS moderator_nick,
+                c.name     AS category_name,
+                n.archive_date
+            FROM News n
+            JOIN Users up ON up.userID = n.publisherID
+            LEFT JOIN Users um ON um.userID = n.moderated_byID
+            LEFT JOIN Categories c ON c.categoryID = n.categoryID
+            WHERE n.status = 'Archived'
+              AND n.archive_date IS NOT NULL
+              AND n.delete_date IS NULL
+            ORDER BY n.archive_date DESC
+        ''')
+
+        archived_items = []
+        for row in self.cursor.fetchall():
+            nid = row['newsID']
+            self.cursor.execute('''
+                SELECT
+                    f.fileID,
+                    guid AS fileName,
+                    format AS fileFormat
+                FROM Files f
+                JOIN File_Link fl ON fl.fileID = f.fileID
+                WHERE fl.newsID = ?
+                ORDER BY f.fileID ASC
+            ''', (nid,))
+            files = [{
+                'fileID':    r['fileID'],
+                'fileName':  r['fileName'],
+                'fileFormat':r['fileFormat']
+            } for r in self.cursor.fetchall()]
+
+            archived_items.append({
+                'newsID':         nid,
+                'title':          row['title'],
+                'description':    row['description'],
+                'status':         row['status'],
+                'create_date':    row['create_date'],
+                'publish_date':   row['publish_date'],
+                'event_start':    row['event_start'],
+                'event_end':      row['event_end'],
+                'archive_date':   row['archive_date'],
+                'publisher_nick': row['publisher_nick'],
+                'moderator_nick': row['moderator_nick'],
+                'category_name':  row['category_name'],
+                'files':          files
+            })
+        return archived_items
+
+
+    # -------------------------------
+    # Методы для обновления вкладок админки (Real-time AdminPanel Tabs Updates)
+
+    def count_pending_news(self) -> int:
+        """
+        Возвращает количество новостей со статусом 'Pending' и delete_date IS NULL.
+        """
+        try:
+            self.cursor.execute('''
+                SELECT COUNT(*) as cnt
+                FROM News
+                WHERE status = 'Pending'
+                  AND delete_date IS NULL
+            ''')
+            row = self.cursor.fetchone()
+            return row['cnt'] if row else 0
+        except sqlite3.OperationalError as e:
+            # Можно логировать e, но поднять более общее исключение
+            raise sqlite3.DatabaseError(
+                "Ошибка подсчёта ожидающих модерацию новостей",
+                details={"operation": "count_pending_news", "error": str(e)}
+            ) from e
+
+    def count_trash_news(self) -> int:
+        """
+        Возвращает количество новостей, находящихся в корзине (delete_date IS NOT NULL).
+        """
+        try:
+            self.cursor.execute('''
+                SELECT COUNT(*) as cnt
+                FROM News
+                WHERE delete_date IS NOT NULL
+            ''')
+            row = self.cursor.fetchone()
+            return row['cnt'] if row else 0
+        except sqlite3.OperationalError as e:
+            raise sqlite3.DatabaseError(
+                "Ошибка подсчёта новостей в корзине",
+                details={"operation": "count_trash_news", "error": str(e)}
+            ) from e
+
+    def count_archived_news(self) -> int:
+        """
+        Возвращает количество архива новостей (status = 'Archived' и delete_date IS NULL).
+        """
+        try:
+            self.cursor.execute('''
+                SELECT COUNT(*) as cnt
+                FROM News
+                WHERE status = 'Archived'
+                  AND archive_date IS NOT NULL
+                  AND delete_date IS NULL
+            ''')
+            row = self.cursor.fetchone()
+            return row['cnt'] if row else 0
+        except sqlite3.OperationalError as e:
+            raise sqlite3.DatabaseError(
+                "Ошибка подсчёта новостей в архиве",
+                details={"operation": "count_archived_news", "error": str(e)}
             ) from e

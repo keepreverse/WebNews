@@ -23,7 +23,7 @@ const CategoriesFilters = ({
   };
 
   return (
-    <div className="filters-container" style={{ padding: '12px 0 0 0' }}>
+    <div className="filters-container">
       <div className="filter-group">
         <label htmlFor="search">Поиск по категориям:</label>
         <input
@@ -52,15 +52,17 @@ const CategoriesFilters = ({
       >
         Сбросить все фильтры
       </button>
+      
+        {!deleteDisabled && (
+          <button style={{ marginBottom: '0' }}
+            onClick={onDeleteAll}
+            className="custom_button_long action-remove"
+            id="delete-all"
+          >
+            Удалить все категории
+          </button>
+        )}
 
-      <button
-        onClick={onDeleteAll}
-        className="custom_button_long action-remove"
-        id="delete-all"
-        disabled={deleteDisabled}
-      >
-        Удалить все категории
-      </button>
     </div>
   );
 };

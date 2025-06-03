@@ -7,7 +7,7 @@
 
   import HTMLReactParser from "html-react-parser";
   import { ToastContainer, toast } from "react-toastify";
-  import "react-toastify/dist/ReactToastify.css";
+  
   import Flatpickr from "react-flatpickr";
   import "flatpickr/dist/flatpickr.min.css";
   import { Russian } from "flatpickr/dist/l10n/ru.js";
@@ -47,6 +47,14 @@
 
     const [categories, setCategories] = useState([]);
     const [selectedCategory, setSelectedCategory] = useState('');
+    
+    useEffect(() => {
+      api.ping().then((alive) => {
+        if (!alive) {
+          toast.error("Сервер не отвечает! Пожалуйста, попробуйте позже");
+        }
+      });
+    }, []);
 
     // Загрузка категорий и тегов
     useEffect(() => {
@@ -177,7 +185,6 @@
             }
           }
         },
-
         beforeDrop(event) { 
           const items = event?.dataTransfer?.items || [];
           for (const item of items) {
@@ -187,9 +194,16 @@
               return false;
             }
           }
+        },
+      toggleFullSize: (isFull) => {
+        if (isFull) {
+          document.body.classList.add("jodit-full-active");
+        } else {
+          document.body.classList.remove("jodit-full-active");
         }
       }
-    }), []);
+    }
+  }), []);
 
     const configFlatpickr = useMemo(() => ({
       enableTime: true,
@@ -199,16 +213,6 @@
       locale: Russian,
     }), []);
     
-    // Конфигурация Toast
-    const configToast = useMemo(() => ({
-      position: "top-right",
-      autoClose: 4000,
-      hideProgressBar: false,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-    }), []);
-
     // Debounce для заголовка
     function useDebounce(value, delay) {
       const [debouncedValue, setDebouncedValue] = useState(value);
@@ -372,9 +376,9 @@
         }
       } catch (error) {
         console.error('Error loading users:', error);
-        toast.error('Не удалось загрузить список пользователей', configToast);
+        toast.error('Не удалось загрузить список пользователей');
       }
-    }, [configToast, isEditMode, nickname]);
+    }, [isEditMode, nickname]);
 
     // Загружаем пользователей при монтировании компонента
     useEffect(() => {
@@ -458,15 +462,15 @@
           const images = formData.files.map(file => ({
             id: uuidv4(),
             fileName: file.fileName,
-            preview: `http://127.0.0.1:5000/uploads/${file.fileName}`
+            preview: `https://webnews-1fwz.onrender.com/uploads/${file.fileName}`
           }));
           setNewsImages(images);
         }
       } catch (error) {
         console.error("Error loading news data:", error);
-        toast.error(error.message || "Не удалось загрузить данные новости", configToast);
+        toast.error(error.message || "Не удалось загрузить данные новости");
       }
-    }, [configToast]);
+    }, []);
 
 
     useEffect(() => {
@@ -486,23 +490,23 @@
 
       // Проверка аутентификации
       if (!currentUser || !currentUser.nickname) {
-        toast.error("Требуется авторизация!", configToast);
+        toast.error("Требуется авторизация!");
         return;
       }
 
       // Валидация полей
       if (!event_start || event_start.length === 0) {
-        toast.error("Пожалуйста, укажите дату события", configToast);
+        toast.error("Пожалуйста, укажите дату события");
         return;
       }
 
       if (!title.trim()) {
-        toast.error("Пожалуйста, введите заголовок новости", configToast);
+        toast.error("Пожалуйста, введите заголовок новости");
         return;
       }
 
       if (!description.trim()) {
-        toast.error("Пожалуйста, введите текст новости", configToast);
+        toast.error("Пожалуйста, введите текст новости");
         return;
       }
 
@@ -513,14 +517,14 @@
       // Для администраторов/модераторов в режиме редактирования
       if ((currentUser?.role === 'Administrator' || currentUser?.role === 'Moderator') && isEditMode) {
         if (!selectedAuthor) {
-          toast.error('Не выбран автор публикации!', configToast);
+          toast.error('Не выбран автор публикации!');
           return;
         }
 
         // Находим выбранного пользователя
         const selectedUser = users.find(user => user.nick === selectedAuthor);
         if (!selectedUser) {
-          toast.error('Выбранный автор не существует!', configToast);
+          toast.error('Выбранный автор не существует!');
           return;
         }
 
@@ -576,15 +580,13 @@
         if (isEditMode) {
           navigate('/news-list')
           setTimeout(() => {
-            toast.success("Новость успешно обновлена!", configToast);
+            toast.success("Новость успешно обновлена!");
           }, 200);
         } else {
-          toast.success("Новость отправлена на проверку!", configToast);
+          toast.success("Новость отправлена на проверку!");
         }
           
       } catch (error) {
-        console.error("Request error:", error);
-        
         if (error.message.includes("401")) {
           navigate('/login', { 
             state: { from: location },
@@ -592,11 +594,7 @@
           });
           return;
         }
-      
-        toast.error(
-          error.message || "Ошибка при сохранении новости",
-          configToast
-        );
+        toast.error("Ошибка при сохранении новости");
       }
     };
 
@@ -617,9 +615,7 @@
       );
     }, [configFlatpickr, event_start]);
 
-    const MemoizedToastContainer = useMemo(() => <ToastContainer options={configToast}/>, [configToast]);
-
-    
+   
     return (
       <PageWrapper>
       <Helmet>
@@ -684,10 +680,12 @@
               />
 
               <JoditEditor
+                type="text"
                 name="description"
                 ref={editorRef}
                 config={configJoditEditor}
                 tabIndex={1}
+                value={description}
                 onBlur={handleDescriptionBlur}
               />
 
@@ -813,7 +811,7 @@
 
           </div>
         </div>
-        {MemoizedToastContainer}
+        <ToastContainer/>
       </PageWrapper>
     );
   }

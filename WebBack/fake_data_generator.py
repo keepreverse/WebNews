@@ -69,7 +69,7 @@ class TestDataGenerator:
         if not self.generated_data["categories"]:
             raise RuntimeError("Сначала вызовите generate_categories(), иначе у новостей не будет категории.")
 
-        statuses = ["Pending", "Approved", "Rejected", "Archived"]
+        statuses = ["Pending"]
 
         for _ in range(count):
             event_start = fake.date_time_between(start_date="-30d", end_date="+30d")
@@ -108,9 +108,9 @@ if __name__ == "__main__":
     generator.generate_users(count=2)
 
     print("\n=== Генерация категорий (5) ===")
-    generator.generate_categories(count=5)
+    generator.generate_categories(count=2)
 
     print("\n=== Генерация новостей (50) ===")
-    generator.generate_news(count=500)
+    generator.generate_news(count=50)
 
     generator.close()

@@ -19,11 +19,6 @@ const NewsFilters = ({
     onChange: (dates) => onFilterChange("dateRange", dates),
   };
 
-  // Дополнительно: поле поиска (его нет в админской версии)
-  const handleSearchChange = (e) => {
-    onFilterChange("searchQuery", e.target.value);
-  };
-
   return (
     <div className="filters-container">
       {/* Поле поиска по новостям */}
@@ -34,7 +29,7 @@ const NewsFilters = ({
           type="text"
           placeholder="Поиск по заголовку или описанию"
           value={filters.searchQuery || ""}
-          onChange={handleSearchChange}
+          onChange={(e) => onFilterChange("searchQuery", e.target.value)}
         />
       </div>
 

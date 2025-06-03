@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { ToastContainer, toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 
 import { api } from "../../services/apiClient";
 import { getAuthToken, isTokenValid } from "../../services/authHelpers";
@@ -15,6 +14,14 @@ const LoginPage = () => {
   const [nickname, setNickname] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoginMode, setIsLoginMode] = useState(true);
+
+  useEffect(() => {
+    api.ping().then((alive) => {
+      if (!alive) {
+        toast.error("Сервер не отвечает! Пожалуйста, попробуйте позже");
+      }
+    });
+  }, []);
 
   useEffect(() => {
     const token = getAuthToken();
@@ -135,7 +142,7 @@ const LoginPage = () => {
               ? "Нет аккаунта? Зарегистрироваться" 
               : "Уже есть аккаунт? Войти"}
           </button>
-          <ToastContainer position="top-right" autoClose={3000} />
+          <ToastContainer/>
         </div>
       </div>
     </PageWrapper>

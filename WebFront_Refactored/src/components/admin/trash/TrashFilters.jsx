@@ -27,7 +27,7 @@ const TrashFilters = ({
     <div className="filters-container">
       {/* Поиск по заголовку/описанию */}
       <div className="filter-group">
-        <label htmlFor="search">Поиск по корзине:</label>
+        <label htmlFor="search">Поиск в корзине:</label>
         <input
           id="search"
           type="text"
@@ -59,13 +59,14 @@ const TrashFilters = ({
       </button>
 
       {/* Очистить всю корзину */}
-      <button
-        onClick={onPurgeAll}
-        className="custom_button_long action-remove"
-        disabled={purgeDisabled}
-      >
-        Очистить корзину
-      </button>
+      {!purgeDisabled && (
+        <button
+          onClick={onPurgeAll}
+          className="custom_button_long action-remove"
+        >
+          Очистить корзину
+        </button>
+      )}
     </div>
   );
 };

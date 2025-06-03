@@ -134,7 +134,6 @@ const useUsersManagement = () => {
       setEditingUser(null);
       toast.success("Изменения сохранены");
     } catch (error) {
-      toast.error(error.message || "Ошибка обновления");
     }
   }, [fetchUsers]);
 

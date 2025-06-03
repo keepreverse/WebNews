@@ -5,7 +5,9 @@ import { HelmetProvider } from "react-helmet-async";
 
 import App from "./App";
 import { initAuthToken } from "./services/apiClient";
-import "./styles/globals.css";
+
+import "./styles/Globals.css";
+import "react-toastify/dist/ReactToastify.css";
 
 // Инициализация токена
 initAuthToken();

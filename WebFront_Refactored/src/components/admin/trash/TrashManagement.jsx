@@ -38,7 +38,7 @@ const TrashManagement = ({
     if (!item.files?.length) return;
     setLightboxSlides(
       item.files.map((file) => ({
-        src: `http://127.0.0.1:5000/uploads/${file.fileName}`,
+        src: `https://webnews-1fwz.onrender.com/uploads/${file.fileName}`,
         alt: `Изображение новости ${item.newsID}`,
       }))
     );
@@ -170,20 +170,31 @@ const TrashManagement = ({
         plugins={[Fullscreen, Thumbnails, Zoom]}
         styles={{
           container: { backgroundColor: "rgba(0, 0, 0, 0.8)" },
-          thumbnail: { backgroundColor: "rgba(0, 0, 0, 0.5)" },
-          thumbnailsContainer: { backgroundColor: "rgba(0, 0, 0, 0.8)" },
+          thumbnail: {
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+          },
+          thumbnailsContainer: {
+            backgroundColor: "rgba(0, 0, 0, 0.8)",
+          },
           icon: {
             color: "rgba(255, 255, 255, 0.7)",
             filter: "drop-shadow(0 0 2px rgba(0, 0, 0, 0.5))",
           },
-          iconDisabled: { color: "rgba(255, 255, 255, 0.3)" },
-          iconHover: { color: "#fff", backgroundColor: "rgba(0, 0, 0, 0.3)" },
+          iconDisabled: {
+            color: "rgba(255, 255, 255, 0.3)",
+          },
+          iconHover: {
+            color: "#fff",
+            backgroundColor: "rgba(0, 0, 0, 0.3)",
+          }
         }}
-        thumbnails={{ vignette: false }}
+        thumbnails={{
+          vignette: false,
+        }}
         zoom={{
-          maxZoomPixelRatio: 4,
-          zoomInMultiplier: 1.2,
-          scrollToZoom: true,
+          maxZoomPixelRatio: 2, // Максимальный уровень увеличения
+          zoomInMultiplier: 1.5,  // Множитель увеличения
+          scrollToZoom: true    // Включить зум скроллом
         }}
       />
     </>

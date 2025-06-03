@@ -42,7 +42,7 @@ const NewsModeration = ({
     if (!newsItem.files?.length) return;
     
     setLightboxSlides(newsItem.files.map(file => ({
-      src: `http://127.0.0.1:5000/uploads/${file.fileName}`,
+      src: `https://webnews-1fwz.onrender.com/uploads/${file.fileName}`,
       alt: `Изображение новости ${newsItem.newsID}`
     })));
     setLightboxIndex(index);
@@ -152,8 +152,8 @@ const NewsModeration = ({
           vignette: false,
         }}
         zoom={{
-          maxZoomPixelRatio: 4, // Максимальный уровень увеличения
-          zoomInMultiplier: 1.2,  // Множитель увеличения
+          maxZoomPixelRatio: 2, // Максимальный уровень увеличения
+          zoomInMultiplier: 1.5,  // Множитель увеличения
           scrollToZoom: true    // Включить зум скроллом
         }}
       />

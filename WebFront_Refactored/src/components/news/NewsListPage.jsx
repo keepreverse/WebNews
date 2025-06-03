@@ -2,8 +2,8 @@
 import React, { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import { ToastContainer, toast } from "react-toastify";
+
 
 import PageWrapper from "../../features/PageWrapper";
 import NewsList from "./NewsList"; // презентационный компонент
@@ -31,6 +31,14 @@ function NewsListPage() {
   } = useNewsList();
 
   const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    api.ping().then((alive) => {
+      if (!alive) {
+        toast.error("Сервер не отвечает! Пожалуйста, попробуйте позже");
+      }
+    });
+  }, []);
 
   // Проверка авторизации: если есть “user” в localStorage или sessionStorage, ставим токен
   useEffect(() => {

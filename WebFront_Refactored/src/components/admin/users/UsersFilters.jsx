@@ -81,13 +81,14 @@ const UsersFilters = ({
         Сбросить все фильтры
       </button>
 
-      <button
-        onClick={onDeleteAll}
-        className="custom_button_long action-remove"
-        disabled={deleteDisabled}
-      >
-        Удалить всех пользователей
-      </button>
+      {!deleteDisabled && (
+        <button
+          onClick={onDeleteAll}
+          className="custom_button_long action-remove"
+        >
+          Удалить всех пользователей
+        </button>
+      )}
 
     </div>
   );

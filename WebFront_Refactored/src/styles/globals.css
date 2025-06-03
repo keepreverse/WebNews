@@ -112,8 +112,8 @@ body {
     width: 100%;
     margin: 0 auto;
     box-sizing: border-box;
-    padding-right: clamp(16px, 5vw, 60px);
-    padding-left: clamp(16px, 5vw, 60px);
+    padding-right: clamp(16px, 5vw, 30px);
+    padding-left: clamp(16px, 5vw, 30px);
     padding-bottom: clamp(16px, 5vw, 20px);
     padding-top: clamp(16px, 5vw, 20px);
 }
@@ -486,6 +486,7 @@ body {
      justify-content: center;
      width: 100%;
 }
+
  .tab-button {
      flex: 1;
      min-width: 0;
@@ -498,13 +499,15 @@ body {
      color: #555;
      text-transform: uppercase;
      letter-spacing: 1px;
-     transition: all 0.3s ease, font-weight 0.1s ease;
-    /* Добавляем анимацию для font-weight */
+     transition:
+      color 0.3s ease,
+      background-color 0.3s ease,
+      font-weight 0.1s ease;
      text-align: center;
      position: relative;
      font-weight: 400;
-    /* Явно указываем нормальное начертание */
 }
+
  .tab-button:first-child {
      margin-left: 0;
 }
@@ -718,7 +721,7 @@ body {
      color: #ffffff;
 }
  .custom_button.action-options:hover, .custom_button_short.action-options:hover, .custom_button_long.action-options:hover {
-     background-color: #b1894c;
+     background-color: #bd9964;
      color: #ffffff;
 }
  .custom_button.action-remove:hover, .custom_button_short.action-remove:hover, .custom_button_long.action-remove:hover {
@@ -737,12 +740,12 @@ body {
      color: #ffffff;
 }
  .custom_button_short.action-options {
-     border: 1px solid #b1894c;
-     color: #b1894c;
+     border: 1px solid #bd9964;
+     color: #bd9964;
      background: transparent;
 }
  .custom_button_short.action-options:hover {
-     background-color: #b1894c;
+     background-color: #bd9964;
      color: #ffffff;
 }
  .custom_button_short.action-remove {
@@ -775,12 +778,12 @@ body {
 }
 
 .custom_button_long.action-options {
-  border: 1px solid #b1894c;
-  color: #b1894c;
+  border: 1px solid #bd9964;
+  color: #bd9964;
   background: transparent;
 }
 .custom_button_long.action-options:hover {
-  background-color: #b1894c;
+  background-color: #bd9964;
   color: #ffffff;
 }
 
@@ -851,61 +854,16 @@ body {
 
 
 
-.main-content {
-  flex: 1;
-  margin-left: 0;
-  transition: margin-left 0.3s ease;
-}
-
-.sidebar-shown .main-content {
-  margin-left: 200px;
-}
-
-.sidebar-collapsed .main-content {
-  margin-left: 60px;
-}
-
-.no-sidebar .main-content {
-  margin-left: 0 !important;
-}
-
-
-
-
-
-
-
-
-
 /* ======== Общие стили для мобильных устройств ======== */
 
-@media (max-width: 768px) {
-  /* Контейнеры */
-  .container {
-    padding: 0 16px;
-    box-sizing: border-box;
-  }
 
-  /* Сайдбар */
-  .sidebar {
-    width: 0;
-    left: -220px;
-    transition: left 0.3s ease;
-  }
-
-  .sidebar.open {
-    left: 0;
-    width: 220px;
-  }
-
-  .main-content {
-    margin-left: 0 !important;
-  }
+@media (max-width: 1000px) {
 
   /* Таблица администратора */
   .admin-tabs {
     flex-direction: column;
     border-bottom: none;
+    border-left: 1px solid #b5b5b5;
   }
 
   .tab-button {
@@ -913,13 +871,22 @@ body {
     margin: 0;
     padding: 12px 15px;
     border-bottom: none;
-    border-left: 3px solid transparent;
+    border-left: 2px solid transparent;
     text-align: left;
     margin-bottom: 2px;
   }
 
   .tab-button.active {
-    border-left: 3px solid #2d2f30;
+    border-left-color: #2d2f30;
+  }
+
+}
+
+@media (max-width: 768px) {
+  /* Контейнеры */
+  .container {
+    padding: 0 16px;
+    box-sizing: border-box; 
   }
 
   /* Кнопки модерации */
