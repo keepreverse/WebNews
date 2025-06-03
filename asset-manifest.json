@@ -1,14 +1,14 @@
 {
   "files": {
-    "main.css": "/WebNews/static/css/main.2308d07a.css",
-    "main.js": "/WebNews/static/js/main.ac73b960.js",
+    "main.css": "/WebNews/static/css/main.02d3f297.css",
+    "main.js": "/WebNews/static/js/main.ce72a81d.js",
     "static/media/placeholder.png": "/WebNews/static/media/placeholder.9490dea571c037fff737.png",
     "index.html": "/WebNews/index.html",
-    "main.2308d07a.css.map": "/WebNews/static/css/main.2308d07a.css.map",
-    "main.ac73b960.js.map": "/WebNews/static/js/main.ac73b960.js.map"
+    "main.02d3f297.css.map": "/WebNews/static/css/main.02d3f297.css.map",
+    "main.ce72a81d.js.map": "/WebNews/static/js/main.ce72a81d.js.map"
   },
   "entrypoints": [
-    "static/css/main.2308d07a.css",
-    "static/js/main.ac73b960.js"
+    "static/css/main.02d3f297.css",
+    "static/js/main.ce72a81d.js"
   ]
 }
