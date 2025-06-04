@@ -1,33 +1,31 @@
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { HashRouter as Router } from "react-router-dom";
+import { HelmetProvider } from "react-helmet-async";
 
-import { createRoot } from 'react-dom/client';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import LoginPage from './LoginPage';
-import NewsCreator from './NewsCreator';
-import NewsList from './NewsList';
-import AdminPanel from './AdminPanel';
-import ProtectedRoute from './ProtectedRoute';
-import { initAuthToken } from './apiClient';
-import { HelmetProvider } from 'react-helmet-async';
-import { ErrorBoundary } from './ErrorBoundary';
+import App from "./App";
+import { initAuthToken } from "./services/apiClient";
 
-import './styles.css';
+import "./styles/Globals.css";
+import "react-toastify/dist/ReactToastify.css";
 
-
+// Инициализация токена
 initAuthToken();
 
-const root = createRoot(document.getElementById('root'));
+const root = ReactDOM.createRoot(document.getElementById("root"));
+
 root.render(
-  <HelmetProvider>
-    <Router>
-      <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route element={<ProtectedRoute />}>
-          <Route path="/news-creator" element={<ErrorBoundary> <NewsCreator /> </ErrorBoundary>} />
-          <Route path="/news-list" element={<NewsList />} />
-          <Route path="/admin-panel" element={<AdminPanel />} />
-        </Route>
-      </Routes>
-    </Router>
-  </HelmetProvider>
+    <HelmetProvider>
+      <Router>
+        <App />
+      </Router>
+    </HelmetProvider>
 );
+
+// Полная тишина и перезагрузка при ошибке Jodit
+window.onerror = function (message) {
+  if (String(message).includes("Cannot read properties of null (reading 'value')")) {
+    window.location.reload();
+    return true;
+  }
+};

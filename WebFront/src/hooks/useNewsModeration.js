@@ -1,91 +1,75 @@
-// useNewsModeration.js
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { api } from '../apiClient';
-import { toast } from "react-toastify";
+import { api } from '../services/apiClient';
+import { toast } from 'react-toastify';
 import usePagination from './usePagination';
 
-const useNewsModeration = () => {
-  const { 
-    pagination,
-    handlePageChange,
-    handleDeleteAdjustment,
-    setPagination
-  } = usePagination({ 
-    page: 1, 
-    perPage: 5,
-    totalItems: 0,
-    totalPages: 1
-  });
+const useNewsModeration = ({ isActiveTab, onExternalRefresh = 0 }) => {
+  const { pagination, handlePageChange, handleDeleteAdjustment, setPagination } =
+    usePagination({
+      page: 1,
+      perPage: 5,
+      totalItems: 0,
+      totalPages: 1,
+    });
 
   const [allNews, setAllNews] = useState([]);
   const [filteredNews, setFilteredNews] = useState([]);
   const [filters, setFilters] = useState({
     author: '',
-    dateRange: [null, null]
+    dateRange: [null, null],
   });
 
   const isFilterChange = useRef(false);
-  const prevFilters = useRef({ 
-    author: filters.author, 
-    dateRange: JSON.stringify(filters.dateRange) 
+  const prevFilters = useRef({
+    author: filters.author,
+    dateRange: JSON.stringify(filters.dateRange),
   });
 
-  useEffect(() => {
-    // Сброс фильтра автора, если в списке больше нет его новостей
-    if (
-      filters.author && 
-      !allNews.some(n => n.publisher_nick === filters.author)
-    ) {
-      setFilters(prev => ({ 
-        ...prev, 
-        author: '' 
-      }));
-      isFilterChange.current = true;
-    }
-  }, [allNews, filters.author]);
-
-  // Загрузка данных
   const fetchPendingNews = useCallback(async () => {
     try {
-      localStorage.removeItem('cachedPendingNews');
-      
-      const data = await api.get("/api/admin/pending-news");
-      setAllNews(data || []);
-      localStorage.setItem('cachedPendingNews', JSON.stringify(data));
-      
-      setPagination(prev => ({
+      const data = await api.get('/admin/pending-news');
+      const items = data || [];
+      setAllNews(items);
+
+      setPagination((prev) => ({
         ...prev,
-        totalItems: data.length,
-        totalPages: Math.ceil(data.length / prev.perPage)
+        currentPage: 1,
+        totalItems: items.length,
+        totalPages: Math.ceil(items.length / prev.perPage),
       }));
-      
-      return data;
+      return items;
     } catch (error) {
-      toast.error(error.message || "Не удалось загрузить новости");
+      toast.error('Ошибка при загрузке списка новостей на модерацию');
       return [];
     }
   }, [setPagination]);
 
-  // Фильтрация
   useEffect(() => {
-    const filtered = allNews.filter(news => {
-      const matchesAuthor = !filters.author || news.publisher_nick === filters.author;
-      const dateFrom = filters.dateRange[0] ? new Date(filters.dateRange[0]) : null;
-      const dateTo = filters.dateRange[1] ? new Date(filters.dateRange[1]) : null;
-      const eventDate = new Date(news.event_start);
+    if (!isActiveTab) return;
+    fetchPendingNews();
+  }, [isActiveTab, onExternalRefresh, fetchPendingNews]);
 
-      const matchesDate = !dateFrom || !dateTo || 
-        (eventDate >= dateFrom && eventDate <= dateTo);
+  useEffect(() => {
+    let filtered = allNews.filter((news) => {
+      const matchesAuthor =
+        !filters.author || news.publisher_nick === filters.author;
 
+      let matchesDate = true;
+      if (filters.dateRange[0] && filters.dateRange[1]) {
+        const dateFrom = new Date(filters.dateRange[0]).setHours(0, 0, 0, 0);
+        const dateTo = new Date(filters.dateRange[1]).setHours(23, 59, 59, 999);
+        const eventDate = new Date(news.event_start).getTime();
+        matchesDate = eventDate >= dateFrom && eventDate <= dateTo;
+      }
       return matchesAuthor && matchesDate;
     });
 
     setFilteredNews(filtered);
-    
-    setPagination(prev => ({
+
+    setPagination((prev) => ({
       ...prev,
       totalItems: filtered.length,
-      totalPages: Math.ceil(filtered.length / prev.perPage)
+      totalPages: Math.ceil(filtered.length / prev.perPage),
     }));
 
     if (isFilterChange.current) {
@@ -94,58 +78,71 @@ const useNewsModeration = () => {
     }
   }, [allNews, filters, handlePageChange, setPagination]);
 
-  // Обработчик фильтров
   const handleFilterChange = useCallback((type, value) => {
-    const isAuthorChanged = type === 'author' && value !== prevFilters.current.author;
-    const isDateChanged = type === 'dateRange' && JSON.stringify(value) !== prevFilters.current.dateRange;
+    const isAuthorChanged =
+      type === 'author' && value !== prevFilters.current.author;
+    const isDateChanged =
+      type === 'dateRange' &&
+      JSON.stringify(value) !== prevFilters.current.dateRange;
 
     if (isAuthorChanged || isDateChanged) {
       isFilterChange.current = true;
       prevFilters.current = {
         author: type === 'author' ? value : prevFilters.current.author,
-        dateRange: type === 'dateRange' ? JSON.stringify(value) : prevFilters.current.dateRange
+        dateRange:
+          type === 'dateRange'
+            ? JSON.stringify(value)
+            : prevFilters.current.dateRange,
       };
     }
 
-    setFilters(prev => ({ ...prev, [type]: value }));
+    setFilters((prev) => ({ ...prev, [type]: value }));
   }, []);
 
-  const handleModerate = async (newsID, action, moderatorId) => {
+  const handleModerate = useCallback(async (newsID, action, moderatorId) => {
     try {
-      await api.post(`/api/admin/moderate-news/${newsID}`, { action, moderator_id: moderatorId });
-      setAllNews(prev => prev.filter(news => news.newsID !== newsID));
+      await api.post(`/admin/moderate-news/${newsID}`, {
+        action,
+        moderator_id: moderatorId,
+      });
+      setAllNews((prev) => prev.filter((n) => n.newsID !== newsID));
       handleDeleteAdjustment(filteredNews.length - 1);
-      toast.success(`Новость ${action === 'approve' ? 'одобрена' : 'отклонена'}`);
+      toast.success(
+        `Новость ${action === 'approve' ? 'одобрена' : 'отклонена'}`
+      );
     } catch (error) {
-      throw error;
+      toast.error(error.message || 'Ошибка модерации');
     }
-  };
+  }, [filteredNews.length, handleDeleteAdjustment]);
 
-  const handleArchive = async (newsID) => {
-    try {
-      await api.post(`/api/news/${newsID}/archive`, {});
-      setAllNews(prev => prev.filter(news => news.newsID !== newsID));
-      handleDeleteAdjustment(filteredNews.length - 1);
-      toast.success("Новость архивирована");
-    } catch (error) {
-      toast.error(error.message || "Ошибка архивации");
-    }
-  };
+  const handleArchive = useCallback(
+    async (newsID) => {
+      try {
+        await api.post(`/news/${newsID}/archive`, {});
+        setAllNews((prev) => prev.filter((n) => n.newsID !== newsID));
+        handleDeleteAdjustment(filteredNews.length - 1);
+        toast.success('Новость архивирована');
+      } catch (error) {
+        toast.error(error.message || 'Ошибка архивации');
+      }
+    },
+    [filteredNews.length, handleDeleteAdjustment]
+  );
 
   return {
     allNews,
     pendingNews: filteredNews,
     pagination,
-    handleModerate,
-    handleArchive,
     filters,
     onFilterChange: handleFilterChange,
     onClearFilters: () => {
       setFilters({ author: '', dateRange: [null, null] });
       isFilterChange.current = true;
     },
+    handleModerate,
+    handleArchive,
     fetchPendingNews,
-    handlePageChange
+    handlePageChange,
   };
 };
 

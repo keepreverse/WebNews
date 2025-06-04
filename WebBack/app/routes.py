@@ -96,7 +96,7 @@ def news_line():
     elif request.method == "POST":
         required_fields = [
             "login", "nickname", "title", "description",
-            "event_start", "categoryID"
+            "event_start", "event_end", "categoryID"
         ]
         if not all(field in request.form for field in required_fields):
             raise ValidationError(

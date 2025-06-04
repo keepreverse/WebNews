@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { api } from '../apiClient';
+import { api } from '../services/apiClient';
 import { toast } from "react-toastify";
 import usePagination from './usePagination';
 
@@ -29,7 +29,7 @@ const useUsersManagement = () => {
 
   const fetchUsers = useCallback(async () => {
     try {
-      const data = await api.get("/api/admin/users");
+      const data = await api.get("/admin/users");
       setUsers(data || []);
       
       setPagination(prev => ({
@@ -39,11 +39,9 @@ const useUsersManagement = () => {
         totalPages: Math.ceil(data.length / prev.perPage)
       }));
     } catch (error) {
-      toast.error(error.message || "Ошибка загрузки пользователей");
-    }
+    }   
   }, [setPagination]);
 
-  
   useEffect(() => {
     const filtered = users.filter(user => {
       const matchesRole = !filters.role || user.user_role === filters.role;
@@ -79,11 +77,10 @@ const useUsersManagement = () => {
 
   const deleteUser = useCallback(async userId => {
     try {
-      await api.delete(`/api/admin/users/${userId}`);
+      await api.delete(`/admin/users/${userId}`);
       setUsers(prev => prev.filter(u => u.userID !== userId));
       toast.success("Пользователь удалён");
     } catch (error) {
-      toast.error(error.message || "Ошибка удаления");
     }
   }, []);
 
@@ -91,7 +88,7 @@ const useUsersManagement = () => {
     if (!window.confirm("Вы уверены, что хотите удалить ВСЕХ пользователей?")) return;
     
     try {
-      const response = await api.delete("/api/admin/users/all");
+      const response = await api.delete("/admin/users/all");
       
       // Обновляем состояние с оставшимися пользователями
       setUsers(response.remainingUsers || []);
@@ -111,13 +108,12 @@ const useUsersManagement = () => {
       
       toast.success(`Удалено ${response.deletedCount} пользователей`);
     } catch (error) {
-      toast.error(error.message || "Ошибка удаления");
     }
   }, [setPagination]);
 
   const fetchRealPasswords = useCallback(async () => {
     try {
-      const passwords = await api.get("/api/admin/users/real_passwords");
+      const passwords = await api.get("/admin/users/real_passwords");
       setUsersWithRealPasswords(passwords || []);
     } catch (error) {
       toast.error("Ошибка загрузки паролей");
@@ -133,12 +129,11 @@ const useUsersManagement = () => {
 
   const updateUser = useCallback(async (userId, newData) => {
     try {
-      await api.put(`/api/admin/users/${userId}`, newData);
+      await api.put(`/admin/users/${userId}`, newData);
       await fetchUsers();
       setEditingUser(null);
       toast.success("Изменения сохранены");
     } catch (error) {
-      toast.error(error.message || "Ошибка обновления");
     }
   }, [fetchUsers]);
 

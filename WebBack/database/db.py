@@ -253,7 +253,7 @@ class Storage(object):
             news_input_data.get("description"),
             news_input_data.get("status", "Pending"),
             news_input_data.get("event_start"),
-            news_input_data.get("event_end", None),
+            news_input_data.get("event_end"),
             news_input_data.get("categoryID")
         ))
 
@@ -401,160 +401,172 @@ class Storage(object):
             'files':          files
         }, news_data['newsID']]
 
-    def news_update(self, news_id, user_id, news_data, files_received, files, upload_folder, existing_files=None, status_override=None):
+def news_update(self, news_id, user_id, news_data, files_received, files, upload_folder, existing_files=None, status_override=None):
+    """
+    Обновить новость; если передан status_override:
+    - 'Archived'  → status='Archived', archive_date=now
+    - любое другое значение → сброс archive_date
+    При этом поддерживаются все комбинации работы с фотографиями:
+    - полностью удалить все старые фотографии,
+    - частично удалить некоторые,
+    - заменить/добавить новые,
+    - оставить прежние.
+    Входные параметры:
+      • news_data          — dict из request.form (включая ключ delete_all_files при необходимости)
+      • existing_files     — list[guid] старых фотографий, которые нужно оставить (если фронтенд их передал)
+      • files_received     — булево, указывает, пришли ли новые файлы (обычно bool(files))
+      • files              — list объектов FileStorage новых загруженных файлов
+      • upload_folder      — путь к каталогу для сохранения файлов
+    """
+    self.cursor.execute('BEGIN TRANSACTION;')
+    try:
+        # --------------------------
+        # 1. Обновляем саму запись News
+        # --------------------------
+        update_query = """
+            UPDATE News
+            SET title = ?, description = ?, event_start = ?, event_end = ?, publisherID = ?, categoryID = ?
         """
-        Обновить новость; если передан status_override:
-        - 'Archived'  → status='Archived', archive_date=now
-        - любое другое значение → сброс archive_date
-        """
-        self.cursor.execute('BEGIN TRANSACTION;')
-        try:
-            # Собираем базовый UPDATE без статуса
-            update_query = '''
-                UPDATE News
-                SET title = ?, description = ?, event_start = ?, publisherID = ?, categoryID = ?
-            '''
-            update_values = [
-                news_data.get('title'),
-                news_data.get('description'),
-                news_data.get('event_start'),
-                user_id,
-                news_data.get('categoryID')
-            ]
+        update_values = [
+            news_data.get('title'),
+            news_data.get('description'),
+            news_data.get('event_start'),
+            news_data.get('event_end'),
+            user_id,
+            news_data.get('categoryID')
+        ]
 
-            # Если нужно изменить статус – добавляем соответствующую часть
-            if status_override:
-                if status_override == 'Archived':
-                    update_query += ", status = ?, archive_date = datetime('now', 'localtime')"
-                    update_values.append(status_override)
-                else:
-                    # Сбрасываем archive_date при переходе **не в Archived** (например: 'Approved' или 'Rejected')
-                    update_query += ", status = ?, archive_date = NULL"
-                    update_values.append(status_override)
-
-            update_query += " WHERE newsID = ?"
-            update_values.append(news_id)
-            self.cursor.execute(update_query, tuple(update_values))
-
-            # --- Работа с файлами (сохранение/удаление) ---
-            all_existing_files = existing_files if existing_files else []
-            files_to_delete = []
-
-            if not all_existing_files:
-                # Если нет существующих файлов, надо удалить все привязки и сами файлы
-                self.cursor.execute('''
-                    SELECT f.fileID, f.guid
-                    FROM Files f
-                    JOIN File_Link fl ON fl.fileID = f.fileID
-                    WHERE fl.newsID = ?
-                ''', (news_id,))
-                rows = self.cursor.fetchall()
-                files_to_disk_delete = [r['guid'] for r in rows]
-                file_ids_to_db_delete = [r['fileID'] for r in rows]
-
-                self.cursor.execute('DELETE FROM File_Link WHERE newsID = ?', (news_id,))
-
-                if file_ids_to_db_delete:
-                    placeholders = ','.join(['?'] * len(file_ids_to_db_delete))
-                    self.cursor.execute(f'DELETE FROM Files WHERE fileID IN ({placeholders})', file_ids_to_db_delete)
-
-                # Удаляем реальные файлы с диска
-                for img in files_to_disk_delete:
-                    img_path = os.path.join(upload_folder, img)
-                    if os.path.exists(img_path):
-                        try:
-                            os.remove(img_path)
-                        except Exception as e:
-                            print(f"Ошибка удаления файла {img_path}: {e}")
+        if status_override:
+            if status_override == 'Archived':
+                update_query += ", status = ?, archive_date = datetime('now', 'localtime')"
+                update_values.append(status_override)
             else:
-                # Иначе удаляем только те файлы, которых нет в all_existing_files
-                placeholders = ','.join(['?'] * len(all_existing_files))
-                # Сначала находим fileID и guid старых
-                self.cursor.execute(f'''
-                    SELECT f.fileID, f.guid
-                    FROM Files f
-                    JOIN File_Link fl ON fl.fileID = f.fileID
-                    WHERE fl.newsID = ? AND f.guid NOT IN ({placeholders})
-                ''', [news_id] + all_existing_files)
-                rows = self.cursor.fetchall()
-                files_to_disk_delete = [r['guid'] for r in rows]
-                file_ids_to_db_delete = [r['fileID'] for r in rows]
+                update_query += ", status = ?, archive_date = NULL"
+                update_values.append(status_override)
 
-                # Удаляем связи File_Link для тех fileID
-                if file_ids_to_db_delete:
-                    placeholders_db = ','.join(['?'] * len(file_ids_to_db_delete))
-                    self.cursor.execute(f'DELETE FROM File_Link WHERE fileID IN ({placeholders_db}) AND newsID = ?', file_ids_to_db_delete + [news_id])
+        update_query += " WHERE newsID = ?"
+        update_values.append(news_id)
+        self.cursor.execute(update_query, tuple(update_values))
 
-                # Удаляем сами записи из Files
-                if file_ids_to_db_delete:
-                    placeholders_db = ','.join(['?'] * len(file_ids_to_db_delete))
-                    self.cursor.execute(f'DELETE FROM Files WHERE fileID IN ({placeholders_db})', file_ids_to_db_delete)
+        # --------------------------
+        # 2. Работа с файлами
+        # --------------------------
 
-                # Удаляем реальные файлы с диска
-                for img in files_to_disk_delete:
-                    img_path = os.path.join(upload_folder, img)
-                    if os.path.exists(img_path):
-                        try:
-                            os.remove(img_path)
-                        except Exception as e:
-                            print(f"Ошибка удаления файла {img_path}: {e}")
+        # • existing_files — list[guid] тех файлов, которые фронтенд хочет оставить.
+        #   Если в news_data есть флаг delete_all_files == "true", это означает, что
+        #   пользователь явно попросил удалить все старые файлы.
+        # • files_received  — True, если пришли какие-то новые файлы (files != []).
+        # • files           — list объектов FileStorage с новыми файлами.
 
-                # Оставшиеся существующие файлы должны сохранить связи, поэтому
-                # сначала удаляем все связи, потом добавим обратно только нужные:
-                self.cursor.execute('DELETE FROM File_Link WHERE newsID = ?', (news_id,))
-                for guid in all_existing_files:
-                    self.cursor.execute('SELECT fileID FROM Files WHERE guid = ?', (guid,))
-                    row = self.cursor.fetchone()
-                    if row:
-                        fid = row['fileID']
-                        self.cursor.execute('INSERT INTO File_Link (fileID, newsID) VALUES (?, ?)', (fid, news_id))
-
-            self.connection.commit()
-
-        except Exception as e:
-            self.connection.rollback()
-            raise e
-
-    def news_delete_files(self, newsID: int):
-        """Удалить все файлы, привязанные к конкретной новости (но не саму новость)."""
-        self.cursor.execute('BEGIN TRANSACTION;')
-        try:
-            # Получаем fileID и guid всех файлов, связанных с этой новостью
-            self.cursor.execute('''
-                SELECT f.fileID, f.guid
+        # Определим список GUID тех старых фотографий, которые нужно оставить.
+        keep_guids = []
+        if news_data.get('delete_all_files') == "true":
+            # Явное удаление всех старых файлов  → keep_guids остаётся пустым
+            keep_guids = []
+        elif existing_files is not None:
+            # existing_files может быть [] или непустым списком
+            keep_guids = existing_files
+        else:
+            # Если фронтенд не передал existing_files вовсе → считаем, что не меняем старые.
+            # Поэтому получим все старые guids, чтобы их сохранить.
+            self.cursor.execute("""
+                SELECT f.guid
                 FROM Files f
                 JOIN File_Link fl ON fl.fileID = f.fileID
                 WHERE fl.newsID = ?
-            ''', (newsID,))
-            rows = self.cursor.fetchall()
-            guids_to_delete = [r['guid'] for r in rows]
-            file_ids_to_delete = [r['fileID'] for r in rows]
+            """, (news_id,))
+            rows_all = self.cursor.fetchall()
+            keep_guids = [r['guid'] for r in rows_all]
 
-            # Удаляем связи File_Link
-            self.cursor.execute('DELETE FROM File_Link WHERE newsID = ?', (newsID,))
+        # 2.1. Получим полную карту {guid: fileID} для всех старых файлов, связанных с этим newsID
+        self.cursor.execute("""
+            SELECT f.fileID, f.guid
+            FROM Files f
+            JOIN File_Link fl ON fl.fileID = f.fileID
+            WHERE fl.newsID = ?
+        """, (news_id,))
+        rows = self.cursor.fetchall()
+        old_map = {r['guid']: r['fileID'] for r in rows}  # guid → fileID
 
-            # Удаляем сами записи из Files
-            if file_ids_to_delete:
-                placeholders = ','.join(['?'] * len(file_ids_to_delete))
-                self.cursor.execute(f'DELETE FROM Files WHERE fileID IN ({placeholders})', file_ids_to_delete)
+        # 2.2. Определим guids и fileIDs для удаления: 
+        #     все старые, которых нет в keep_guids
+        to_delete_guids = [g for g in old_map.keys() if g not in keep_guids]
+        to_delete_file_ids = [old_map[g] for g in to_delete_guids]
 
-            # Удаляем файлы с диска
-            upload_folder = current_app.config['UPLOAD_FOLDER']
-            for img_name in guids_to_delete:
-                img_path = os.path.join(upload_folder, img_name)
-                if os.path.isfile(img_path) or os.path.islink(img_path):
-                    try:
-                        os.unlink(img_path)
-                    except Exception as e:
-                        print(f"Ошибка удаления файла {img_path}: {e}")
+        # 2.3. Удаляем связи File_Link и сами записи Files для этих fileIDs
+        if to_delete_file_ids:
+            placeholders_db = ','.join(['?'] * len(to_delete_file_ids))
+            # Сначала удалить связи
+            self.cursor.execute(
+                f"DELETE FROM File_Link WHERE fileID IN ({placeholders_db}) AND newsID = ?",
+                tuple(to_delete_file_ids) + (news_id,)
+            )
+            # Затем удалить записи из Files
+            self.cursor.execute(
+                f"DELETE FROM Files WHERE fileID IN ({placeholders_db})",
+                tuple(to_delete_file_ids)
+            )
 
-            self.connection.commit()
-        except Exception as e:
-            self.connection.rollback()
-            raise e
-        except Exception as e:
-            self.connection.rollback()
-            raise e
+        # 2.4. Физически удаляем файлы с диска
+        for guid in to_delete_guids:
+            img_path = os.path.join(upload_folder, guid)
+            if os.path.exists(img_path):
+                try:
+                    os.remove(img_path)
+                except Exception as e:
+                    print(f"Ошибка удаления файла {img_path}: {e}")
+
+        # 2.5. Теперь (если нужно) сохраняем новые файлы, пришедшие в параметре files
+        if files_received and files:
+            for file in files:
+                if not file.filename:
+                    continue
+                # Генерируем новый уникальный guid
+                new_guid = str(uuid.uuid4().hex)
+                ext = file.filename.rsplit('.', 1)[1].lower()
+                # Сохраняем файл на диск
+                file.save(os.path.join(upload_folder, new_guid))
+                # Вставляем запись в Files
+                self.cursor.execute(
+                    "INSERT INTO Files (guid, format) VALUES (?, ?)",
+                    (new_guid, ext)
+                )
+                # Получаем fileID последней вставленной записи
+                new_file_id = self.cursor.lastrowid
+                # Вставляем связь (fileID ↔ newsID)
+                self.cursor.execute(
+                    "INSERT INTO File_Link (fileID, newsID) VALUES (?, ?)",
+                    (new_file_id, news_id)
+                )
+
+        # 2.6. Для тех guids, которые мы хотим сохранить (keep_guids),
+        #      убедимся, что связи в File_Link существуют. Если уже были —
+        #      ничего не меняем. Если вдруг удалились (в редких случаях) —
+        #      восстанавливаем.
+        for guid in keep_guids:
+            fid = old_map.get(guid)
+            if fid:
+                # Проверим, существует ли связь
+                self.cursor.execute(
+                    "SELECT 1 FROM File_Link WHERE fileID = ? AND newsID = ?",
+                    (fid, news_id)
+                )
+                if not self.cursor.fetchone():
+                    # Вставим связь заново
+                    self.cursor.execute(
+                        "INSERT INTO File_Link (fileID, newsID) VALUES (?, ?)",
+                        (fid, news_id)
+                    )
+
+        # --------------------------
+        # 3. Фиксируем транзакцию
+        # --------------------------
+        self.connection.commit()
+
+    except Exception as e:
+        # При любой ошибке возвращаем БД в прежнее состояние
+        self.connection.rollback()
+        raise e
 
     # -------------------------------
     # Методы для юзеров (Users)

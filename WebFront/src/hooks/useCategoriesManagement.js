@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { api } from '../apiClient';
+import { api } from '../services/apiClient';
 import { toast } from "react-toastify";
 import usePagination from './usePagination';
 
@@ -15,14 +15,7 @@ const useCategoriesManagement = () => {
     totalPages: 1
   });
 
-  const [categories, setCategories] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('cachedCategories')) || [];
-    } catch {
-      return [];
-    }
-  });
-
+  const [categories, setCategories] = useState([]);
   const [filteredCategories, setFilteredCategories] = useState([]);
   const [filters, setFilters] = useState({ 
     search: '',
@@ -31,23 +24,24 @@ const useCategoriesManagement = () => {
 
   const fetchCategories = useCallback(async () => {
     try {
-      const data = await api.get('/api/categories');
-      setCategories(data);
-      localStorage.setItem('cachedCategories', JSON.stringify(data));
-      
+      const data = await api.get("/categories");
+      const items = data || [];
+      setCategories(items);
+
       setPagination(prev => ({
         ...prev,
-        totalItems: data.length,
-        totalPages: Math.ceil(data.length / prev.perPage)
+        currentPage: 1,
+        totalItems: items.length,
+        totalPages: Math.ceil(items.length / prev.perPage),
       }));
     } catch (error) {
-      toast.error('Ошибка загрузки категорий');
     }
   }, [setPagination]);
 
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
+
 
   useEffect(() => {
     const filtered = categories.filter(cat => {
@@ -81,7 +75,7 @@ const useCategoriesManagement = () => {
 
   const createCategory = useCallback(async (name, description) => {
     try {
-      await api.post('/api/categories', { name, description });
+      await api.post('/categories', { name, description });
       await fetchCategories(); // Принудительно обновляем список
       setPagination(prev => ({
         ...prev,
@@ -89,15 +83,6 @@ const useCategoriesManagement = () => {
       }));
       toast.success('Категория создана');
     } catch (error) {
-      const serverError = error.response?.data?.error || error.message;
-      
-      if (serverError.includes("already exists")) {
-        // Извлекаем название категории из сообщения
-        const categoryName = serverError.match(/Категория '([^']+)'/)?.[1] || name;
-        toast.error(`Категория "${categoryName}" уже существует`);
-      } else {
-        toast.error(serverError || 'Ошибка создания категории');
-      }
     }
   }, [fetchCategories, setPagination]);
 
@@ -108,7 +93,7 @@ const useCategoriesManagement = () => {
 
   const deleteCategory = useCallback(async (categoryId) => {
     try {
-      await api.delete(`/api/categories?id=${categoryId}`);
+      await api.delete(`/categories?id=${categoryId}`);
       setCategories(prev => prev.filter(c => c.categoryID !== categoryId));
 
       setPagination(prev => ({
@@ -125,7 +110,7 @@ const useCategoriesManagement = () => {
     if (!window.confirm("Вы уверены, что хотите удалить ВСЕ категории?")) return;
 
     try {
-      await api.delete('/api/categories/all');
+      await api.delete('/categories/all');
       setCategories([]);
       setFilteredCategories([]);
       toast.success('Все категории удалены');
@@ -136,18 +121,10 @@ const useCategoriesManagement = () => {
 
   const updateCategory = useCallback(async (categoryId, newData) => {
     try {
-      await api.put(`/api/categories/${categoryId}`, newData);
+      await api.put(`/categories/${categoryId}`, newData);
       await fetchCategories();
       toast.success("Изменения сохранены");
     } catch (error) {
-      const serverError = error.message;
-      
-      if (serverError.includes("already exists")) {
-        const categoryName = serverError.match(/Категория '([^']+)'/)?.[1] || newData.name;
-        toast.error(`Категория "${categoryName}" уже существует`);
-      } else {
-        toast.error(serverError || 'Ошибка редактирования категории');
-      }
     }
   }, [fetchCategories]);
 
