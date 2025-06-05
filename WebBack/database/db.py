@@ -980,7 +980,8 @@ class Storage(object):
     def get_pending_news(self) -> list:
         """
         Возвращает список всех новостей со статусом 'Pending' и delete_date IS NULL.
-        Формат: {newsID, title, description, status, create_date, event_start, event_end, publisher_nick, files: [...]}
+        Формат: {newsID, title, description, status, create_date, event_start, event_end, 
+                publisher_nick, category_name, files: [...]}
         """
         try:
             self.cursor.execute('''
@@ -992,44 +993,47 @@ class Storage(object):
                     n.create_date,
                     n.event_start,
                     n.event_end,
-                    up.nick    AS publisher_nick,
-                    f.fileID,
-                    f.guid,
-                    f.format
+                    up.nick   AS publisher_nick,
+                    c.name    AS category_name
                 FROM News n
                 JOIN Users up ON up.userID = n.publisherID
-                LEFT JOIN File_Link fl ON fl.newsID = n.newsID
-                LEFT JOIN Files f ON f.fileID = fl.fileID
+                LEFT JOIN Categories c ON c.categoryID = n.categoryID
                 WHERE n.status = 'Pending'
-                  AND n.delete_date IS NULL
+                AND n.delete_date IS NULL
                 ORDER BY n.create_date DESC
             ''')
 
-            rows = self.cursor.fetchall()
-            pending_dict = {}
-
-            for row in rows:
+            pending_items = []
+            for row in self.cursor.fetchall():
                 nid = row['newsID']
-                if nid not in pending_dict:
-                    pending_dict[nid] = {
-                        'newsID':         nid,
-                        'title':          row['title'],
-                        'description':    row['description'],
-                        'status':         row['status'],
-                        'create_date':    row['create_date'],
-                        'event_start':    row['event_start'],
-                        'event_end':      row['event_end'],
-                        'publisher_nick': row['publisher_nick'],
-                        'files':          []
-                    }
-                if row['fileID'] is not None:
-                    pending_dict[nid]['files'].append({
-                        'fileID':    row['fileID'],
-                        'fileName':  row['guid'],
-                        'fileFormat':row['format']
-                    })
+                # Получаем список файлов
+                self.cursor.execute('''
+                    SELECT f.fileID, guid, format
+                    FROM Files f
+                    JOIN File_Link fl ON fl.fileID = f.fileID
+                    WHERE fl.newsID = ?
+                    ORDER BY f.fileID ASC
+                ''', (nid,))
+                files = [{
+                    'fileID':    r['fileID'],
+                    'fileName':  r['guid'],
+                    'fileFormat': r['format']
+                } for r in self.cursor.fetchall()]
 
-            return list(pending_dict.values())
+                pending_items.append({
+                    'newsID':         nid,
+                    'title':         row['title'],
+                    'description':    row['description'],
+                    'status':         row['status'],
+                    'create_date':    row['create_date'],
+                    'event_start':    row['event_start'],
+                    'event_end':      row['event_end'],
+                    'publisher_nick': row['publisher_nick'],
+                    'category_name':  row['category_name'],
+                    'files':          files
+                })
+            return pending_items
+
         except sqlite3.OperationalError as e:
             raise sqlite3.DatabaseError(
                 "Ошибка получения списка ожидающих модерацию новостей",
