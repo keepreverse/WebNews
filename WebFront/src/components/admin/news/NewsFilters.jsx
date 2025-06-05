@@ -10,13 +10,18 @@ const NewsFilters = ({
   onFilterChange,
   onClear,
 }) => {
-  const datePickerConfig = {
+  const configFlatpickr = {
     mode: "range",
     altInput: true,
     altFormat: "F j, Y",
     dateFormat: "Y-m-d",
     locale: Russian,
-    onChange: (dates) => onFilterChange("dateRange", dates),
+    closeOnSelect: false,
+    onChange: (dates) => {
+      if (dates.length === 2) {
+        onFilterChange("dateRange", dates);
+      }
+    },
   };
 
   return (
@@ -55,7 +60,7 @@ const NewsFilters = ({
       <div className="filter-group">
         <label>Диапазон дат событий:</label>
         <Flatpickr
-          options={datePickerConfig}
+          options={configFlatpickr}
           value={filters.dateRange}
           placeholder="Выберите даты"
           className="date-picker"

@@ -19,7 +19,7 @@ const useCategoriesManagement = () => {
   const [filteredCategories, setFilteredCategories] = useState([]);
   const [filters, setFilters] = useState({ 
     search: '',
-    dateRange: [null, null]
+    dateRange: []
   });
 
   const fetchCategories = useCallback(async () => {

@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/apiClient';
 
-const useAdminCounts = (pollIntervalMs = 20000) => {
+const useAdminCounts = (pollIntervalMs) => {
   const [pendingNewsCount, setPendingNewsCount] = useState(0);
   const [trashCount, setTrashCount] = useState(0);
   const [archiveCount, setArchiveCount] = useState(0);
@@ -34,10 +34,18 @@ const useAdminCounts = (pollIntervalMs = 20000) => {
   }, []);
 
   useEffect(() => {
-    // Загрузка сразу при монтировании
-    fetchCounts();
-    // Последующий периодический опрос
-    const id = setInterval(fetchCounts, pollIntervalMs);
+    // Функция-обёртка: выполняет fetchCounts только если пользователь на /#/admin-panel
+    const conditionalFetch = () => {
+      if (window.location.hash === '#/admin-panel') {
+        fetchCounts();
+      }
+    };
+
+    // Выполняем один раз при монтировании, если на нужной странице
+    conditionalFetch();
+
+    // Устанавливаем интервал, в котором периодически проверяем hash и вызываем fetchCounts
+    const id = setInterval(conditionalFetch, pollIntervalMs);
     return () => clearInterval(id);
   }, [fetchCounts, pollIntervalMs]);
 

@@ -16,7 +16,7 @@ const useNewsModeration = ({ isActiveTab, onExternalRefresh = 0 }) => {
   const [filteredNews, setFilteredNews] = useState([]);
   const [filters, setFilters] = useState({
     author: '',
-    dateRange: [null, null],
+    dateRange: [],
   });
 
   const isFilterChange = useRef(false);
@@ -136,7 +136,7 @@ const useNewsModeration = ({ isActiveTab, onExternalRefresh = 0 }) => {
     filters,
     onFilterChange: handleFilterChange,
     onClearFilters: () => {
-      setFilters({ author: '', dateRange: [null, null] });
+      setFilters({ author: '', dateRange: [] });
       isFilterChange.current = true;
     },
     handleModerate,

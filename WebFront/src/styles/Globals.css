@@ -259,6 +259,9 @@ body {
  .jodit-container {
      border: 1px solid #b5b5b5 !important;
 }
+.jodit-react-container textarea {
+  display: none !important;
+}
 /* Современный минималистичный скроллбар */
  :root {
      --scrollbar-width: 8px;

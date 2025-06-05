@@ -23,6 +23,7 @@ const NewsList = ({
   filters,
   onFilterChange,
   onClearFilters,
+  onArchiveNews,
   onDeleteNews,
   onDeleteAllNews,
   onEditNews,
@@ -82,7 +83,8 @@ const NewsList = ({
         onClear={onClearFilters}
       />
       
-      {/* 2.2 Кнопка “Удалить все” (для админа/модератора, если есть хотя бы одна отфильтрованная) */}
+      {/* 2.2 Кнопка “Удалить все” (для админа, если есть хотя бы одна отфильтрованная) */}
+      {currentUser.role === "Administrator" && (
       <div className="filters-container" style={{ padding: '0 0 12px 0' }}>
         {filteredNews.length > 0 && (
           <button
@@ -92,7 +94,7 @@ const NewsList = ({
             Удалить все новости
           </button>
         )}
-      </div>
+      </div>)}
 
       <Pagination
         totalPages={pagination.totalPages}
@@ -117,6 +119,9 @@ const NewsList = ({
                   <strong>Автор:</strong> {news.publisher_nick}
                 </p>
               )}
+
+              {news.category_name && <p><strong>Категория:</strong> {news.category_name}</p>} 
+
               {news.event_start && (
                 <p>
                   <strong>Дата события:</strong>{" "}
@@ -174,6 +179,14 @@ const NewsList = ({
                   >
                     Редактировать
                   </button>
+
+                  <button
+                    onClick={() => onArchiveNews(news.newsID)}
+                    className="custom_button_short archive"
+                  >
+                    В архив
+                  </button>
+
                   <button
                     onClick={() => onDeleteNews(news.newsID)}
                     className="custom_button_short action-remove"
@@ -255,6 +268,7 @@ NewsList.propTypes = {
   }).isRequired,
   onFilterChange: PropTypes.func.isRequired,
   onClearFilters: PropTypes.func.isRequired,
+  onArchiveNews: PropTypes.func.isRequired,
   onDeleteNews: PropTypes.func.isRequired,
   onDeleteAllNews: PropTypes.func.isRequired,
   onEditNews: PropTypes.func.isRequired,

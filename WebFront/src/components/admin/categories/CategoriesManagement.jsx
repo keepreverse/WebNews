@@ -30,14 +30,9 @@ const CategoriesManagement = ({
   return (
     <div className="management-container">
       <CategoriesFilters
-        searchFilter={filters.search}
-        dateRange={filters.dateRange}
-        onSearchChange={(value) => handleFilterChange('search', value)}
-        onDateChange={(dates) => handleFilterChange('dateRange', dates)}
-        onClear={() => {
-          handleFilterChange('search', '');
-          handleFilterChange('dateRange', [null, null]);
-        }}
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        onClear={() => { handleFilterChange('search', ''); handleFilterChange('dateRange', []); }}
         onDeleteAll={deleteAllCategories}
         deleteDisabled={categories.length === 0}
       />
@@ -47,7 +42,7 @@ const CategoriesManagement = ({
           className="custom_button_long  action-options"
           onClick={() => setIsCreating(true)}
         >
-          Создать новую категорию
+          Новая категория
         </button>
       </div>
 

@@ -13,13 +13,18 @@ const ArchiveFilters = ({
   onPurgeAll,
   purgeDisabled,
 }) => {
-  const datePickerConfig = {
+  const configFlatpickr = {
     mode: "range",
     altInput: true,
-    altFormat: "F j, Y",
+    altFormat: "F j, Y",  
     dateFormat: "Y-m-d",
     locale: Russian,
-    onChange: (dates) => onFilterChange("dateRange", dates),
+    closeOnSelect: false,
+    onChange: (dates) => {
+      if (dates.length === 2) {
+        onFilterChange("dateRange", dates);
+      }
+    },
   };
 
   return (
@@ -38,13 +43,11 @@ const ArchiveFilters = ({
 
       {/* Диапазон дат (фильтрация по publish_date или create_date) */}
       <div className="filter-group">
-        <label htmlFor="date-filter">Диапазон дат архивации:</label>
+        <label>Диапазон дат архивации:</label>
         <Flatpickr
-          id="date-filter"
-          options={datePickerConfig}
+          options={configFlatpickr}
           value={filters.dateRange}
           placeholder="Выберите даты"
-          className="date-input"
         />
       </div>
 

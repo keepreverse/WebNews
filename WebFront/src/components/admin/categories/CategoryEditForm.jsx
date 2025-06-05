@@ -52,7 +52,7 @@ const CategoryEditForm = ({ category, onSave, onCancel, isCreating }) => {
           type="submit"
           className="custom_button_short action-confirm"
         >
-          {isCreating ? 'Создать' : 'Сохранить изменения'}
+          {isCreating ? 'Создать' : 'Сохранить'}
         </button>
         <button
           type="button"

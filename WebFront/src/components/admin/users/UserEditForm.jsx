@@ -74,7 +74,7 @@ const handleSubmit = (e) => {
           type="submit"
           className="custom_button_short action-confirm"
         >
-          Сохранить изменения
+          Сохранить
         </button>
         <button
           type="button"

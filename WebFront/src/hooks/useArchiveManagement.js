@@ -22,7 +22,7 @@ const useArchiveManagement = ({ isActiveTab, onExternalRefresh = 0 }) => {
   const [archive, setArchive] = useState([]);
   const [filters, setFilters] = useState({
     searchQuery: '',
-    dateRange: [null, null],
+    dateRange: [],
   });
 
   const isFilterChange = useRef(false);
@@ -118,7 +118,7 @@ const useArchiveManagement = ({ isActiveTab, onExternalRefresh = 0 }) => {
   }, []);
 
   const clearFilters = useCallback(() => {
-    setFilters({ searchQuery: '', dateRange: [null, null] });
+    setFilters({ searchQuery: '', dateRange: [] });
     isFilterChange.current = true;
   }, []);
 
@@ -158,7 +158,7 @@ const useArchiveManagement = ({ isActiveTab, onExternalRefresh = 0 }) => {
   );
 
   const deleteArchive = useCallback(async () => {
-    if (!window.confirm('Удалить все новости безвозвратно?')) return;
+    if (!window.confirm('Переместить ВСЕ новости в корзину?')) return;
     try {
       await api.delete('/admin/archived-news/delete');
       setAllArchive([]);

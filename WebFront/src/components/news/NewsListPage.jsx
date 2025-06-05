@@ -20,6 +20,7 @@ function NewsListPage() {
     filters,
     handleFilterChange,
     clearFilters,
+    archiveNews,
     deleteNews,
     deleteAllNews,
     openLightbox,
@@ -77,6 +78,7 @@ function NewsListPage() {
           filters={filters}
           onFilterChange={handleFilterChange}
           onClearFilters={clearFilters}
+          onArchiveNews={archiveNews}
           onDeleteNews={deleteNews}
           onDeleteAllNews={deleteAllNews}
           onEditNews={handleEdit}

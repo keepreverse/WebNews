@@ -22,7 +22,7 @@ const useTrashManagement = ({ isActiveTab, onExternalRefresh = 0 }) => {
   const [trash, setTrash] = useState([]);
   const [filters, setFilters] = useState({
     search: '',
-    dateRange: [null, null],
+    dateRange: [],
   });
 
   const fetchDeletedNews = useCallback(async () => {
@@ -125,7 +125,7 @@ const useTrashManagement = ({ isActiveTab, onExternalRefresh = 0 }) => {
   }, []);
 
   const purgeTrash = useCallback(async () => {
-    if (!window.confirm('Удалить все новости безвозвратно?')) return;
+    if (!window.confirm('Удалить ВСЕ новости безвозвратно?')) return;
     try {
       await api.delete('/admin/trash/purge');
       setAllTrash([]);

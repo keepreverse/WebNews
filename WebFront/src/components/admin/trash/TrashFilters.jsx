@@ -6,21 +6,24 @@ import { Russian } from "flatpickr/dist/l10n/ru.js";
 import "flatpickr/dist/flatpickr.min.css";
 
 const TrashFilters = ({
-  searchFilter,
-  dateRange,
-  onSearchChange,
-  onDateChange,
+  filters,
+  onFilterChange,
   onClear,
   onPurgeAll,
   purgeDisabled,
 }) => {
-  const datePickerConfig = {
+  const configFlatpickr = {
     mode: "range",
     altInput: true,
     altFormat: "F j, Y",
     dateFormat: "Y-m-d",
     locale: Russian,
-    onChange: (dates) => onDateChange(dates),
+    closeOnSelect: false,
+    onChange: (dates) => {
+      if (dates.length === 2) {
+        onFilterChange("dateRange", dates);
+      }
+    },
   };
 
   return (
@@ -29,31 +32,28 @@ const TrashFilters = ({
       <div className="filter-group">
         <label htmlFor="search">Поиск в корзине:</label>
         <input
-          id="search"
           type="text"
-          placeholder="Поиск по заголовку или описанию"
-          value={searchFilter}
-          onChange={(e) => onSearchChange(e.target.value)}
+          id="search"
+          value={filters.search || ""}
+          onChange={(e) => onFilterChange("search", e.target.value)}
+          placeholder="Введите текст"
         />
       </div>
 
-      {/* Диапазон дат удаления */}
+      {/* Фильтр по диапазону дат */}
       <div className="filter-group">
-        <label htmlFor="date-filter">Диапазон дат удаления:</label>
+        <label>Диапазон дат удаления:</label>
         <Flatpickr
-          id="date-filter"
-          options={datePickerConfig}
-          value={dateRange}
+          options={configFlatpickr}
+          value={filters.dateRange}
           placeholder="Выберите даты"
-          className="date-input"
         />
       </div>
 
-      {/* Сброс фильтров */}    
       <button
         onClick={onClear}
         className="custom_button_long"
-        disabled={!searchFilter && !dateRange[0]}
+        disabled={!filters.searchQuery && !filters.dateRange[0]}
       >
         Сбросить фильтры
       </button>
@@ -72,10 +72,11 @@ const TrashFilters = ({
 };
 
 TrashFilters.propTypes = {
-  searchFilter: PropTypes.string.isRequired,
-  dateRange: PropTypes.arrayOf(PropTypes.instanceOf(Date)).isRequired,
-  onSearchChange: PropTypes.func.isRequired,
-  onDateChange: PropTypes.func.isRequired,
+  filters: PropTypes.shape({
+    search: PropTypes.string,
+    dateRange: PropTypes.arrayOf(PropTypes.instanceOf(Date)),
+  }).isRequired,
+  onFilterChange: PropTypes.func.isRequired,
   onClear: PropTypes.func.isRequired,
   onPurgeAll: PropTypes.func.isRequired,
   purgeDisabled: PropTypes.bool.isRequired,

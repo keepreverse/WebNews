@@ -34,12 +34,12 @@ const TrashManagement = ({
   }, [trash, pagination]);
 
   // 2) открытие лайтбокса
-  const openLightbox = (item, idx) => {
-    if (!item.files?.length) return;
+  const openLightbox = (news, idx) => {
+    if (!news.files?.length) return;
     setLightboxSlides(
-      item.files.map((file) => ({
+      news.files.map((file) => ({
         src: `https://webnews-1fwz.onrender.com/uploads/${file.fileName}`,
-        alt: `Изображение новости ${item.newsID}`,
+        alt: `Изображение новости ${news.newsID}`,
       }))
     );
     setLightboxIndex(idx);
@@ -50,13 +50,11 @@ const TrashManagement = ({
     <>
       {/* 1. Фильтры */}
       <TrashFilters
-        searchFilter={filters.search}
-        dateRange={filters.dateRange}
-        onSearchChange={(val) => handleFilterChange("search", val)}
-        onDateChange={(dates) => handleFilterChange("dateRange", dates)}
+        filters={filters}
+        onFilterChange={handleFilterChange}
         onClear={() => {
           handleFilterChange("search", "");
-          handleFilterChange("dateRange", [null, null]);
+          handleFilterChange("dateRange", []);
         }}
         onPurgeAll={purgeTrash}
         purgeDisabled={allTrash.length === 0}
@@ -77,70 +75,73 @@ const TrashManagement = ({
         {currentPageItems.length === 0 ? (
           <p>Корзина пуста</p>
         ) : (
-          currentPageItems.map((item, idx) => (
-            <div key={item.newsID} className="data-item">
-              <h2>{item.title}</h2>
+          currentPageItems.map((news, idx) => (
+            <div key={news.newsID} className="data-item">
+              <h2>{news.title}</h2>
               <div className="news-description">
-                {HTMLReactParser(item.description)}
+                {HTMLReactParser(news.description)}
               </div>
               <div className="news-meta">
-                {item.publisher_nick && (
+                {news.publisher_nick && (
                   <p>
-                    <strong>Автор:</strong> {item.publisher_nick}
+                    <strong>Автор:</strong> {news.publisher_nick}
                   </p>
                 )}
-                {item.create_date && (
+
+                {news.category_name && <p><strong>Категория:</strong> {news.category_name}</p>} 
+
+                {news.create_date && (
                   <p>
                     <strong>Дата создания:</strong>{" "}
-                    {new Date(item.create_date).toLocaleDateString("ru-RU", {
+                    {new Date(news.create_date).toLocaleDateString("ru-RU", {
                       year: "numeric",
                       month: "long",
                       day: "numeric",
                     })}
                     ,{" "}
-                    {new Date(item.create_date).toLocaleTimeString("ru-RU", {
+                    {new Date(news.create_date).toLocaleTimeString("ru-RU", {
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
                   </p>
                 )}
-                {item.delete_date && (
+                {news.delete_date && (
                   <p>
                     <strong>Дата удаления:</strong>{" "}
-                    {new Date(item.delete_date).toLocaleDateString("ru-RU", {
+                    {new Date(news.delete_date).toLocaleDateString("ru-RU", {
                       year: "numeric",
                       month: "long",
                       day: "numeric",
                     })}
                     ,{" "}
-                    {new Date(item.delete_date).toLocaleTimeString("ru-RU", {
+                    {new Date(news.delete_date).toLocaleTimeString("ru-RU", {
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
                   </p>
                 )}
-                {item.files?.length > 0 && (
+                {news.files?.length > 0 && (
                   <Gallery
-                    files={item.files}
-                    onImageClick={(i) => openLightbox(item, i)}
+                    files={news.files}
+                    onImageClick={(i) => openLightbox(news, i)}
                   />
                 )}
               </div>
               <div className="moderation-actions">
                 <button
-                  onClick={() => restoreNews(item.newsID)}
+                  onClick={() => restoreNews(news.newsID)}
                   className="custom_button_short action-confirm"
                 >
                   Восстановить
                 </button>
                 <button
-                  onClick={() => restoreEditNews(item.newsID)}
+                  onClick={() => restoreEditNews(news.newsID)}
                   className="custom_button_short action-options"
                 >
                   Исправить
                 </button>
                 <button
-                  onClick={() => purgeSingleNews(item.newsID)}
+                  onClick={() => purgeSingleNews(news.newsID)}
                   className="custom_button_short action-remove"
                 >
                   Удалить

@@ -1,3 +1,4 @@
+// src/components/admin/categories/CategoriesFilters.jsx
 import React from 'react';
 import PropTypes from 'prop-types';
 import Flatpickr from 'react-flatpickr';
@@ -5,76 +6,77 @@ import { Russian } from 'flatpickr/dist/l10n/ru.js';
 import 'flatpickr/dist/flatpickr.min.css';
 
 const CategoriesFilters = ({
-  dateRange,
-  searchFilter,
-  onSearchChange,
-  onDateChange,
+  filters,
+  onFilterChange,
   onClear,
   onDeleteAll,
-  deleteDisabled
+  deleteDisabled,
 }) => {
   const configFlatpickr = {
     mode: "range",
     altInput: true,
-    altFormat: "F j, Y",
+    altFormat: "F j, Y",  
     dateFormat: "Y-m-d",
     locale: Russian,
-    onChange: (selectedDates) => onDateChange(selectedDates)
+    closeOnSelect: false,
+    onChange: (dates) => {
+      if (dates.length === 2) {
+        onFilterChange("dateRange", dates);
+      }
+    },
   };
 
   return (
-    <div className="filters-container" style={{ paddingBottom: '12px' }}>
+    <div className="filters-container">
       <div className="filter-group">
         <label htmlFor="search">Поиск по категориям:</label>
         <input
-          id="search"
           type="text"
+          id="search"
           placeholder="Поиск по названию или описанию"
-          value={searchFilter}
-          onChange={(e) => onSearchChange(e.target.value)}
+          value={filters.search}
+          onChange={(e) => onFilterChange('search', e.target.value)}
         />
       </div>
 
       <div className="filter-group">
-        <label htmlFor="date-filter">Диапазон дат создания:</label>
+        <label>Диапазон дат создания:</label>
         <Flatpickr
           options={configFlatpickr}
-          value={dateRange}
+          value={filters.dateRange}
           placeholder="Выберите даты"
-          className="date-input"
         />
       </div>
 
       <button
         onClick={onClear}
         className="custom_button_long"
-        disabled={!searchFilter && !dateRange[0]}
+        disabled={!filters.searchQuery && !filters.dateRange[0]}
       >
-        Сбросить все фильтры
+        Сбросить фильтры
       </button>
-      
-        {!deleteDisabled && (
-          <button style={{ marginBottom: '0' }}
-            onClick={onDeleteAll}
-            className="custom_button_long action-remove"
-            id="delete-all"
-          >
-            Удалить все категории
-          </button>
-        )}
 
+      {!deleteDisabled && (
+        <button
+          onClick={onDeleteAll}
+          className="custom_button_long action-remove"
+        >
+          Удалить все
+        </button>
+      )}
     </div>
   );
 };
 
 CategoriesFilters.propTypes = {
-  dateRange: PropTypes.array.isRequired,
-  searchFilter: PropTypes.string,
-  onSearchChange: PropTypes.func.isRequired,
-  onDateChange: PropTypes.func.isRequired,
+  filters: PropTypes.shape({
+    search: PropTypes.string,
+    dateRange: PropTypes.arrayOf(PropTypes.instanceOf(Date)),
+  }).isRequired,
+  onFilterChange: PropTypes.func.isRequired,
   onClear: PropTypes.func.isRequired,
   onDeleteAll: PropTypes.func.isRequired,
-  deleteDisabled: PropTypes.bool.isRequired  
+  deleteDisabled: PropTypes.bool.isRequired,
 };
 
 export default React.memo(CategoriesFilters);

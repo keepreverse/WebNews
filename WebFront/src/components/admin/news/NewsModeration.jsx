@@ -75,7 +75,28 @@ const NewsModeration = ({
             
             <div className="news-meta">
               {news.publisher_nick && <p><strong>Автор:</strong> {news.publisher_nick}</p>}
-                
+              
+              {news.category_name && <p><strong>Категория:</strong> {news.category_name}</p>} 
+
+              {news.create_date && (
+                <p>
+                  <strong>Дата создания:</strong>{" "}
+                  {new Date(news.create_date).toLocaleDateString("ru-RU", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                  ,{" "}
+                  {new Date(news.create_date).toLocaleTimeString(
+                    "ru-RU",
+                    {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }
+                  )}
+                </p>
+              )}
+
               {news.event_start && (
                 <p>
                   <strong>Дата события:</strong>{" "}

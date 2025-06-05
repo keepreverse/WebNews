@@ -6,15 +6,14 @@ import 'flatpickr/dist/flatpickr.min.css';
 
 const UsersFilters = ({
   uniqueRoles,
-  roleFilter,
-  dateRange,
-  showPasswords,
-  onRoleChange,
-  onDateChange,
-  onTogglePasswords,
+  filters,
+  onFilterChange,
   onClear,
   onDeleteAll,
-  deleteDisabled
+  deleteDisabled,
+  // Новые пропы
+  showPasswords,
+  toggleAllPasswords,
 }) => {
   const configFlatpickr = {
     mode: "range",
@@ -22,7 +21,11 @@ const UsersFilters = ({
     altFormat: "F j, Y",
     dateFormat: "Y-m-d",
     locale: Russian,
-    onChange: (selectedDates) => onDateChange(selectedDates)
+    onChange: (dates) => {
+      if (dates.length === 2) {
+        onFilterChange('dateRange', dates);
+      }
+    },
   };
 
   const translateRole = (role) => {
@@ -34,14 +37,23 @@ const UsersFilters = ({
     return roleTranslations[role] || role;
   };
 
+  // Проверяем, включён ли хоть один “фильтр” на странице
+  // (теперь фильтры – это role, dateRange и флаг showPasswords)
+  const isAnyFilterActive = Boolean(
+    filters.role ||
+    (filters.dateRange && filters.dateRange.length === 2) ||
+    showPasswords
+  );
+
   return (
     <div className="filters-container">
+      {/* Фильтр по роли */}
       <div className="filter-group">
         <label htmlFor="role-filter">Фильтр по роли:</label>
         <select
           id="role-filter"
-          value={roleFilter}
-          onChange={onRoleChange}
+          value={filters.role}
+          onChange={(e) => onFilterChange("role", e.target.value)}
         >
           <option value="">Все роли</option>
           {uniqueRoles.map(role => (
@@ -52,35 +64,39 @@ const UsersFilters = ({
         </select>
       </div>
 
+      {/* Фильтр по дате регистрации */}
       <div className="filter-group">
-        <label htmlFor="date-filter">Диапазон дат регистрации:</label>
+        <label>Фильтр по дате регистрации:</label>
         <Flatpickr
           options={configFlatpickr}
-          value={dateRange}
+          value={filters.dateRange}
           placeholder="Выберите даты"
           className="date-input"
         />
       </div>
 
+      {/* Переключатель “Показать пароли” (вне объекта filters) */}
       <div className="filter-group filter-group--checkbox">
         <label>
           <input
             type="checkbox"
             checked={showPasswords}
-            onChange={onTogglePasswords}
+            onChange={toggleAllPasswords}
           />
           Показать пароли
         </label>
       </div>
 
+      {/* Кнопка “Сбросить все фильтры” */}
       <button
         onClick={onClear}
         className="custom_button_long"
-        disabled={!roleFilter && !dateRange[0] && !showPasswords}
+        disabled={!isAnyFilterActive}
       >
         Сбросить все фильтры
       </button>
 
+      {/* Кнопка “Удалить всех пользователей” (если разрешено) */}
       {!deleteDisabled && (
         <button
           onClick={onDeleteAll}
@@ -89,22 +105,24 @@ const UsersFilters = ({
           Удалить всех пользователей
         </button>
       )}
-
     </div>
   );
 };
 
 UsersFilters.propTypes = {
   uniqueRoles: PropTypes.array.isRequired,
-  roleFilter: PropTypes.string,
-  dateRange: PropTypes.array.isRequired,
-  showPasswords: PropTypes.bool.isRequired,
-  onRoleChange: PropTypes.func.isRequired,
-  onDateChange: PropTypes.func.isRequired,
-  onTogglePasswords: PropTypes.func.isRequired,
+  filters: PropTypes.shape({
+    role: PropTypes.string,
+    dateRange: PropTypes.arrayOf(PropTypes.instanceOf(Date)),
+    search: PropTypes.string, // если у вас есть поиск по логину/нику
+  }).isRequired,
+  onFilterChange: PropTypes.func.isRequired,
   onClear: PropTypes.func.isRequired,
   onDeleteAll: PropTypes.func.isRequired,
-  deleteDisabled: PropTypes.bool.isRequired  
+  deleteDisabled: PropTypes.bool.isRequired,
+  // Добавленные пропы:
+  showPasswords: PropTypes.bool.isRequired,
+  toggleAllPasswords: PropTypes.func.isRequired,
 };
 
 export default React.memo(UsersFilters);

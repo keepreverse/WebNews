@@ -32,7 +32,8 @@
 
     const [nickname, setNickname] = useState("");
     
-    const [dateRange, setDateRange] = useState([null, null]);
+    const [dateRange, setDateRange] = useState([]);
+
 
     const editorRef = useRef(null);
 
@@ -203,14 +204,28 @@
       }
     }), []);
 
-    const configFlatpickr = useMemo(() => ({
-      mode: "range", // Включить режим диапазона
+
+    const configFlatpickr = {
+      mode: "range",
       enableTime: true,
       altInput: true,
       altFormat: "F j, Y, H:i",
       dateFormat: "Y-m-d\\TH:i:ss",
       locale: Russian,
-    }), []);
+      closeOnSelect: false,
+
+      onChange: (dates, dateStr, instance) => {
+        // Ничего не делаем здесь — чтобы не закрывать popup раньше времени
+      },
+
+      onClose: (selectedDates, dateStr, instance) => {
+        // Записываем значение в state только когда оба конца диапазона выбраны
+        if (selectedDates.length === 2) {
+          setDateRange(selectedDates);
+        }
+      },
+    };
+
     
     // Debounce для заголовка
     function useDebounce(value, delay) {
@@ -606,23 +621,6 @@
       }
     };
 
-    // Обработчик изменения даты (теперь работает с диапазоном)
-    const handleDateChange = (selectedDates) => {
-      setDateRange(selectedDates);
-    };
-
-    const MemoizedFlatpickr = useMemo(() => {
-      return (
-        <Flatpickr
-          name="event_range"
-          placeholder="Выберите диапазон дат события"
-          options={configFlatpickr}
-          value={dateRange}
-          onChange={handleDateChange}
-        />
-      );
-    }, [configFlatpickr, dateRange]);
-
    
     return (
       <PageWrapper>
@@ -675,7 +673,11 @@
                 </select>
               </div>
 
-              {MemoizedFlatpickr}
+              <Flatpickr
+                placeholder="Выберите дату события"
+                options={configFlatpickr}
+                value={dateRange}
+              />
 
               <input
                 type="text"

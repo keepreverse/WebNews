@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { api } from "../services/apiClient";
 import { toast } from "react-toastify";
+
 import usePagination from "./usePagination";
 
 const useNewsList = () => {
@@ -22,13 +23,13 @@ const useNewsList = () => {
   const [filteredNews, setFilteredNews] = useState([]);// отфильтрованный массив
   const [filters, setFilters] = useState({
     author: "",
-    dateRange: [null, null],
+    dateRange: [],
     searchQuery: "",
   });
   const isFilterChange = useRef(false);
   const prevFilters = useRef({
     author: "",
-    dateRange: JSON.stringify([null, null]),
+    dateRange: JSON.stringify([]),
     searchQuery: "",
   });
 
@@ -148,12 +149,26 @@ const useNewsList = () => {
   const clearFilters = useCallback(() => {
     prevFilters.current = {
       author: "",
-      dateRange: JSON.stringify([null, null]),
+      dateRange: JSON.stringify([]),
       searchQuery: "",
     };
     isFilterChange.current = true;
-    setFilters({ author: "", dateRange: [null, null], searchQuery: "" });
+    setFilters({ author: "", dateRange: [], searchQuery: "" });
   }, []);
+
+  const archiveNews = useCallback(
+    async (newsID) => {
+      try {
+        await api.post(`/news/${newsID}/archive`, {});
+        setAllNews((prev) => prev.filter((n) => n.newsID !== newsID));
+        handleDeleteAdjustment(filteredNews.length - 1);
+        toast.success('Новость архивирована');
+      } catch (error) {
+        toast.error(error.message || 'Ошибка архивации');
+      }
+    },
+    [filteredNews.length, handleDeleteAdjustment]
+  );
 
   // Удаление одной новости
   const deleteNews = useCallback(
@@ -178,7 +193,7 @@ const useNewsList = () => {
 
   // Удаление всех новостей (только для админа/модератора)
   const deleteAllNews = useCallback(async () => {
-    if (!window.confirm("Вы уверены, что хотите удалить ВСЕ новости?"))
+    if (!window.confirm("Вы уверены, что хотите удалить ВСЕ (не только опубликованные) новости?"))
       return;
     try {
       await api.delete("/news");
@@ -229,6 +244,7 @@ const useNewsList = () => {
     filters,
     handleFilterChange,
     clearFilters,
+    archiveNews,
     deleteNews,
     deleteAllNews,
     openLightbox,

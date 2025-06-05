@@ -36,12 +36,12 @@ const ArchiveManagement = ({
   }, [archive, pagination]);
 
   // 2) функция открытия лайтбокса
-  const openLightbox = (item, idx) => {
-    if (!item.files?.length) return;
+  const openLightbox = (news, idx) => {
+    if (!news.files?.length) return;
     setLightboxSlides(
-      item.files.map((file) => ({
+      news.files.map((file) => ({
         src: `https://webnews-1fwz.onrender.com/uploads/${file.fileName}`,
-        alt: `Изображение новости ${item.newsID}`,
+        alt: `Изображение новости ${news.newsID}`,
       }))
     );
     setLightboxIndex(idx);
@@ -74,28 +74,31 @@ const ArchiveManagement = ({
         {currentPageItems.length === 0 ? (
           <p>Архив пуст</p>
         ) : (
-          currentPageItems.map((item, idx) => (
-            <div key={item.newsID} className="data-item">
-              <h2>{item.title}</h2>
+          currentPageItems.map((news, idx) => (
+            <div key={news.newsID} className="data-item">
+              <h2>{news.title}</h2>
               <div className="news-description">
-                {HTMLReactParser(item.description)}
+                {HTMLReactParser(news.description)}
               </div>
               <div className="news-meta">
-                {item.publisher_nick && (
+                {news.publisher_nick && (
                   <p>
-                    <strong>Автор:</strong> {item.publisher_nick}
+                    <strong>Автор:</strong> {news.publisher_nick}
                   </p>
                 )}
-                {item.create_date && (
+
+                {news.category_name && <p><strong>Категория:</strong> {news.category_name}</p>} 
+
+                {news.create_date && (
                   <p>
                     <strong>Дата создания:</strong>{" "}
-                    {new Date(item.create_date).toLocaleDateString("ru-RU", {
+                    {new Date(news.create_date).toLocaleDateString("ru-RU", {
                       year: "numeric",
                       month: "long",
                       day: "numeric",
                     })}
                     ,{" "}
-                    {new Date(item.create_date).toLocaleTimeString(
+                    {new Date(news.create_date).toLocaleTimeString(
                       "ru-RU",
                       {
                         hour: "2-digit",
@@ -104,16 +107,16 @@ const ArchiveManagement = ({
                     )}
                   </p>
                 )}
-                {item.archive_date && (
+                {news.archive_date && (
                   <p>
                     <strong>Дата архивации:</strong>{" "}
-                    {new Date(item.archive_date).toLocaleDateString("ru-RU", {
+                    {new Date(news.archive_date).toLocaleDateString("ru-RU", {
                       year: "numeric",
                       month: "long",
                       day: "numeric",
                     })}
                     ,{" "}
-                    {new Date(item.archive_date).toLocaleTimeString(
+                    {new Date(news.archive_date).toLocaleTimeString(
                       "ru-RU",
                       {
                         hour: "2-digit",
@@ -122,35 +125,18 @@ const ArchiveManagement = ({
                     )}
                   </p>
                 )}
-                {item.publish_date && (
-                  <p>
-                    <strong>Дата публикации:</strong>{" "}
-                    {new Date(item.publish_date).toLocaleDateString("ru-RU", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                    ,{" "}
-                    {new Date(item.publish_date).toLocaleTimeString(
-                      "ru-RU",
-                      {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      }
-                    )}
-                  </p>
-                )}
-                {item.files?.length > 0 && (
+
+                {news.files?.length > 0 && (
                   <Gallery
-                    files={item.files}
-                    onImageClick={(i) => openLightbox(item, i)}
+                    files={news.files}
+                    onImageClick={(i) => openLightbox(news, i)}
                   />
                 )}
               </div>
               <div className="moderation-actions">
                 {/* Восстановить (только статус → Approved) */}
                 <button
-                  onClick={() => restoreNews(item.newsID)}
+                  onClick={() => restoreNews(news.newsID)}
                   className="custom_button_short action-confirm"
                 >
                   Восстановить
@@ -158,7 +144,7 @@ const ArchiveManagement = ({
 
                 {/* Исправить (рестор+релокация в редактор) */}
                 <button
-                  onClick={() => restoreEditNews(item.newsID)}
+                  onClick={() => restoreEditNews(news.newsID)}
                   className="custom_button_short action-options"
                 >
                   Исправить
@@ -166,7 +152,7 @@ const ArchiveManagement = ({
 
                 {/* Удалить → в корзину */}
                 <button
-                  onClick={() => deleteArchiveNews(item.newsID)}
+                  onClick={() => deleteArchiveNews(news.newsID)}
                   className="custom_button_short action-remove"
                 >
                   Удалить

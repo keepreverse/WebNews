@@ -19,8 +19,7 @@ const useUsersManagement = () => {
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [filters, setFilters] = useState({
     role: '',
-    dateRange: [null, null],
-    search: ''
+    dateRange: [],
   });
 
   const [showPasswords, setShowPasswords] = useState(false);
@@ -45,8 +44,7 @@ const useUsersManagement = () => {
   useEffect(() => {
     const filtered = users.filter(user => {
       const matchesRole = !filters.role || user.user_role === filters.role;
-      const matchesSearch = user.login.toLowerCase().includes(filters.search.toLowerCase()) ||
-                          user.nick.toLowerCase().includes(filters.search.toLowerCase());
+
       
       const dateFrom = filters.dateRange[0] ? new Date(filters.dateRange[0]) : null;
       const dateTo = filters.dateRange[1] ? new Date(filters.dateRange[1]) : null;
@@ -55,7 +53,7 @@ const useUsersManagement = () => {
       const matchesDate = (!dateFrom || regDate >= dateFrom) && 
                         (!dateTo || regDate <= dateTo);
 
-      return matchesRole && matchesSearch && matchesDate;
+      return matchesRole && matchesDate;
     });
 
     setFilteredUsers(filtered);
@@ -96,9 +94,9 @@ const useUsersManagement = () => {
       // Сбрасываем фильтры и пагинацию
       setFilters({
         role: '',
-        dateRange: [null, null],
-        search: ''
+        dateRange: [],
       });
+
       setPagination(prev => ({
         ...prev,
         currentPage: 1,
@@ -156,8 +154,7 @@ const useUsersManagement = () => {
     clearFilters: () => {
       setFilters({
         role: '',
-        dateRange: [null, null],
-        search: ''
+        dateRange: [],
       });
       setShowPasswords(false);
       setPagination(prev => ({ ...prev, currentPage: 1 }));
