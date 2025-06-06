@@ -5,14 +5,17 @@ from flask import current_app
 from werkzeug.security import generate_password_hash
 from enums import InvalidValues
 
+
 class Storage(object):
 
     def __init__(self):
         self.connection = None
         self.cursor = None
         # Путь к БД
-        self.db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'storage.db')
-
+        self.db_path = current_app.config.get("DATABASE_PATH")  
+        if not self.db_path:
+            raise RuntimeError("DATABASE_PATH не задан в конфиге")
+        
     # -------------------------------
     # Работа с соединением
 
@@ -24,14 +27,21 @@ class Storage(object):
                 timeout=10,
                 check_same_thread=False
             )
+
+            schema_initialized = False
+
             self.connection.row_factory = sqlite3.Row
             self.cursor = self.connection.cursor()
             self.cursor.execute('PRAGMA foreign_keys = ON;')
             self.cursor.execute('PRAGMA journal_mode=WAL')
 
-            self._create_tables()
-            self._create_indexes()
-            self._create_triggers()
+            # Инициализируем схему только один раз за время жизни программы
+            if not schema_initialized:
+                self._create_tables()
+                self._create_indexes()
+                self._create_triggers()
+                schema_initialized = True
+            
             self.connection.commit()
 
     def close_connection(self):

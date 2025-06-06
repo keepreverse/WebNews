@@ -5,9 +5,9 @@ import LoginPage from "./components/auth/LoginPage";
 import NewsCreator from "./components/news/NewsCreator";
 import NewsListPage from "./components/news/NewsListPage";
 import AdminPanel from "./components/admin/AdminPanel";
-import NotFoundPage from "./pages/NotFoundPage";
+import NotFoundPage from "./utils/NotFoundPage";
 
-import ProtectedRoute from "./routes/ProtectedRoute";
+import ProtectedRoute from "./utils/ProtectedRoute";
 import { ErrorBoundary } from "./utils/ErrorBoundary";
 
 function App() {

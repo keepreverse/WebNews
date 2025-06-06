@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { api } from '../services/apiClient';
 import { isAdmin, isModerator } from '../services/authHelpers';
-import { translateRole } from '../utils/helpers';
+import { translateRole } from '../utils/translatedRoles';
 import { toast } from 'react-toastify';
 import "../styles/Sidebar.css";
 

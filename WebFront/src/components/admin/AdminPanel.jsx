@@ -222,10 +222,6 @@ function AdminPanel() {
     }
     setCurrentUser(userData);
     if (!(isModerator(userData) || isAdmin(userData))) {
-      setTimeout(
-        () => toast.error('У вас нет прав доступа к панели администратора!'),
-        200
-      );
       navigate('/');
     }
   }, [navigate]);

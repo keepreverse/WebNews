@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import UsersFilters from './UsersFilters';
 import UserEditForm from './UserEditForm';
 import Pagination from '../../../features/Pagination';
-import { translateRole } from '../../../utils/helpers';
+import { translateRole } from '../../../utils/translatedRoles';
 
 const UsersManagement = ({
   users,

@@ -2,14 +2,13 @@ from flask import Flask, g
 from flask_cors import CORS
 from database.db import Storage
 import os
-
+    
 def create_app(config_object='config'):
     app = Flask(__name__)
     app.config.from_object(config_object)
 
-    # Убедимся, что UPLOAD_FOLDER установлен
     if not app.config.get('UPLOAD_FOLDER'):
-        raise ValueError("UPLOAD_FOLDER must be configured")
+        raise ValueError("UPLOAD_FOLDER должен быть задан")
 
     # Прокинем CORS_ORIGINS в конфиг, если он есть
     if hasattr(app.config, 'CORS_ORIGINS'):

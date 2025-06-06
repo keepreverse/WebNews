@@ -10,7 +10,7 @@ export class ErrorBoundary extends React.Component {
     };
   }
 
-  componentDidCatch(error, errorInfo) {
+  componentDidCatch(_error, _errorInfo) {
     
     if (this.state.errorType === 'jodit') {
       // Удаляем все элементы редактора

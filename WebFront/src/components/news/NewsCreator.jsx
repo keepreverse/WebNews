@@ -11,7 +11,7 @@
   import Flatpickr from "react-flatpickr";
   import "flatpickr/dist/flatpickr.min.css";
   import { Russian } from "flatpickr/dist/l10n/ru.js";
-  import { translateRole } from '../../utils/helpers';
+  import { translateRole } from '../../utils/translatedRoles';
 
   import Lightbox from "yet-another-react-lightbox";
   import Fullscreen from "yet-another-react-lightbox/plugins/fullscreen";
@@ -21,6 +21,7 @@
   import "yet-another-react-lightbox/styles.css";
 
   import { api } from '../../services/apiClient';
+  import { isAdmin, isModerator } from '../../services/authHelpers';
   import { getAuthToken, isTokenValid } from '../../services/authHelpers';
 
   function NewsCreator() {
@@ -323,7 +324,7 @@
       const hasInvalidFiles = files.some(file => !file.type.startsWith('image/'));
     
       if (hasInvalidFiles) {
-        toast.warn('Можно загружать только изображения (JPG, PNG, GIF)!', {
+        toast.warn('Можно загружать только изображения (JPG, PNG, GIF, WEBP)!', {
           autoClose: 5000,
         });
         return; // Прерываем обработку, если есть невалидные файлы
@@ -484,8 +485,6 @@
           setNewsImages(images);
         }
       } catch (error) {
-        console.error("Error loading news data:", error);
-        toast.error(error.message || "Не удалось загрузить данные новости");
       }
     }, []);
 
@@ -537,7 +536,7 @@
       let authorLogin = currentUser.login;
 
       // Для администраторов/модераторов в режиме редактирования
-      if ((currentUser?.role === 'Administrator' || currentUser?.role === 'Moderator') && isEditMode) {
+      if ((isAdmin(currentUser) || isModerator(currentUser)) && isEditMode) {
         if (!selectedAuthor) {
           toast.error('Не выбран автор публикации!');
           return;
@@ -640,7 +639,7 @@
           <div className="content">
             <form className="form" name="newsForm" onSubmit={handleSubmit}>
               {/* Полностью не рендерим поле, если Publisher */}
-              {(currentUser?.role === 'Administrator' || currentUser?.role === 'Moderator') && isEditMode && (
+              {(isAdmin(currentUser) || isModerator(currentUser)) && isEditMode && (
                 <div className="form-group">
                   <label htmlFor="news-author">Автор публикации:</label>
                   <select
@@ -707,12 +706,12 @@
                 onDragEnter={handleDragEnter}
                 onDragLeave={handleDragLeave}
               >
-                <p>Перетащите сюда или кликните для выбора файлов (JPG, PNG, GIF)</p>
+                <p>Перетащите сюда или кликните для выбора файлов (JPG, PNG, GIF, WEBP)</p>
                 <input
                   type="file"
                   id="news-image"
                   name="files[]"
-                  accept="image/jpeg,image/png,image/gif"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
                   multiple
                   onChange={(e) => {
                     const files = Array.from(e.target.files);

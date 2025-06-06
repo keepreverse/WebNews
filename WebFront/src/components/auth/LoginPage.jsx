@@ -18,7 +18,7 @@ const LoginPage = () => {
   useEffect(() => {
     api.ping().then((alive) => {
       if (!alive) {
-        toast.error("Сервер не отвечает! Пожалуйста, попробуйте позже");
+        toast.error("Сервер не отвечает!");
       }
     });
   }, []);
@@ -41,7 +41,7 @@ const LoginPage = () => {
         ...(isLoginMode ? {} : { nickname: nickname.trim() }),
       };
 
-      if (!payload.login || !payload.password) {
+      if (!payload.login || !payload.password) {  
         throw new Error("Логин и пароль обязательны");
       }
       if (!isLoginMode && !payload.nickname) {

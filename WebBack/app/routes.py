@@ -161,17 +161,19 @@ def news_line():
 
     # DELETE: массово «пометить все как удалённые»
     elif request.method == "DELETE":
-        news_ids = [row[0] for row in g.db.cursor.execute('''
-            SELECT newsID FROM News WHERE delete_date IS NULL
-        ''')]
-        if news_ids:
-            g.db.news_soft_delete_multiple(news_ids)
+        @moderator_required
+        def delete_news_all():
+            news_ids = [row[0] for row in g.db.cursor.execute('''
+                SELECT newsID FROM News WHERE delete_date IS NULL
+            ''')]
+            if news_ids:
+                g.db.news_soft_delete_multiple(news_ids)
 
-        return jsonify({
-            "message": "Все новости помечены как удалённые",
-            "count": len(news_ids)
-        }), HTTPStatus.OK
-
+            return jsonify({
+                "message": "Все новости помечены как удалённые",
+                "count": len(news_ids)
+            }), HTTPStatus.OK
+        return delete_news_all
 
 
 # ===========================
@@ -179,6 +181,7 @@ def news_line():
 # ===========================
 
 @bp.route("/api/news/<int:newsID>", methods=["GET", "PUT", "DELETE", "OPTIONS"])
+@moderator_required
 def single_news(newsID):
     if request.method == "OPTIONS":
         return jsonify({}), HTTPStatus.OK
@@ -656,32 +659,38 @@ def categories():
         return jsonify(g.db.category_get_all()), HTTPStatus.OK
 
     if request.method == "POST":
-        data = request.get_json()
-        name = data.get("name", "").strip()
-        description = data.get("description")
+        @moderator_required
+        def create_category():
+            data = request.get_json()
+            name = data.get("name", "").strip()
+            description = data.get("description")
 
-        if not name:
-            raise ValidationError("Название категории обязательно")
+            if not name:
+                raise ValidationError("Название категории обязательно")
 
-        import unicodedata
-        normalized_name = unicodedata.normalize("NFKC", name).casefold()
-        for cat in g.db.category_get_all():
-            existing_name = unicodedata.normalize("NFKC", cat["name"]).casefold()
-            if normalized_name == existing_name:
-                raise ConstraintError("Категория с таким названием уже существует", constraint="unique_name")
+            import unicodedata
+            normalized_name = unicodedata.normalize("NFKC", name).casefold()
+            for cat in g.db.category_get_all():
+                existing_name = unicodedata.normalize("NFKC", cat["name"]).casefold()
+                if normalized_name == existing_name:
+                    raise ConstraintError("Категория с таким названием уже существует", constraint="unique_name")
 
-        category_id = g.db.category_create(name=name, description=description)
-        return jsonify({
-            "message":     "Категория создана",
-            "categoryID":  category_id
-        }), HTTPStatus.OK
-
+            category_id = g.db.category_create(name=name, description=description)
+            return jsonify({
+                "message":     "Категория создана",
+                "categoryID":  category_id
+            }), HTTPStatus.OK
+        return create_category()
+    
     if request.method == "DELETE":
-        category_id = request.args.get("id")
-        if not category_id:
-            raise ValidationError("ID категории обязательно")
-        g.db.category_delete(category_id)
-        return jsonify({"message": "Категория удалена"}), HTTPStatus.OK
+        @moderator_required
+        def delete_category():
+            category_id = request.args.get("id")
+            if not category_id:
+                raise ValidationError("ID категории обязательно")
+            g.db.category_delete(category_id)
+            return jsonify({"message": "Категория удалена"}), HTTPStatus.OK
+        return delete_category()
 
 
 @bp.route("/api/categories/all", methods=["DELETE", "OPTIONS"])
@@ -873,6 +882,7 @@ def restore_edit_news(newsID):
 # ===========================
 
 @bp.route("/api/news/<int:newsID>/archive", methods=["POST", "OPTIONS"])
+@moderator_required
 def archive_news(newsID):
     if request.method == "OPTIONS":
         return jsonify({}), HTTPStatus.OK

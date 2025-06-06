@@ -9,7 +9,8 @@ import HTMLReactParser from "html-react-parser";
 import NewsFilters from "../../components/admin/news/NewsFilters";
 import NewsGallery from "../../features/Gallery";
 import Pagination from "../../features/Pagination";
-import { translateRole } from '../../utils/helpers';
+import { translateRole } from '../../utils/translatedRoles';
+import { isAdmin, isModerator, isPublisher } from '../../services/authHelpers';
 
 import 'yet-another-react-lightbox/styles.css';
 import 'yet-another-react-lightbox/plugins/thumbnails.css';
@@ -65,10 +66,8 @@ const NewsList = ({
           <p>Роль: {translateRole(currentUser.role)}</p>
           <p>
             Доступные действия:
-            {(currentUser.role === "Administrator" ||
-              currentUser.role === "Moderator") &&
-              " Удаление, Редактирование"}
-            {currentUser.role === "Publisher" && " Просмотр"}
+            {(isAdmin(currentUser) || isModerator(currentUser)) && " Удаление, Редактирование"}
+            {isPublisher(currentUser) && " Просмотр"}
           </p>
         </div>
       )}
@@ -84,7 +83,7 @@ const NewsList = ({
       />
       
       {/* 2.2 Кнопка “Удалить все” (для админа, если есть хотя бы одна отфильтрованная) */}
-      {currentUser.role === "Administrator" && (
+      {(isAdmin(currentUser)) && (
       <div className="filters-container" style={{ padding: '0 0 12px 0' }}>
         {filteredNews.length > 0 && (
           <button
@@ -172,6 +171,8 @@ const NewsList = ({
                 />
               )}
 
+                {(isAdmin(currentUser) || isModerator(currentUser)) && (
+
                 <div className="list-actions">
                   <button
                     onClick={() => onEditNews(news)}
@@ -193,7 +194,7 @@ const NewsList = ({
                   >
                     Удалить
                   </button>
-                </div>
+                </div>)}
             </div>
           ))
         )}
