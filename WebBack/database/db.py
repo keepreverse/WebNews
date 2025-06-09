@@ -7,14 +7,24 @@ from enums import InvalidValues
 
 
 class Storage(object):
-
-    def __init__(self):
+    def __init__(self, db_path=None):
         self.connection = None
         self.cursor = None
-        # Путь к БД
-        self.db_path = current_app.config.get("DATABASE_PATH")  
+
+        if db_path:
+            # Прямой путь, переданный вручную (например, из config.py)
+            self.db_path = db_path
+        else:
+            try:
+                self.db_path = current_app.config.get("DATABASE_PATH")
+            except RuntimeError:
+                # Резервный путь, если вызывается вне Flask-контекста
+                from config import DATABASE_PATH
+                self.db_path = DATABASE_PATH
+
         if not self.db_path:
-            raise RuntimeError("DATABASE_PATH не задан в конфиге")
+            raise RuntimeError("DATABASE_PATH не задан.")
+
         
     # -------------------------------
     # Работа с соединением
@@ -1141,6 +1151,23 @@ class Storage(object):
                 "Ошибка подсчёта ожидающих модерацию новостей",
                 details={"operation": "count_pending_news", "error": str(e)}
             ) from e
+
+    def count_users(self) -> int:
+        """
+        Возвращает количество пользователей в системе.
+        """
+        try:
+            self.cursor.execute('''
+                SELECT COUNT(*) as cnt FROM Users
+            ''')
+            row = self.cursor.fetchone()
+            return row['cnt'] if row else 0
+        except sqlite3.OperationalError as e:
+            raise sqlite3.DatabaseError(
+                "Ошибка подсчёта пользователей",
+                details={"operation": "count_users", "error": str(e)}
+            ) from e
+
 
     def count_trash_news(self) -> int:
         """

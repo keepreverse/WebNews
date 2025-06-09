@@ -26,7 +26,6 @@ const NewsFilters = ({
 
   return (
     <div className="filters-container">
-      {/* Поле поиска по новостям */}
       <div className="filter-group">
         <label htmlFor="search">Поиск по новостям:</label>
         <input
@@ -38,7 +37,6 @@ const NewsFilters = ({
         />
       </div>
 
-      {/* Фильтр по автору */}
       <div className="filter-group">
         <label>Фильтр по автору:</label>
         <select
@@ -56,7 +54,6 @@ const NewsFilters = ({
         </select>
       </div>
 
-      {/* Фильтр по диапазону дат */}
       <div className="filter-group">
         <label>Диапазон дат событий:</label>
         <Flatpickr

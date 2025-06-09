@@ -1,4 +1,3 @@
-// src/features/LazyImage.jsx
 import React, { useRef, useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import placeholder from '../assets/placeholder.png';
@@ -19,7 +18,6 @@ const LazyImage = ({
   useEffect(() => {
     if (!imgRef.current) return;
 
-    // Включаем нативное «lazy» (дополнительно к IntersectionObserver)
     imgRef.current.setAttribute('loading', 'lazy');
 
     const observer = new IntersectionObserver(
@@ -44,10 +42,7 @@ const LazyImage = ({
     };
   }, []);
 
-  // Выбираем, какой src отобразить:
-  // – Если была ошибка, рендерим placeholder
-  // – Иначе, если inView === true, рендерим реальный src
-  // – Иначе атрибут src вообще не указываем (undefined), чтобы не тянуть ничего лишнего
+
   const displaySrc = failed
     ? placeholder
     : inView
@@ -63,13 +58,11 @@ const LazyImage = ({
       style={style}
       onClick={onClick}
       onLoad={(e) => {
-        // Если удалось загрузить реальный src (в зоне видимости), пробрасываем коллбэк
         if (inView && !failed) {
           onLoadCallback(e);
         }
       }}
       onError={(e) => {
-        // При любой ошибке (реальный src не решил)
         if (!failed) {
           setFailed(true);
           onErrorCallback(e);

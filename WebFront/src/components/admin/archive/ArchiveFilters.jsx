@@ -1,5 +1,3 @@
-// src/components/admin/archive/ArchiveFilters.jsx
-
 import React from "react";
 import PropTypes from "prop-types";
 import Flatpickr from "react-flatpickr";
@@ -29,7 +27,6 @@ const ArchiveFilters = ({
 
   return (
     <div className="filters-container">
-      {/* Поиск по заголовку/описанию в архиве */}
       <div className="filter-group">
         <label htmlFor="search">Поиск в архиве:</label>
         <input
@@ -41,7 +38,6 @@ const ArchiveFilters = ({
         />
       </div>
 
-      {/* Диапазон дат (фильтрация по publish_date или create_date) */}
       <div className="filter-group">
         <label>Диапазон дат архивации:</label>
         <Flatpickr
@@ -59,7 +55,6 @@ const ArchiveFilters = ({
         Сбросить фильтры
       </button>
 
-      {/* Очистить весь архив */}
       {!purgeDisabled && (
         <button
           onClick={onPurgeAll}

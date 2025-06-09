@@ -35,7 +35,6 @@
     
     const [dateRange, setDateRange] = useState([]);
 
-
     const editorRef = useRef(null);
 
     const titleRef = useRef("");
@@ -58,7 +57,6 @@
       });
     }, []);
 
-    // Загрузка категорий и тегов
     useEffect(() => {
       const loadCategoriess = async () => {
         try {
@@ -71,14 +69,10 @@
       loadCategoriess();
     }, []);
 
-
-    // Lightbox State
     const [lightboxOpen, setLightboxOpen] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState(0);
     const [lightboxSlides, setLightboxSlides] = useState([]);
 
-
-    // Добавляем состояние для режима редактирования
     const [isEditMode, setIsEditMode] = useState(false);
     const [editNewsId, setEditNewsId] = useState(null);
 
@@ -87,29 +81,23 @@
 
     function cleanPastedHTML(rawHTML) {
       return rawHTML
-        // Удалить изображения, стили, классы и мусор
         .replace(/<img[^>]*>/gi, '')
         .replace(/<svg[\s\S]*?<\/svg>/gi, '')
         .replace(/<style[\s\S]*?<\/style>/gi, '')
         .replace(/<link[^>]*>/gi, '')
         .replace(/<(button|form|input|iframe|object|embed)[^>]*>[\s\S]*?<\/\1>/gi, '')
 
-        // Заменить таблицы на абзацы с текстом
         .replace(/<\/?(table|thead|tbody|tfoot|tr|td|th)[^>]*>/gi, '')
 
-        // Удалить стили и классы
         .replace(/style="[^"]*"/gi, '')
         .replace(/class="[^"]*"/gi, '')
         .replace(/&nbsp;/gi, ' ')
 
-        // Преобразование div в p
         .replace(/<div[^>]*>/gi, '<p>')
         .replace(/<\/div>/gi, '</p>')
         .replace(/<br\s*\/?>/gi, '</p><p>');
     }
 
-
-    // Конфигурация JoditEditor
     const configJoditEditor = useMemo(() => ({
       toolbarAdaptive: false,
       showCharsCounter: false,
@@ -227,8 +215,6 @@
       },
     };
 
-    
-    // Debounce для заголовка
     function useDebounce(value, delay) {
       const [debouncedValue, setDebouncedValue] = useState(value);
 
@@ -263,7 +249,7 @@
 
     const handleFiles = (files) => {
       const fileInput = document.getElementById("news-image");
-      if (!fileInput) return; // Защита от отсутствия элемента
+      if (!fileInput) return;
       
       const validImages = [];
       const invalidFiles = [];
@@ -288,7 +274,6 @@
           closeButton: true
         });
         
-        // Очищаем поле ввода только при невалидных файлах
         document.getElementById('news-image').value = '';
       }
     
@@ -327,18 +312,17 @@
         toast.warn('Можно загружать только изображения (JPG, PNG, GIF, WEBP)!', {
           autoClose: 5000,
         });
-        return; // Прерываем обработку, если есть невалидные файлы
+        return;
       }
     
-      handleFiles(files); // Обрабатываем только валидные файлы
+      handleFiles(files);
     };
 
     const handleDeleteThumbnail = (thumbnailId) => {
       setNewsImages(prev => prev.filter(image => image.id !== thumbnailId));
 
-      // Добавляем проверку на существование элемента и его свойств
       const fileInput = document.getElementById("news-image");
-      if (fileInput && fileInput.files) { // Двойная проверка
+      if (fileInput && fileInput.files) {
         const dataTransfer = new DataTransfer();
         
         Array.from(fileInput.files).forEach(file => {
@@ -355,15 +339,13 @@
       setNewsImages([]);
       const fileInput = document.getElementById("news-image");
       if (fileInput) {
-        fileInput.value = ""; // Сброс input
+        fileInput.value = "";
       }
     };
 
-      
-    // Функция для открытия лайтбокса
     const openLightbox = (index) => {
       setLightboxSlides(newsImages.map(img => ({
-        src: img.file ? URL.createObjectURL(img.file) : img.preview, // Используем оригинальный файл если есть
+        src: img.file ? URL.createObjectURL(img.file) : img.preview,
         alt: `Изображение ${index + 1}`
       })));
       setLightboxIndex(index);
@@ -378,14 +360,11 @@
       setPreviewMode(false);
     };
 
-
-    // Функция для загрузки списка пользователей
     const loadUsers = useCallback(async () => {
       try {
         const usersList = await api.get('/admin/users');
         setUsers(usersList);
         
-        // Устанавливаем текущего автора как выбранного по умолчанию
         if (isEditMode && nickname) {
           setSelectedAuthor(nickname);
         }
@@ -395,14 +374,12 @@
       }
     }, [isEditMode, nickname]);
 
-    // Загружаем пользователей при монтировании компонента
     useEffect(() => {
       if (currentUser?.role === 'Administrator' || currentUser?.role === 'Moderator') {
         loadUsers();
       }
     }, [currentUser?.role, loadUsers]);
 
-    // Обновляем выбранного автора при изменении nickname
     useEffect(() => {
       if (nickname) {
         setSelectedAuthor(nickname);
@@ -480,14 +457,13 @@
           const images = formData.files.map(file => ({
             id: uuidv4(),
             fileName: file.fileName,
-            preview: `https://webnews-1fwz.onrender.com/uploads/${file.fileName}`
+            preview: `http://127.0.0.1:5000/uploads/${file.fileName}`
           }));
           setNewsImages(images);
         }
       } catch (error) {
       }
     }, []);
-
 
     useEffect(() => {
       const params = new URLSearchParams(location.search);
@@ -498,19 +474,16 @@
         setEditNewsId(newsId);
         loadNewsData(newsId);
       }
-    }, [loadNewsData, location.search]); // Теперь функция в зависимостях
-
+    }, [loadNewsData, location.search]);
 
     const handleSubmit = async (e) => {
       e.preventDefault();
 
-      // Проверка аутентификации
       if (!currentUser || !currentUser.nickname) {
         toast.error("Требуется авторизация!");
         return;
       }
 
-      // Валидация полей
       if (!dateRange) {
         toast.error("Пожалуйста, укажите дату события");
         return;
@@ -531,18 +504,15 @@
         return;
       }
 
-      // Определяем автора и его логин
       let authorNickname = currentUser.nickname;
       let authorLogin = currentUser.login;
 
-      // Для администраторов/модераторов в режиме редактирования
       if ((isAdmin(currentUser) || isModerator(currentUser)) && isEditMode) {
         if (!selectedAuthor) {
           toast.error('Не выбран автор публикации!');
           return;
         }
 
-        // Находим выбранного пользователя
         const selectedUser = users.find(user => user.nick === selectedAuthor);
         if (!selectedUser) {
           toast.error('Выбранный автор не существует!');
@@ -553,22 +523,19 @@
         authorLogin = selectedUser.login;
       }
 
-      // Подготовка FormData
       const formData = new FormData();
-      formData.append("login", authorLogin); // Используем определенный выше логин
+      formData.append("login", authorLogin);
       formData.append("categoryID", selectedCategory);
-      formData.append("nickname", authorNickname); // Используем определенный выше никнейм
+      formData.append("nickname", authorNickname);
       formData.append("title", title);
       formData.append("description", description);
       formData.append("event_start", new Date(dateRange[0]).toISOString());
       formData.append("event_end", new Date(dateRange[1]).toISOString());
       
-      // Добавляем статус "Pending" для всех новых публикаций
       if (!isEditMode) {
         formData.append("status", "Pending");
       }
 
-      // Фильтруем и разделяем файлы
       const existingFiles = newsImages
         .filter(img => img.fileName)
         .map(img => img.fileName);
@@ -577,7 +544,6 @@
         .filter(img => img.file)
         .map(img => img.file);
 
-      // Добавляем существующие файлы как отдельные поля
       if (isEditMode) {
         if (existingFiles.length === 0 && newsImages.length === 0) {
           formData.append("delete_all_files", "true");
@@ -638,7 +604,6 @@
           )}
           <div className="content">
             <form className="form" name="newsForm" onSubmit={handleSubmit}>
-              {/* Полностью не рендерим поле, если Publisher */}
               {(isAdmin(currentUser) || isModerator(currentUser)) && isEditMode && (
                 <div className="form-group">
                   <label htmlFor="news-author">Автор публикации:</label>
@@ -773,7 +738,7 @@
                   vignette: false,
                 }}
                 zoom={{
-                  maxZoomPixelRatio: 4, // Максимальный уровень увеличения
+                  maxZoomPixelRatio: 2, // Максимальный уровень увеличения
                   zoomInMultiplier: 1.2,  // Множитель увеличения
                   scrollToZoom: true    // Включить зум скроллом
                 }}

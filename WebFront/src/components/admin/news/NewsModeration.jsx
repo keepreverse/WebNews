@@ -27,7 +27,6 @@ const NewsModeration = ({
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [lightboxSlides, setLightboxSlides] = useState([]);
 
-  // Уникальные авторы из всех новостей (не отфильтрованных)
   const uniqueAuthors = useMemo(() => 
     [...new Set(allNews.map(n => n.publisher_nick).filter(Boolean))], 
     [allNews]
@@ -42,7 +41,7 @@ const NewsModeration = ({
     if (!newsItem.files?.length) return;
     
     setLightboxSlides(newsItem.files.map(file => ({
-      src: `https://webnews-1fwz.onrender.com/uploads/${file.fileName}`,
+      src: `http://127.0.0.1:5000/uploads/${file.fileName}`,
       alt: `Изображение новости ${newsItem.newsID}`
     })));
     setLightboxIndex(index);
@@ -117,7 +116,6 @@ const NewsModeration = ({
                         minute: "2-digit",
                       });
 
-                    // Если есть endDate и она отличается от startDate по дате или времени
                     if (
                       endDate &&
                       (startDate.getTime() !== endDate.getTime())
@@ -130,7 +128,6 @@ const NewsModeration = ({
                       );
                     }
 
-                    // Иначе выводим только одну дату и время
                     return (
                       <>
                         {formatDate(startDate)}, {formatTime(startDate)}

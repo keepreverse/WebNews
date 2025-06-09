@@ -8,12 +8,10 @@ function LogoutButton() {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    // Очищаем всё
     localStorage.removeItem('user');
     sessionStorage.removeItem('user');
     api.setAuthToken(null);
 
-    // Навигация и тост с задержкой, чтобы не проглотился
     navigate('/login', { replace: true });
 
     setTimeout(() => {

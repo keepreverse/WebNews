@@ -30,7 +30,7 @@ const Gallery = ({ files, onImageClick }) => {
             tabIndex={0}
           >
             <LazyImage
-              src={`https://webnews-1fwz.onrender.com/uploads/${file.fileName}`}
+              src={`http://127.0.0.1:5000/uploads/${file.fileName}`}
               alt={`Фото ${index + 1}`}
               onClick={() => onImageClick(index)}
               className="gallery-image"

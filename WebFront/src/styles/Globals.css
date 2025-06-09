@@ -10,7 +10,7 @@ body {
   max-width: 400px;
   width: 100%;
   margin: 0 auto;
-  min-height: 100vh; /* Полная высота экрана */
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -22,7 +22,7 @@ body {
   padding: 1rem 2rem;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  min-height: 300px; /* Сделал больше высоту */
+  min-height: 300px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -40,18 +40,17 @@ body {
 .checkbox-container {
   display: flex;
   align-items: center;
-  margin-top: 1.8rem; /* Увеличен отступ сверху */
+  margin-top: 1.8rem;
   margin-bottom: 1.8rem;
 }
 
-/* Скрываем нативный чекбокс */
  .checkbox-input {
      position: absolute;
      opacity: 0;
      width: 0;
      height: 0;
 }
-/* Кастомный чекбокс */
+
  .checkbox-label {
      position: relative;
      padding-left: 30px;
@@ -71,7 +70,6 @@ body {
      border-radius: 3px;
      background: #fff;
      transition: background 0.1s ease;
-    /* Добавляем плавный переход */
 }
 /* Галочка при выборе */
  .checkbox-input:checked + .checkbox-label:before {
@@ -86,7 +84,6 @@ body {
 /* Затемнение при нажатии */
  .checkbox-input:active + .checkbox-label:before, .checkbox-label:active:before {
      background: #e0e0e0;
-    /* Цвет затемнения */
 }
 
 .toggle-mode-btn {
@@ -97,9 +94,9 @@ body {
     cursor: pointer;
     font-size: 0.9rem;
     text-decoration: none;
-    padding: 0; /* Убираем внутренние отступы */
-    display: inline; /* Делаем инлайновым элементом */
-    width: auto; /* Ширина по содержимому */
+    padding: 0; 
+    display: inline; 
+    width: auto; 
 }
 
 .toggle-mode-btn:hover {
@@ -132,7 +129,6 @@ body {
 }
  .container .content input.inpt {
      width: 100%;
-    /* Добавляем это свойство, чтобы элементы занимали всю ширину контейнера */
      font-family: Arial;
      font-size: 12pt;
      display: block;
@@ -163,9 +159,7 @@ body {
      text-align: center;
      position: relative;
      pointer-events: auto;
-    /* Позволяет элементу реагировать на события указателя */
      transition: background-color 0.2s ease;
-    /* Добавляем плавный переход для фона */
 }
  .drop-zone.drag-active, .drop-zone:hover {
      background-color: rgba(250, 250, 250, 1) !important;
@@ -185,7 +179,6 @@ body {
      top: 0;
      left: 0;
      cursor: pointer;
-    /* Устанавливаем кликабельный курсор для всей области .drop-zone */
 }
 /* Контейнер для миниатюр */
  .thumbnail-container {
@@ -215,15 +208,12 @@ body {
  .thumbnail img {
      max-width: 100%;
      max-height: 300px;
-    /* ограничение по высоте, чтобы не растягивались вверх */
      width: auto;
      height: auto;
      object-fit: contain;
-    /* сохраняем исходные пропорции без обрезки */
      transition: transform 0.3s ease;
      border-radius: 6px;
 }
-/* Эффект наведения */
  .thumbnail img:hover {
      transform: scale(1.05);
      cursor: pointer;
@@ -262,7 +252,6 @@ body {
 .jodit-react-container textarea {
   display: none !important;
 }
-/* Современный минималистичный скроллбар */
  :root {
      --scrollbar-width: 8px;
      --scrollbar-thumb-color: rgba(100, 100, 100, 0.4);
@@ -294,23 +283,18 @@ body {
      scrollbar-width: thin;
      scrollbar-color: var(--scrollbar-thumb-color) var(--scrollbar-track-color);
 }
-/* Убираем стандартный скроллбар и предотвращаем смещение контента */
  html {
      scrollbar-gutter: stable;
-    /* Новое CSS свойство */
      overflow-y: auto;
-    /* Показываем только при необходимости */
 }
 /* Плавный скролл для всего сайта */
  html {
      scroll-behavior: smooth;
 }
-/* Скрываем скроллбар когда не нужен, но оставляем место */
  body {
      overflow-y: overlay;
     /* Прозрачный скроллбар поверх контента */
 }
-
 
  .content input[type="text"] {
      width: 100%;
@@ -416,14 +400,11 @@ body {
      display: flex;
      flex-direction: column;
      flex: 1 1 180px;
-    /* Уменьшил минимальную ширину */
      min-width: 0;
-    /* Важно для правильного сжатия */
 }
  .filter-group--checkbox {
      flex: 0 0 auto;
      padding-top: 22px;
-    /* Выравниваем по базовой линии */
      user-select: none;
      white-space: nowrap;
 }
@@ -525,10 +506,8 @@ body {
      color: #2d2f30;
      border-bottom-color: #2d2f30;
      font-weight: 600;
-    /* Используем полужирное вместо bold для более плавного перехода */
      z-index: 1;
 }
-/* Убираем лишние отступы и выравниваем текст */
  .tab-button span {
      display: inline-block;
      width: 100%;
@@ -536,7 +515,6 @@ body {
      overflow: hidden;
      text-overflow: ellipsis;
 }
-/* Остальные стили остаются без изменений */
  .moderation-panel {
      margin-top: 15px;
 }
@@ -876,7 +854,6 @@ body {
   user-select: none;
 }
 
-/* 3. Hover-эффект: чуть увеличиваем и утолщаем */
 .refresh-spinner:hover {
   transform: scale(1.05);
   font-weight: 600;

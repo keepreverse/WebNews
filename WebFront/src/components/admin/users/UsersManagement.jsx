@@ -35,8 +35,9 @@ const UsersManagement = ({
   };
 
   const currentUsers = useMemo(() => {
-    return users;
-  }, [users]);
+    const start = (pagination.currentPage - 1) * pagination.perPage;
+    return users.slice(start, start + pagination.perPage);
+  }, [users, pagination]);
 
   return (
     <>
@@ -139,6 +140,7 @@ UsersManagement.propTypes = {
     totalPages: PropTypes.number,
     currentPage: PropTypes.number,
     totalItems: PropTypes.number,
+    perPage: PropTypes.number,
   }).isRequired,
   handlePageChange: PropTypes.func.isRequired,
   handleFilterChange: PropTypes.func.isRequired,

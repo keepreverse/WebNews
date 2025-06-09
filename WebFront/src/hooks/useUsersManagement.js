@@ -10,7 +10,7 @@ const useUsersManagement = () => {
     setPagination
   } = usePagination({ 
     page: 1, 
-    perPage: 10,
+    perPage: 5,
     totalItems: 0,
     totalPages: 1
   });
@@ -44,8 +44,7 @@ const useUsersManagement = () => {
   useEffect(() => {
     const filtered = users.filter(user => {
       const matchesRole = !filters.role || user.user_role === filters.role;
-
-      
+	  
       const dateFrom = filters.dateRange[0] ? new Date(filters.dateRange[0]) : null;
       const dateTo = filters.dateRange[1] ? new Date(filters.dateRange[1]) : null;
       const regDate = new Date(user.registration_date);
@@ -88,10 +87,8 @@ const useUsersManagement = () => {
     try {
       const response = await api.delete("/admin/users/all");
       
-      // Обновляем состояние с оставшимися пользователями
       setUsers(response.remainingUsers || []);
       
-      // Сбрасываем фильтры и пагинацию
       setFilters({
         role: '',
         dateRange: [],

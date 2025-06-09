@@ -10,7 +10,6 @@ def create_app(config_object='config'):
     if not app.config.get('UPLOAD_FOLDER'):
         raise ValueError("UPLOAD_FOLDER должен быть задан")
 
-    # Прокинем CORS_ORIGINS в конфиг, если он есть
     if hasattr(app.config, 'CORS_ORIGINS'):
         app.config['CORS_ORIGINS'] = app.config['CORS_ORIGINS']
 

@@ -1,4 +1,3 @@
-// src/components/admin/trash/TrashManagementPage.jsx
 import React, { useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import useTrashManagement from '../../../hooks/useTrashManagement';
@@ -18,7 +17,6 @@ const TrashManagementPage = () => {
     handlePageChange
   } = useTrashManagement();
 
-  // При монтировании сразу загружаем
   useEffect(() => {
     fetchDeletedNews();
   }, [fetchDeletedNews]);

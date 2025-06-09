@@ -4,7 +4,6 @@ import placeholderImg from '../assets/placeholder.png';
 const ImageWithLoader = ({ src, alt, onClick }) => {
   const [hasError, setHasError] = useState(false);
 
-  // Сброс состояния при смене изображения
   useEffect(() => {
     setHasError(false);
   }, [src]);
@@ -14,7 +13,7 @@ const ImageWithLoader = ({ src, alt, onClick }) => {
       src={hasError ? placeholderImg : src}
       alt={alt}
       onClick={onClick}
-      loading="lazy" // Нативный lazy loading
+      loading="lazy"
       onError={() => setHasError(true)}
     />
   );

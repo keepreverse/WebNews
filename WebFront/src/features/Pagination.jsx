@@ -1,4 +1,3 @@
-// components/Admin/Pagination.js
 import React, { useState } from "react";
 
 const Pagination = React.memo(({ 
@@ -45,7 +44,7 @@ const Pagination = React.memo(({
           <span key={`ellipsis-${index}`} className="pagination-ellipsis">...</span> :
           <button
             key={page}
-          onClick={() => paginate(page, totalItems)} // добавим totalItems
+          onClick={() => paginate(page, totalItems)}
             className={`pagination_button ${currentPage === page ? "active" : ""}`}
           >
             {page}

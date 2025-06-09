@@ -1,4 +1,3 @@
-// src/components/admin/categories/CategoriesFilters.jsx
 import React from 'react';
 import PropTypes from 'prop-types';
 import Flatpickr from 'react-flatpickr';

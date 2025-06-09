@@ -1,4 +1,3 @@
-// src/components/news/NewsList.jsx
 import React, { useMemo, useState } from 'react';
 import PropTypes from "prop-types";
 import Lightbox from 'yet-another-react-lightbox';
@@ -34,7 +33,6 @@ const NewsList = ({
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [lightboxSlides, setLightboxSlides] = useState([]);
 
-  // Собираем уникальных авторов из всех новостей (для фильтра)
   const uniqueAuthors = useMemo(
     () =>
       Array.from(
@@ -47,7 +45,7 @@ const NewsList = ({
     if (!newsItem.files?.length) return;
     
     setLightboxSlides(newsItem.files.map(file => ({
-      src: `https://webnews-1fwz.onrender.com/uploads/${file.fileName}`,
+      src: `http://127.0.0.1:5000/uploads/${file.fileName}`,
       alt: `Изображение новости ${newsItem.newsID}`
     })));
     setLightboxIndex(index);
@@ -56,7 +54,6 @@ const NewsList = ({
 
   return (
     <>
-      {/* 1. Секция “Информация о пользователе” */}
       {currentUser && (
         <div className="user-info">
           <p>
@@ -72,9 +69,6 @@ const NewsList = ({
         </div>
       )}
 
-      {/* 2. Фильтры */}
-
-      {/* 2.1 Поиск по тексту + фильтр по автору + диапазон дат */}
       <NewsFilters
         uniqueAuthors={uniqueAuthors}
         filters={filters}
@@ -82,7 +76,6 @@ const NewsList = ({
         onClear={onClearFilters}
       />
       
-      {/* 2.2 Кнопка “Удалить все” (для админа, если есть хотя бы одна отфильтрованная) */}
       {(isAdmin(currentUser)) && (
       <div className="filters-container" style={{ padding: '0 0 12px 0' }}>
         {filteredNews.length > 0 && (
@@ -102,7 +95,6 @@ const NewsList = ({
         totalItems={pagination.totalItems}
       />
 
-      {/* 4. Список карточек новостей */}
       <div className="data-list">
         {currentNews.length === 0 ? (
           <p>Публикации не найдены</p>
@@ -141,7 +133,6 @@ const NewsList = ({
                         minute: "2-digit",
                       });
 
-                    // Если есть endDate и она отличается от startDate по дате или времени
                     if (
                       endDate &&
                       (startDate.getTime() !== endDate.getTime())
@@ -154,7 +145,6 @@ const NewsList = ({
                       );
                     }
 
-                    // Иначе выводим только одну дату и время
                     return (
                       <>
                         {formatDate(startDate)}, {formatTime(startDate)}

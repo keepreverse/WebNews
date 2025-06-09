@@ -1,12 +1,10 @@
-// src/components/news/NewsListPage.jsx
 import React, { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 
-
 import PageWrapper from "../../features/PageWrapper";
-import NewsList from "./NewsList"; // презентационный компонент
+import NewsList from "./NewsList";
 import useNewsList from "../../hooks/useNewsList";
 import { api } from "../../services/apiClient";
 
@@ -41,7 +39,6 @@ function NewsListPage() {
     });
   }, []);
 
-  // Проверка авторизации: если есть “user” в localStorage или sessionStorage, ставим токен
   useEffect(() => {
     try {
       const raw = localStorage.getItem("user") || sessionStorage.getItem("user") || "null";
@@ -55,7 +52,6 @@ function NewsListPage() {
     }
   }, []);
 
-  // Навигация на редактирование
   const handleEdit = (newsItem) => {
     navigate(`/news-creator?edit=${newsItem.newsID}`);
   };

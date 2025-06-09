@@ -15,15 +15,22 @@ const useNewsModeration = ({ isActiveTab, onExternalRefresh = 0 }) => {
   const [allNews, setAllNews] = useState([]);
   const [filteredNews, setFilteredNews] = useState([]);
   const [filters, setFilters] = useState({
-    author: '',
+    searchQuery: "",
+    author: "",
     dateRange: [],
   });
 
   const isFilterChange = useRef(false);
   const prevFilters = useRef({
-    author: filters.author,
-    dateRange: JSON.stringify(filters.dateRange),
+    author: "",
+    dateRange: JSON.stringify([]),
+    searchQuery: "",
   });
+
+  const clearFilters = useCallback(() => {
+    setFilters({ searchQuery: "", author: "", dateRange: [] });
+    isFilterChange.current = true;
+  }, []);
 
   const fetchPendingNews = useCallback(async () => {
     try {
@@ -50,44 +57,67 @@ const useNewsModeration = ({ isActiveTab, onExternalRefresh = 0 }) => {
   }, [isActiveTab, onExternalRefresh, fetchPendingNews]);
 
   useEffect(() => {
-    let filtered = allNews.filter((news) => {
-      const matchesAuthor =
-        !filters.author || news.publisher_nick === filters.author;
+    const term = filters.searchQuery.trim().toLowerCase();
 
-      let matchesDate = true;
-      if (filters.dateRange[0] && filters.dateRange[1]) {
-        const dateFrom = new Date(filters.dateRange[0]).setHours(0, 0, 0, 0);
-        const dateTo = new Date(filters.dateRange[1]).setHours(23, 59, 59, 999);
-        const eventDate = new Date(news.event_start).getTime();
-        matchesDate = eventDate >= dateFrom && eventDate <= dateTo;
+    let filtered = allNews.filter((item) => {
+      if (term) {
+        const inTitle = item.title?.toLowerCase().includes(term);
+        const inDesc = item.description?.toLowerCase().includes(term);
+        if (!inTitle && !inDesc) return false;
       }
-      return matchesAuthor && matchesDate;
+      return true;
     });
+
+    if (filters.author) {
+      filtered = filtered.filter(
+        (item) => item.publisher_nick === filters.author
+      );
+    }
+
+    if (filters.dateRange[0] && filters.dateRange[1]) {
+      const from = new Date(filters.dateRange[0]).setHours(0, 0, 0, 0);
+      const to = new Date(filters.dateRange[1]).setHours(23, 59, 59, 999);
+      filtered = filtered.filter((item) => {
+        const eventDate = new Date(item.event_start).getTime();
+        return eventDate >= from && eventDate <= to;
+      });
+    }
 
     setFilteredNews(filtered);
 
-    setPagination((prev) => ({
-      ...prev,
-      totalItems: filtered.length,
-      totalPages: Math.ceil(filtered.length / prev.perPage),
-    }));
+    setPagination((prev) => {
+      const totalPages = Math.ceil(filtered.length / prev.perPage);
+      const currentPage =
+        prev.currentPage > totalPages ? totalPages : prev.currentPage;
+      return {
+        ...prev,
+        totalItems: filtered.length,
+        totalPages,
+        currentPage: filtered.length === 0 ? 1 : currentPage,
+      };
+    });
 
     if (isFilterChange.current) {
       handlePageChange(1, filtered.length);
       isFilterChange.current = false;
     }
-  }, [allNews, filters, handlePageChange, setPagination]);
+  }, [allNews, filters, setPagination, handlePageChange]);
+
 
   const handleFilterChange = useCallback((type, value) => {
+    const isSearchChanged =
+      type === 'searchQuery' && value !== prevFilters.current.searchQuery
+
     const isAuthorChanged =
       type === 'author' && value !== prevFilters.current.author;
     const isDateChanged =
       type === 'dateRange' &&
       JSON.stringify(value) !== prevFilters.current.dateRange;
 
-    if (isAuthorChanged || isDateChanged) {
+    if (isSearchChanged || isAuthorChanged || isDateChanged) {
       isFilterChange.current = true;
       prevFilters.current = {
+        searchQuery: type === 'searchQuery' ? value : prevFilters.current.searchQuery,
         author: type === 'author' ? value : prevFilters.current.author,
         dateRange:
           type === 'dateRange'
@@ -135,10 +165,7 @@ const useNewsModeration = ({ isActiveTab, onExternalRefresh = 0 }) => {
     pagination,
     filters,
     onFilterChange: handleFilterChange,
-    onClearFilters: () => {
-      setFilters({ author: '', dateRange: [] });
-      isFilterChange.current = true;
-    },
+    onClearFilters: clearFilters,
     handleModerate,
     handleArchive,
     fetchPendingNews,

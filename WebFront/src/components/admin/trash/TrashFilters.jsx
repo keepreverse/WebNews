@@ -1,4 +1,3 @@
-// src/components/admin/trash/TrashFilters.jsx
 import React from "react";
 import PropTypes from "prop-types";
 import Flatpickr from "react-flatpickr";
@@ -28,7 +27,6 @@ const TrashFilters = ({
 
   return (
     <div className="filters-container">
-      {/* Поиск по заголовку/описанию */}
       <div className="filter-group">
         <label htmlFor="search">Поиск в корзине:</label>
         <input
@@ -40,7 +38,6 @@ const TrashFilters = ({
         />
       </div>
 
-      {/* Фильтр по диапазону дат */}
       <div className="filter-group">
         <label>Диапазон дат удаления:</label>
         <Flatpickr
@@ -58,7 +55,6 @@ const TrashFilters = ({
         Сбросить фильтры
       </button>
 
-      {/* Очистить всю корзину */}
       {!purgeDisabled && (
         <button
           onClick={onPurgeAll}

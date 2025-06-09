@@ -1,5 +1,3 @@
-// src/components/admin/archive/ArchiveManagementPage.jsx
-
 import React, { useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import useArchiveManagement from "../../../hooks/useArchiveManagement";
@@ -21,7 +19,6 @@ const ArchiveManagementPage = () => {
     handlePageChange,
   } = useArchiveManagement();
 
-  // При монтировании страницы сразу загружаем список
   useEffect(() => {
     fetchArchivedNews();
   }, [fetchArchivedNews]);

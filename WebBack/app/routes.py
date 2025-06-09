@@ -173,7 +173,7 @@ def news_line():
                 "message": "Все новости помечены как удалённые",
                 "count": len(news_ids)
             }), HTTPStatus.OK
-        return delete_news_all
+        return delete_news_all()
 
 
 # ===========================
@@ -333,6 +333,19 @@ def login():
 @bp.route("/api/auth/register", methods=["POST"])
 def register():
     data = request.get_json()
+
+    # Разрешённые поля
+    allowed_fields = {"login", "password", "nickname"}
+    data_fields = set(data.keys())
+
+    # Проверяем на лишние поля
+    extra_fields = data_fields - allowed_fields
+    if extra_fields:
+        raise ValidationError(
+            "В запросе обнаружены недопустимые поля.",
+            details={"extra_fields": list(extra_fields)}
+        )
+
     login = data.get("login", "").strip()
     password = data.get("password", "").strip()
     nickname = data.get("nickname", "").strip()
@@ -374,6 +387,7 @@ def register():
         "message": "Пользователь успешно зарегистрирован",
         "userID":  user_id
     }), HTTPStatus.OK
+
 
 
 @bp.route("/api/auth/logout", methods=["POST", "OPTIONS"])
@@ -1081,6 +1095,21 @@ def count_pending_news():
         raise DatabaseError(
             "Не удалось получить количество ожидающих модерацию новостей",
             details={"operation": "count_pending_news", "error": str(e)}
+        ) from e
+
+@bp.route("/api/admin/users/count", methods=["GET"])
+@moderator_required
+def count_users():
+    """
+    Возвращает JSON с количеством пользователей (всех, кроме суперудалённых).
+    """
+    try:
+        cnt = g.db.count_users()
+        return jsonify({"count": cnt}), HTTPStatus.OK
+    except sqlite3.DatabaseError as e:
+        raise DatabaseError(
+            "Не удалось получить количество пользователей",
+            details={"operation": "count_users", "error": str(e)}
         ) from e
 
 @bp.route("/api/admin/trash/count", methods=["GET"])

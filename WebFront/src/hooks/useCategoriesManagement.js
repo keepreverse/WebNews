@@ -76,10 +76,10 @@ const useCategoriesManagement = () => {
   const createCategory = useCallback(async (name, description) => {
     try {
       await api.post('/categories', { name, description });
-      await fetchCategories(); // Принудительно обновляем список
+      await fetchCategories();
       setPagination(prev => ({
         ...prev,
-        currentPage: 1 // Сбрасываем на первую страницу после создания
+        currentPage: 1
       }));
       toast.success('Категория создана');
     } catch (error) {

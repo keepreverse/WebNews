@@ -38,7 +38,6 @@ const useTrashManagement = ({ isActiveTab, onExternalRefresh = 0 }) => {
         totalPages: Math.ceil(items.length / prev.perPage),
       }));
     } catch {
-      // Можно показать toast, но оставим без уведомления
     }
   }, [setPagination]);
 

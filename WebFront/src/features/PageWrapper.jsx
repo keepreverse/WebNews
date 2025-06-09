@@ -13,7 +13,7 @@ function PageWrapper({ children }) {
     setTimeout(() => {
       setLoading(false);
       if (user) {
-        setSidebarVisible(true); // показываем сайдбар после загрузки
+        setSidebarVisible(true);
       }
     }, 1000);
   }, [user]);

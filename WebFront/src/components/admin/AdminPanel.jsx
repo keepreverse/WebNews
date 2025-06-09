@@ -25,16 +25,18 @@ function AdminPanel() {
   const [currentUser, setCurrentUser] = useState(null);
 
   const [newsRefreshCounter, setNewsRefreshCounter] = useState(0);
+  const [usersRefreshCounter, setUsersRefreshCounter] = useState(0);
   const [trashRefreshCounter, setTrashRefreshCounter] = useState(0);
   const [archiveRefreshCounter, setArchiveRefreshCounter] = useState(0);
 
   // Ссылки на DOM-элементы спиннеров
   const newsRefreshRef = useRef(null);
+  const usersRefreshRef = useRef(null);
   const trashRefreshRef = useRef(null);
   const archiveRefreshRef = useRef(null);
 
-  // Хук для получения счётчиков (Pending, Trash, Archive)
-  const { pendingNewsCount, trashCount, archiveCount, refreshCounts } = useAdminCounts(20000);
+  // Хук для получения счётчиков (Pending, Users, Trash, Archive)
+  const { pendingNewsCount, usersCount, trashCount, archiveCount, refreshCounts } = useAdminCounts(20000);
 
   // Проверка доступности сервера при монтировании
   useEffect(() => {
@@ -59,6 +61,19 @@ function AdminPanel() {
     await handleArchive(newsID);
     refreshCounts();
     setNewsRefreshCounter((c) => c + 1);
+  };
+
+
+  const deleteUserAndRefresh = async (newsID) => {
+    await deleteUser(newsID);
+    refreshCounts();
+    setUsersRefreshCounter((c) => c + 1);
+  };
+
+  const deleteAllUsersAndRefresh = async (newsID) => {
+    await deleteAllUsers(newsID);
+    refreshCounts();
+    setUsersRefreshCounter((c) => c + 1);
   };
 
   const restoreNewsAndRefresh = async (newsID) => {
@@ -145,7 +160,10 @@ function AdminPanel() {
     clearFilters: clearUsersFilters,
     fetchUsers,
     handlePageChange: handleUsersPageChange,
-  } = useUsersManagement();
+  } = useUsersManagement({
+    isActiveTab: activeTab === 'users',
+    onExternalRefresh: usersRefreshCounter,
+  });
 
   const {
     categories,
@@ -242,6 +260,18 @@ function AdminPanel() {
     }
   }, [refreshCounts]);
 
+  const handleUsersRefreshClick = useCallback(() => {
+    // Запускаем обновление данных
+    refreshCounts();
+    setUsersRefreshCounter((c) => c + 1);
+    // Триггерим анимацию спиннера
+    if (usersRefreshRef.current) {
+      usersRefreshRef.current.classList.remove('spin');
+      void usersRefreshRef.current.offsetWidth;
+      usersRefreshRef.current.classList.add('spin');
+    }
+  }, [refreshCounts]);
+
   const handleTrashRefreshClick = useCallback(() => {
     refreshCounts();
     setTrashRefreshCounter((c) => c + 1);
@@ -292,7 +322,7 @@ function AdminPanel() {
               className={`tab-button ${activeTab === 'users' ? 'active' : ''}`}
               onClick={() => setActiveTab('users')}
             >
-              Пользователи
+              Пользователи ({usersCount})
             </button>
           )}
 
@@ -319,23 +349,38 @@ function AdminPanel() {
         </div>
 
         {activeTab === 'users' && isAdmin(currentUser) && (
-          <UsersManagement
-            users={users}
-            uniqueRoles={uniqueRoles}
-            pagination={usersPagination}
-            editingUser={editingUser}
-            setEditingUser={setEditingUser}
-            deleteUser={deleteUser}
-            deleteAllUsers={deleteAllUsers}
-            updateUser={updateUser}
-            showPasswords={showPasswords}
-            toggleAllPasswords={toggleAllPasswords}
-            usersWithRealPasswords={usersWithRealPasswords}
-            filters={usersFilters}
-            handleFilterChange={handleUsersFilterChange}
-            onClearFilters={clearUsersFilters}
-            handlePageChange={handleUsersPageChange}
-          />
+          <>
+            <div className="refresh-container">
+              <span
+                ref={usersRefreshRef}
+                className="refresh-spinner"
+                onClick={handleUsersRefreshClick}
+                title="Обновить список"
+                onAnimationEnd={(e) => {
+                  e.currentTarget.classList.remove('spin');
+                }}
+              >
+                ⟳
+              </span>
+            </div>
+            <UsersManagement
+              users={users}
+              uniqueRoles={uniqueRoles}
+              pagination={usersPagination}
+              editingUser={editingUser}
+              setEditingUser={setEditingUser}
+              deleteUser={deleteUserAndRefresh}
+              deleteAllUsers={deleteAllUsersAndRefresh}
+              updateUser={updateUser}
+              showPasswords={showPasswords}
+              toggleAllPasswords={toggleAllPasswords}
+              usersWithRealPasswords={usersWithRealPasswords}
+              filters={usersFilters}
+              handleFilterChange={handleUsersFilterChange}
+              onClearFilters={clearUsersFilters}
+              handlePageChange={handleUsersPageChange}
+            />
+          </>
         )}
 
         {activeTab === 'news' && (

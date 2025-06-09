@@ -56,7 +56,7 @@ const useArchiveManagement = ({ isActiveTab, onExternalRefresh = 0 }) => {
   useEffect(() => {
     const term = filters.searchQuery.trim().toLowerCase();
 
-    let result = allArchive.filter((item) => {
+    let filtered = allArchive.filter((item) => {
       if (term) {
         const inTitle = item.title?.toLowerCase().includes(term);
         const inDesc = item.description?.toLowerCase().includes(term);
@@ -68,29 +68,29 @@ const useArchiveManagement = ({ isActiveTab, onExternalRefresh = 0 }) => {
     if (filters.dateRange[0] && filters.dateRange[1]) {
       const from = new Date(filters.dateRange[0]).setHours(0, 0, 0, 0);
       const to = new Date(filters.dateRange[1]).setHours(23, 59, 59, 999);
-      result = result.filter((item) => {
+      filtered = filtered.filter((item) => {
         if (!item.publish_date && !item.create_date) return false;
         const d = new Date(item.publish_date || item.create_date).getTime();
         return d >= from && d <= to;
       });
     }
 
-    setArchive(result);
+    setArchive(filtered);
 
     setPagination((prev) => {
-      const totalPages = Math.ceil(result.length / prev.perPage);
+      const totalPages = Math.ceil(filtered.length / prev.perPage);
       const currentPage =
         prev.currentPage > totalPages ? totalPages : prev.currentPage;
       return {
         ...prev,
-        totalItems: result.length,
+        totalItems: filtered.length,
         totalPages,
-        currentPage: result.length === 0 ? 1 : currentPage,
+        currentPage: filtered.length === 0 ? 1 : currentPage,
       };
     });
 
     if (isFilterChange.current) {
-      handlePageChange(1, result.length);
+      handlePageChange(1, filtered.length);
       isFilterChange.current = false;
     }
   }, [allArchive, filters, setPagination, handlePageChange]);

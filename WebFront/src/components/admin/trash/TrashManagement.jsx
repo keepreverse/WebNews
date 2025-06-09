@@ -1,4 +1,3 @@
-// src/components/admin/trash/TrashManagement.jsx
 import React, { useMemo, useState } from "react";
 import Lightbox from "yet-another-react-lightbox";
 import Fullscreen from "yet-another-react-lightbox/plugins/fullscreen";
@@ -27,18 +26,16 @@ const TrashManagement = ({
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [lightboxSlides, setLightboxSlides] = useState([]);
 
-  // 1) текущие элементы (pagination)
   const currentPageItems = useMemo(() => {
     const start = (pagination.currentPage - 1) * pagination.perPage;
     return trash.slice(start, start + pagination.perPage);
   }, [trash, pagination]);
 
-  // 2) открытие лайтбокса
   const openLightbox = (news, idx) => {
     if (!news.files?.length) return;
     setLightboxSlides(
       news.files.map((file) => ({
-        src: `https://webnews-1fwz.onrender.com/uploads/${file.fileName}`,
+        src: `http://127.0.0.1:5000/uploads/${file.fileName}`,
         alt: `Изображение новости ${news.newsID}`,
       }))
     );
@@ -48,7 +45,6 @@ const TrashManagement = ({
 
   return (
     <>
-      {/* 1. Фильтры */}
       <TrashFilters
         filters={filters}
         onFilterChange={handleFilterChange}
@@ -60,7 +56,6 @@ const TrashManagement = ({
         purgeDisabled={allTrash.length === 0}
       />
 
-      {/* 2. Верхняя пагинация */}
       {pagination.totalPages > 1 && (
         <Pagination
           totalPages={pagination.totalPages}
@@ -70,7 +65,6 @@ const TrashManagement = ({
         />
       )}
 
-      {/* 3. Список */}
       <div className="data-list">
         {currentPageItems.length === 0 ? (
           <p>Корзина пуста</p>
@@ -152,7 +146,6 @@ const TrashManagement = ({
         )}
       </div>
 
-      {/* 4. Нижняя пагинация */}
       {pagination.totalPages > 1 && (
         <Pagination
           totalPages={pagination.totalPages}
@@ -162,7 +155,6 @@ const TrashManagement = ({
         />
       )}
 
-      {/* 5. Lightbox */}
       <Lightbox
         open={lightboxOpen}
         close={() => setLightboxOpen(false)}

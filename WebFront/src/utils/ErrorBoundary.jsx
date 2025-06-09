@@ -13,7 +13,6 @@ export class ErrorBoundary extends React.Component {
   componentDidCatch(_error, _errorInfo) {
     
     if (this.state.errorType === 'jodit') {
-      // Удаляем все элементы редактора
       const editors = document.querySelectorAll('.jodit-container');
       editors.forEach(editor => {
         if (editor.parentNode) {
@@ -21,7 +20,6 @@ export class ErrorBoundary extends React.Component {
         }
       });
       
-      // Планируем мягкий сброс
       setTimeout(() => {
         try {
           this.setState({ hasError: false, errorType: null });

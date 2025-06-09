@@ -1,5 +1,3 @@
-/* Чистый редизайн Sidebar */
-
 .sidebar {
   background: linear-gradient(to bottom, #ffffff, #fafafa);
   border-right: 1px solid #dcdcdc;
@@ -198,7 +196,6 @@ p.user-nickname {
   font-weight: 600;
 }
 
-/* Отступы для основной области при состоянии сайдбара */
 .sidebar-shown .main-content {
   margin-left: 180px;
 }
@@ -210,8 +207,6 @@ p.user-nickname {
 .no-sidebar .main-content {
   margin-left: 0 !important;
 }
-
-/* --- Adaptive Sidebar Improvements (Jodit Fullscreen) --- */
 
 .jodit-react-container.jodit_fullsize-box_true {
   height: 100% !important;
@@ -249,7 +244,6 @@ body.jodit-full-active .main-content {
   max-width: 100% !important;
   width: 100% !important;
 }
-
 
 /* --- Стили для мобильных (≤ 768px) --- */
 @media (max-width: 768px) {

@@ -22,7 +22,7 @@ root.render(
     </HelmetProvider>
 );
 
-// Полная тишина и перезагрузка при ошибке Jodit
+// Перезагрузка при ошибке Jodit
 window.onerror = function (message) {
   if (String(message).includes("Cannot read properties of null (reading 'value')")) {
     window.location.reload();

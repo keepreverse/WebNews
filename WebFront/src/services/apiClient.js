@@ -1,12 +1,12 @@
 import { toast } from "react-toastify";
 
-// const API_URL = "http://127.0. 0.1:5000/api";
+const API_URL = "http://127.0.0.1:5000/api";
 
-const API_URL = "https://webnews-1fwz.onrender.com/api";
+// const API_URL = "https://webnews-1fwz .onrender.com/api";
 
 
 let authToken = null;
-let lastErrorMessage = ""; // хранит текст последнего показанного тоста
+let lastErrorMessage = "";
 
 export const initAuthToken = () => {
   try {
@@ -31,32 +31,26 @@ export const clearAuthData = () => {
   sessionStorage.removeItem("user");
 };
 
-// Явно сбрасывает последний показанный текст, если потребуется (например, вручную вызвать)
 export const resetErrorFlag = () => {
   lastErrorMessage = "";
 };
 
 const handleResponse = async (response) => {
   if (!response.ok) {
-    // Пытаемся распарсить JSON-ответ (если он есть)
     let errorData = {};
     try {
       errorData = await response.json();
     } catch (e) {
-      // если ответ не JSON — просто проигнорируем
     }
 
-    // Собираем текст ошибки из ответа или ставим дефолтный
     const errorMessage =
       errorData.error || "Произошла ошибка при выполнении запроса";
 
-    // Если новый текст ошибки не совпадает с последним показанным — показываем тост
     if (errorMessage !== lastErrorMessage) {
       toast.error(errorMessage);
       lastErrorMessage = errorMessage;
     }
 
-    // Бросаем ошибку, чтобы вызывающий код мог её отловить
     switch (response.status) {
       case 401:
         throw new Error(errorMessage || "Неверный логин или пароль");
@@ -73,7 +67,6 @@ const handleResponse = async (response) => {
     }
   }
 
-  // Если сервер вернул OK, но не вернул JSON (или вернул кривой) — бросим ошибку
   try {
     return await response.json();
   } catch {
@@ -102,8 +95,6 @@ export const api = {
   },
 
   get: async (path) => {
-    // Перед каждым новым запросом сбрасываем lastErrorMessage,
-    // чтобы пользователь вновь увидел ту же ошибку, если она повторится.
     lastErrorMessage = "";
 
     const headers = {};
@@ -127,7 +118,6 @@ export const api = {
     if (authToken) {
       headers["Authorization"] = `Bearer ${authToken}`;
     }
-    // Если не FormData, ставим Content-Type
     if (!isFormData) {
       headers["Content-Type"] = "application/json";
     }

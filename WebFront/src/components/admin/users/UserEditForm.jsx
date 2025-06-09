@@ -8,7 +8,6 @@ const UserEditForm = ({ user, onSave, onCancel }) => {
     user_role: 'Publisher'
   });
 
-  // Инициализация формы данными пользователя
   useEffect(() => {
     if (user) {
       setFormData({
@@ -31,7 +30,6 @@ const handleSubmit = (e) => {
 
   return (
     <form className="edit-form" onSubmit={handleSubmit}>
-
 
       <div className="form-group">
         <label>Никнейм:</label>
